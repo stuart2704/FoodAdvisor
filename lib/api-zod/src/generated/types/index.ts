@@ -8,6 +8,7 @@
 
 export * from './errorResponse';
 export * from './healthStatus';
+export * from './listRestaurantsParams';
 export * from './restaurant';
 export * from './restaurantImportCityPlan';
 export * from './restaurantImportCityPlanStatus';

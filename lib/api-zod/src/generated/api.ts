@@ -20,12 +20,24 @@ export const HealthCheckResponse = zod.object({
 /**
  * @summary Get restaurant import budget status
  */
+export const getRestaurantImportStatusResponseMonthlyBudgetCentsMultipleOf = 1;
+
+export const getRestaurantImportStatusResponseSpentCentsMultipleOf = 1;
+
+export const getRestaurantImportStatusResponseRemainingCentsMultipleOf = 1;
+
+export const getRestaurantImportStatusResponseCallsUsedMultipleOf = 1;
+
+export const getRestaurantImportStatusResponseRestaurantsImportedMultipleOf = 1;
+
+
+
 export const GetRestaurantImportStatusResponse = zod.object({
-  "monthlyBudgetCents": zod.int(),
-  "spentCents": zod.int(),
-  "remainingCents": zod.int(),
-  "callsUsed": zod.int(),
-  "restaurantsImported": zod.int(),
+  "monthlyBudgetCents": zod.number().multipleOf(getRestaurantImportStatusResponseMonthlyBudgetCentsMultipleOf),
+  "spentCents": zod.number().multipleOf(getRestaurantImportStatusResponseSpentCentsMultipleOf),
+  "remainingCents": zod.number().multipleOf(getRestaurantImportStatusResponseRemainingCentsMultipleOf),
+  "callsUsed": zod.number().multipleOf(getRestaurantImportStatusResponseCallsUsedMultipleOf),
+  "restaurantsImported": zod.number().multipleOf(getRestaurantImportStatusResponseRestaurantsImportedMultipleOf),
   "lastRunAt": zod.string().nullable(),
   "cities": zod.array(zod.string())
 })
@@ -40,28 +52,46 @@ export const createRestaurantImportPlanBodyCitiesMax = 7;
 
 export const createRestaurantImportPlanBodyPerCityLimitDefault = 10;
 export const createRestaurantImportPlanBodyPerCityLimitMax = 20;
+export const createRestaurantImportPlanBodyPerCityLimitMultipleOf = 1;
 
+export const createRestaurantImportPlanBodyMonthlyBudgetCentsMultipleOf = 1;
 
 
 
 export const CreateRestaurantImportPlanBody = zod.object({
   "cities": zod.array(zod.string().min(createRestaurantImportPlanBodyCitiesItemMin)).min(1).max(createRestaurantImportPlanBodyCitiesMax),
-  "perCityLimit": zod.int().min(1).max(createRestaurantImportPlanBodyPerCityLimitMax).default(createRestaurantImportPlanBodyPerCityLimitDefault),
-  "monthlyBudgetCents": zod.int().min(1)
+  "perCityLimit": zod.number().min(1).max(createRestaurantImportPlanBodyPerCityLimitMax).multipleOf(createRestaurantImportPlanBodyPerCityLimitMultipleOf).default(createRestaurantImportPlanBodyPerCityLimitDefault),
+  "monthlyBudgetCents": zod.number().min(1).multipleOf(createRestaurantImportPlanBodyMonthlyBudgetCentsMultipleOf)
 })
+
+export const createRestaurantImportPlanResponseCitiesItemRequestedMultipleOf = 1;
+
+export const createRestaurantImportPlanResponseCitiesItemEstimatedApiCallsMultipleOf = 1;
+
+export const createRestaurantImportPlanResponseCitiesItemEstimatedCostCentsMultipleOf = 1;
+
+export const createRestaurantImportPlanResponseTotalRestaurantsMultipleOf = 1;
+
+export const createRestaurantImportPlanResponseTotalApiCallsMultipleOf = 1;
+
+export const createRestaurantImportPlanResponseEstimatedCostCentsMultipleOf = 1;
+
+export const createRestaurantImportPlanResponseMonthlyBudgetCentsMultipleOf = 1;
+
+
 
 export const CreateRestaurantImportPlanResponse = zod.object({
   "cities": zod.array(zod.object({
   "city": zod.string(),
-  "requested": zod.int(),
-  "estimatedApiCalls": zod.int(),
-  "estimatedCostCents": zod.int(),
+  "requested": zod.number().multipleOf(createRestaurantImportPlanResponseCitiesItemRequestedMultipleOf),
+  "estimatedApiCalls": zod.number().multipleOf(createRestaurantImportPlanResponseCitiesItemEstimatedApiCallsMultipleOf),
+  "estimatedCostCents": zod.number().multipleOf(createRestaurantImportPlanResponseCitiesItemEstimatedCostCentsMultipleOf),
   "status": zod.enum(['ready', 'capped', 'skipped'])
 })),
-  "totalRestaurants": zod.int(),
-  "totalApiCalls": zod.int(),
-  "estimatedCostCents": zod.int(),
-  "monthlyBudgetCents": zod.int(),
+  "totalRestaurants": zod.number().multipleOf(createRestaurantImportPlanResponseTotalRestaurantsMultipleOf),
+  "totalApiCalls": zod.number().multipleOf(createRestaurantImportPlanResponseTotalApiCallsMultipleOf),
+  "estimatedCostCents": zod.number().multipleOf(createRestaurantImportPlanResponseEstimatedCostCentsMultipleOf),
+  "monthlyBudgetCents": zod.number().multipleOf(createRestaurantImportPlanResponseMonthlyBudgetCentsMultipleOf),
   "withinBudget": zod.boolean(),
   "note": zod.string()
 })
@@ -76,23 +106,35 @@ export const runRestaurantImportBodyOneCitiesMax = 7;
 
 export const runRestaurantImportBodyOnePerCityLimitDefault = 10;
 export const runRestaurantImportBodyOnePerCityLimitMax = 20;
+export const runRestaurantImportBodyOnePerCityLimitMultipleOf = 1;
 
+export const runRestaurantImportBodyOneMonthlyBudgetCentsMultipleOf = 1;
 
 
 
 export const RunRestaurantImportBody = zod.object({
   "cities": zod.array(zod.string().min(runRestaurantImportBodyOneCitiesItemMin)).min(1).max(runRestaurantImportBodyOneCitiesMax),
-  "perCityLimit": zod.int().min(1).max(runRestaurantImportBodyOnePerCityLimitMax).default(runRestaurantImportBodyOnePerCityLimitDefault),
-  "monthlyBudgetCents": zod.int().min(1)
+  "perCityLimit": zod.number().min(1).max(runRestaurantImportBodyOnePerCityLimitMax).multipleOf(runRestaurantImportBodyOnePerCityLimitMultipleOf).default(runRestaurantImportBodyOnePerCityLimitDefault),
+  "monthlyBudgetCents": zod.number().min(1).multipleOf(runRestaurantImportBodyOneMonthlyBudgetCentsMultipleOf)
 }).and(zod.object({
   "confirm": zod.boolean()
 }))
 
+export const runRestaurantImportResponseImportedMultipleOf = 1;
+
+export const runRestaurantImportResponseSkippedDuplicatesMultipleOf = 1;
+
+export const runRestaurantImportResponseApiCallsMultipleOf = 1;
+
+export const runRestaurantImportResponseChargedCentsMultipleOf = 1;
+
+
+
 export const RunRestaurantImportResponse = zod.object({
-  "imported": zod.int(),
-  "skippedDuplicates": zod.int(),
-  "apiCalls": zod.int(),
-  "chargedCents": zod.int(),
+  "imported": zod.number().multipleOf(runRestaurantImportResponseImportedMultipleOf),
+  "skippedDuplicates": zod.number().multipleOf(runRestaurantImportResponseSkippedDuplicatesMultipleOf),
+  "apiCalls": zod.number().multipleOf(runRestaurantImportResponseApiCallsMultipleOf),
+  "chargedCents": zod.number().multipleOf(runRestaurantImportResponseChargedCentsMultipleOf),
   "stoppedBecause": zod.string(),
   "restaurants": zod.array(zod.object({
   "id": zod.string(),
@@ -105,5 +147,25 @@ export const RunRestaurantImportResponse = zod.object({
   "types": zod.array(zod.string())
 }))
 })
+
+
+/**
+ * @summary List imported restaurants
+ */
+export const ListRestaurantsQueryParams = zod.object({
+  "city": zod.coerce.string().optional()
+})
+
+export const ListRestaurantsResponseItem = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "address": zod.string(),
+  "city": zod.string(),
+  "rating": zod.number().nullable(),
+  "website": zod.string().nullable(),
+  "googleMapsUrl": zod.string(),
+  "types": zod.array(zod.string())
+})
+export const ListRestaurantsResponse = zod.array(ListRestaurantsResponseItem)
 
 

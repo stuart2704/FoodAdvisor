@@ -92,6 +92,26 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /restaurants:
+    get:
+      operationId: listRestaurants
+      tags: [restaurants]
+      summary: List imported restaurants
+      parameters:
+        - in: query
+          name: city
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Imported restaurants, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Restaurant"
 components:
   schemas:
     HealthStatus:
@@ -119,12 +139,14 @@ components:
           minItems: 1
           maxItems: 7
         perCityLimit:
-          type: integer
+          type: number
+          multipleOf: 1
           minimum: 1
           maximum: 20
           default: 10
         monthlyBudgetCents:
-          type: integer
+          type: number
+          multipleOf: 1
           minimum: 1
       required:
         - cities
@@ -144,11 +166,14 @@ components:
         city:
           type: string
         requested:
-          type: integer
+          type: number
+          multipleOf: 1
         estimatedApiCalls:
-          type: integer
+          type: number
+          multipleOf: 1
         estimatedCostCents:
-          type: integer
+          type: number
+          multipleOf: 1
         status:
           type: string
           enum: [ready, capped, skipped]
@@ -166,13 +191,17 @@ components:
           items:
             $ref: "#/components/schemas/RestaurantImportCityPlan"
         totalRestaurants:
-          type: integer
+          type: number
+          multipleOf: 1
         totalApiCalls:
-          type: integer
+          type: number
+          multipleOf: 1
         estimatedCostCents:
-          type: integer
+          type: number
+          multipleOf: 1
         monthlyBudgetCents:
-          type: integer
+          type: number
+          multipleOf: 1
         withinBudget:
           type: boolean
         note:
@@ -189,15 +218,20 @@ components:
       type: object
       properties:
         monthlyBudgetCents:
-          type: integer
+          type: number
+          multipleOf: 1
         spentCents:
-          type: integer
+          type: number
+          multipleOf: 1
         remainingCents:
-          type: integer
+          type: number
+          multipleOf: 1
         callsUsed:
-          type: integer
+          type: number
+          multipleOf: 1
         restaurantsImported:
-          type: integer
+          type: number
+          multipleOf: 1
         lastRunAt:
           type: ["string", "null"]
         cities:
@@ -246,13 +280,17 @@ components:
       type: object
       properties:
         imported:
-          type: integer
+          type: number
+          multipleOf: 1
         skippedDuplicates:
-          type: integer
+          type: number
+          multipleOf: 1
         apiCalls:
-          type: integer
+          type: number
+          multipleOf: 1
         chargedCents:
-          type: integer
+          type: number
+          multipleOf: 1
         stoppedBecause:
           type: string
         restaurants:

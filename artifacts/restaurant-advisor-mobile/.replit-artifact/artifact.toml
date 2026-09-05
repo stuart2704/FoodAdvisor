@@ -1,0 +1,24 @@
+kind = "mobile"
+previewPath = "/mobile/"
+title = "The Restaurant Advisor Mobile"
+description = "The mobile companion for monitoring and running budget-safe UK restaurant imports, sharing the same restaurant database and Google Places spending safeguards as the web app."
+version = "1.0.0"
+id = "artifacts/restaurant-advisor-mobile"
+router = "expo-domain"
+
+[[services]]
+name = "expo"
+ensurePreviewReachable = "/status"
+paths = [ "/mobile/" ]
+localPort = 22152
+
+[services.development]
+run = "pnpm --filter @workspace/restaurant-advisor-mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/restaurant-advisor-mobile", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/restaurant-advisor-mobile", "run", "serve" ]
+
+[services.env]
+PORT = "22152"
+BASE_PATH = "/mobile/"

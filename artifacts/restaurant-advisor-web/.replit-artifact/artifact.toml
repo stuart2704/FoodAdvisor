@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "The Restaurant Advisor"
+description = "A budget-aware restaurant discovery and import dashboard for expanding UK restaurant coverage across web and mobile without exceeding Google Places spending limits."
+version = "1.0.0"
+id = "artifacts/restaurant-advisor-web"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22612
+
+[services.development]
+run = "pnpm --filter @workspace/restaurant-advisor-web run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/restaurant-advisor-web", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/restaurant-advisor-web/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22612"
+BASE_PATH = "/"

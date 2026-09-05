@@ -93,3 +93,7 @@ export interface RestaurantImportRunResult {
   restaurants: Restaurant[];
 }
 
+export type ListRestaurantsParams = {
+city?: string;
+};
+

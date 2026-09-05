@@ -22,6 +22,8 @@ import type {
 import type {
   ErrorResponse,
   HealthStatus,
+  ListRestaurantsParams,
+  Restaurant,
   RestaurantImportPlan,
   RestaurantImportPlanInput,
   RestaurantImportRunInput,
@@ -352,4 +354,88 @@ export const useRunRestaurantImport = <TError = ErrorType<ErrorResponse>,
       > => {
       return useMutation(getRunRestaurantImportMutationOptions(options));
     }
+
+export const getListRestaurantsUrl = (params?: ListRestaurantsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/restaurants?${stringifiedParams}` : `/api/restaurants`
+}
+
+/**
+ * @summary List imported restaurants
+ */
+export const listRestaurants = async (params?: ListRestaurantsParams, options?: Parameters<typeof customFetch>[1]): Promise<Restaurant[]> => {
+
+  return customFetch<Restaurant[]>(getListRestaurantsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListRestaurantsQueryKey = (params?: ListRestaurantsParams,) => {
+    return [
+    `/api/restaurants`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListRestaurantsQueryOptions = <TData = Awaited<ReturnType<typeof listRestaurants>>, TError = ErrorType<unknown>>(params?: ListRestaurantsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRestaurants>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListRestaurantsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRestaurants>>> = ({ signal }) => listRestaurants(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listRestaurants>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListRestaurantsQueryResult = NonNullable<Awaited<ReturnType<typeof listRestaurants>>>
+export type ListRestaurantsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List imported restaurants
+ */
+
+export function useListRestaurants<TData = Awaited<ReturnType<typeof listRestaurants>>, TError = ErrorType<unknown>>(
+ params?: ListRestaurantsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRestaurants>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListRestaurantsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
