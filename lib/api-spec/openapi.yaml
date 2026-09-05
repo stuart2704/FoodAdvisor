@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: restaurants
+    description: Budget-safe restaurant discovery and import operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,72 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /restaurant-import/status:
+    get:
+      operationId: getRestaurantImportStatus
+      tags: [restaurants]
+      summary: Get restaurant import budget status
+      responses:
+        "200":
+          description: Current budget and import status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestaurantImportStatus"
+  /restaurant-import/plan:
+    post:
+      operationId: createRestaurantImportPlan
+      tags: [restaurants]
+      summary: Preview a budget-safe import plan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RestaurantImportPlanInput"
+      responses:
+        "200":
+          description: Import plan preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestaurantImportPlan"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /restaurant-import/run:
+    post:
+      operationId: runRestaurantImport
+      tags: [restaurants]
+      summary: Import restaurants within a monthly budget cap
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RestaurantImportRunInput"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestaurantImportRunResult"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Google Places is not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +101,169 @@ components:
           type: string
       required:
         - status
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+    RestaurantImportPlanInput:
+      type: object
+      properties:
+        cities:
+          type: array
+          items:
+            type: string
+            minLength: 2
+          minItems: 1
+          maxItems: 7
+        perCityLimit:
+          type: integer
+          minimum: 1
+          maximum: 20
+          default: 10
+        monthlyBudgetCents:
+          type: integer
+          minimum: 1
+      required:
+        - cities
+        - monthlyBudgetCents
+    RestaurantImportRunInput:
+      allOf:
+        - $ref: "#/components/schemas/RestaurantImportPlanInput"
+        - type: object
+          properties:
+            confirm:
+              type: boolean
+          required:
+            - confirm
+    RestaurantImportCityPlan:
+      type: object
+      properties:
+        city:
+          type: string
+        requested:
+          type: integer
+        estimatedApiCalls:
+          type: integer
+        estimatedCostCents:
+          type: integer
+        status:
+          type: string
+          enum: [ready, capped, skipped]
+      required:
+        - city
+        - requested
+        - estimatedApiCalls
+        - estimatedCostCents
+        - status
+    RestaurantImportPlan:
+      type: object
+      properties:
+        cities:
+          type: array
+          items:
+            $ref: "#/components/schemas/RestaurantImportCityPlan"
+        totalRestaurants:
+          type: integer
+        totalApiCalls:
+          type: integer
+        estimatedCostCents:
+          type: integer
+        monthlyBudgetCents:
+          type: integer
+        withinBudget:
+          type: boolean
+        note:
+          type: string
+      required:
+        - cities
+        - totalRestaurants
+        - totalApiCalls
+        - estimatedCostCents
+        - monthlyBudgetCents
+        - withinBudget
+        - note
+    RestaurantImportStatus:
+      type: object
+      properties:
+        monthlyBudgetCents:
+          type: integer
+        spentCents:
+          type: integer
+        remainingCents:
+          type: integer
+        callsUsed:
+          type: integer
+        restaurantsImported:
+          type: integer
+        lastRunAt:
+          type: ["string", "null"]
+        cities:
+          type: array
+          items:
+            type: string
+      required:
+        - monthlyBudgetCents
+        - spentCents
+        - remainingCents
+        - callsUsed
+        - restaurantsImported
+        - lastRunAt
+        - cities
+    Restaurant:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        rating:
+          type: ["number", "null"]
+        website:
+          type: ["string", "null"]
+        googleMapsUrl:
+          type: string
+        types:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - name
+        - address
+        - city
+        - rating
+        - website
+        - googleMapsUrl
+        - types
+    RestaurantImportRunResult:
+      type: object
+      properties:
+        imported:
+          type: integer
+        skippedDuplicates:
+          type: integer
+        apiCalls:
+          type: integer
+        chargedCents:
+          type: integer
+        stoppedBecause:
+          type: string
+        restaurants:
+          type: array
+          items:
+            $ref: "#/components/schemas/Restaurant"
+      required:
+        - imported
+        - skippedDuplicates
+        - apiCalls
+        - chargedCents
+        - stoppedBecause
+        - restaurants
 
