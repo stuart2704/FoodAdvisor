@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "hStdauEd4rBKvx0pXyXIT"
+uri = "file://exports/restaurants.csv"
+type = "table"
+title = "Restaurant Database Export"
+description = "CSV export of the restaurants table, including Google Place ID, address, city, rating, website, Google Maps URL, types, and import timestamp. The current database contains 0 restaurant records."
+logical_id = "32cfd299-78fd-4e30-8852-66756955ecd8"
+content_hash = "sha256:d6b7f6aadec4dda64e190231804cdf7057f98e0231f0fc238df26585061ad67b"
+size = 83
+mtime_ms = 1788879780713
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/32cfd299-78fd-4e30-8852-66756955ecd8/9de8e5a2-cd6a-4872-8e4c-efdfe6f0f96c"
+storage_version_token = "1788879787687754"
+content_type = "text/csv"
