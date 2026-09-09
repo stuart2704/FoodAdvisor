@@ -1,11 +1,14 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { Router, type IRouter } from "express";
 import {
+  EnrichRestaurantParams,
+  EnrichRestaurantResponse,
   RunOutreachAutomationResponse,
   UnsubscribeRestaurantOutreachParams,
   UnsubscribeRestaurantOutreachResponse,
 } from "@workspace/api-zod";
 import { runDailyOutreach, suppressByToken } from "../lib/outreach";
+import { enrichRestaurant } from "../services/enrichment/enrichRestaurant";
 
 const router: IRouter = Router();
 
@@ -32,6 +35,38 @@ router.post("/automation/outreach", async (req, res): Promise<void> => {
     res.status(503).json({ error: message });
   }
 });
+
+router.post(
+  "/restaurants/:placeId/enrich",
+  async (req, res): Promise<void> => {
+    if (!validAutomationToken(req.header("authorization"))) {
+      res.status(401).json({ error: "Invalid automation credential." });
+      return;
+    }
+    const parsed = EnrichRestaurantParams.safeParse(req.params);
+    if (!parsed.success) {
+      res.status(404).json({ error: "Restaurant not found." });
+      return;
+    }
+    const result = await enrichRestaurant(parsed.data.placeId);
+    if (!result.ok) {
+      const status = result.error.code === "restaurant_not_found" ? 404 : 422;
+      res.status(status).json({ error: result.error.message });
+      return;
+    }
+    res.json(
+      EnrichRestaurantResponse.parse({
+        message: "Enrichment complete.",
+        placeId: result.placeId,
+        email: result.email,
+        finalUrl: result.finalUrl,
+        cuisines: result.cuisine.cuisines,
+        dietaryTags: result.cuisine.dietaryTags,
+        confidence: result.cuisine.confidence,
+      }),
+    );
+  },
+);
 
 router.post(
   "/outreach/unsubscribe/:token",

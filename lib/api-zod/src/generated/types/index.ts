@@ -16,6 +16,8 @@ export * from './restaurantCheckoutResult';
 export * from './restaurantClaimInput';
 export * from './restaurantClaimResult';
 export * from './restaurantClaimResultStatus';
+export * from './restaurantEnrichmentResult';
+export * from './restaurantEnrichmentResultConfidence';
 export * from './restaurantImportCityPlan';
 export * from './restaurantImportCityPlanStatus';
 export * from './restaurantImportPlan';

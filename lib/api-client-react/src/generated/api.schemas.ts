@@ -125,6 +125,28 @@ export interface UnsubscribeResult {
   suppressed: boolean;
 }
 
+export type RestaurantEnrichmentResultConfidence = typeof RestaurantEnrichmentResultConfidence[keyof typeof RestaurantEnrichmentResultConfidence];
+
+
+export const RestaurantEnrichmentResultConfidence = {
+  none: 'none',
+  low: 'low',
+  medium: 'medium',
+  high: 'high',
+} as const;
+
+export interface RestaurantEnrichmentResult {
+  message: string;
+  placeId: string;
+  /** @nullable */
+  email: string | null;
+  /** @nullable */
+  finalUrl: string | null;
+  cuisines: string[];
+  dietaryTags: string[];
+  confidence: RestaurantEnrichmentResultConfidence;
+}
+
 export interface OutreachRunResult {
   /** @minimum 0 */
   discovered: number;

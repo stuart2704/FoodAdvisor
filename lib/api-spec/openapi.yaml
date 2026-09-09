@@ -237,6 +237,40 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /restaurants/{placeId}/enrich:
+    post:
+      operationId: enrichRestaurant
+      tags: [restaurants]
+      summary: Enrich one restaurant from its public website
+      security:
+        - automationBearer: []
+      parameters:
+        - $ref: "#/components/parameters/PlaceId"
+      responses:
+        "200":
+          description: Enrichment completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestaurantEnrichmentResult"
+        "401":
+          description: Invalid automation credential
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Restaurant not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Restaurant cannot be enriched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   securitySchemes:
     automationBearer:
@@ -463,6 +497,36 @@ components:
         suppressed:
           type: boolean
       required: [suppressed]
+    RestaurantEnrichmentResult:
+      type: object
+      properties:
+        message:
+          type: string
+        placeId:
+          type: string
+        email:
+          type: ["string", "null"]
+        finalUrl:
+          type: ["string", "null"]
+        cuisines:
+          type: array
+          items:
+            type: string
+        dietaryTags:
+          type: array
+          items:
+            type: string
+        confidence:
+          type: string
+          enum: [none, low, medium, high]
+      required:
+        - message
+        - placeId
+        - email
+        - finalUrl
+        - cuisines
+        - dietaryTags
+        - confidence
     OutreachRunResult:
       type: object
       properties:

@@ -29,6 +29,7 @@ import type {
   RestaurantCheckoutResult,
   RestaurantClaimInput,
   RestaurantClaimResult,
+  RestaurantEnrichmentResult,
   RestaurantImportPlan,
   RestaurantImportPlanInput,
   RestaurantImportRunInput,
@@ -729,5 +730,76 @@ export const useRunOutreachAutomation = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getRunOutreachAutomationMutationOptions(options));
+    }
+
+export const getEnrichRestaurantUrl = (placeId: string,) => {
+
+
+
+
+  return `/api/restaurants/${placeId}/enrich`
+}
+
+/**
+ * @summary Enrich one restaurant from its public website
+ */
+export const enrichRestaurant = async (placeId: string, options?: Parameters<typeof customFetch>[1]): Promise<RestaurantEnrichmentResult> => {
+
+  return customFetch<RestaurantEnrichmentResult>(getEnrichRestaurantUrl(placeId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getEnrichRestaurantMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof enrichRestaurant>>, TError,{placeId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof enrichRestaurant>>, TError,{placeId: string}, TContext> => {
+
+const mutationKey = ['enrichRestaurant'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof enrichRestaurant>>, {placeId: string}> = (props) => {
+          const {placeId} = props ?? {};
+
+          return  enrichRestaurant(placeId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type EnrichRestaurantMutationResult = NonNullable<Awaited<ReturnType<typeof enrichRestaurant>>>
+
+    export type EnrichRestaurantMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Enrich one restaurant from its public website
+ */
+export const useEnrichRestaurant = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof enrichRestaurant>>, TError,{placeId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof enrichRestaurant>>,
+        TError,
+        {placeId: string},
+        TContext
+      > => {
+      return useMutation(getEnrichRestaurantMutationOptions(options));
     }
 

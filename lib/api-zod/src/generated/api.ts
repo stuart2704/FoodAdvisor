@@ -272,3 +272,24 @@ export const RunOutreachAutomationResponse = zod.object({
 })
 
 
+/**
+ * @summary Enrich one restaurant from its public website
+ */
+
+
+
+export const EnrichRestaurantParams = zod.object({
+  "placeId": zod.coerce.string().min(1)
+})
+
+export const EnrichRestaurantResponse = zod.object({
+  "message": zod.string(),
+  "placeId": zod.string(),
+  "email": zod.string().nullable(),
+  "finalUrl": zod.string().nullable(),
+  "cuisines": zod.array(zod.string()),
+  "dietaryTags": zod.array(zod.string()),
+  "confidence": zod.enum(['none', 'low', 'medium', 'high'])
+})
+
+
