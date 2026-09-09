@@ -20,8 +20,15 @@ export const restaurantsTable = pgTable(
     city: text("city").notNull(),
     rating: real("rating"),
     website: text("website"),
+    websiteTitle: text("website_title"),
+    websiteDescription: text("website_description"),
     googleMapsUrl: text("google_maps_url").notNull(),
     types: text("types").array().notNull().default([]),
+    cuisineTags: text("cuisine_tags").array().notNull().default([]),
+    dietaryTags: text("dietary_tags").array().notNull().default([]),
+    enrichedAt: timestamp("enriched_at", { withTimezone: true }),
+    enrichmentStatus: text("enrichment_status").notNull().default("pending"),
+    enrichmentFailure: text("enrichment_failure"),
     importedAt: timestamp("imported_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

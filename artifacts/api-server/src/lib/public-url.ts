@@ -4,19 +4,40 @@ import { isIP } from "node:net";
 const CANONICAL_ORIGIN = "https://thefoodadvisor.co.uk";
 
 function isPrivateIp(address: string): boolean {
-  if (address === "::1" || address === "::" || address.startsWith("fe80:")) {
-    return true;
+  const normalised = address.toLowerCase().split("%")[0]!;
+  if (!isIP(normalised)) return true;
+  if (normalised.includes(":")) {
+    if (
+      normalised === "::" ||
+      normalised === "::1" ||
+      normalised.startsWith("fc") ||
+      normalised.startsWith("fd") ||
+      normalised.startsWith("fe8") ||
+      normalised.startsWith("fe9") ||
+      normalised.startsWith("fea") ||
+      normalised.startsWith("feb") ||
+      normalised.startsWith("ff") ||
+      normalised.startsWith("2001:db8:")
+    ) {
+      return true;
+    }
+    const mappedV4 = normalised.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/)?.[1];
+    return mappedV4 ? isPrivateIp(mappedV4) : false;
   }
-  if (address.startsWith("fc") || address.startsWith("fd")) return true;
-  if (!isIP(address) || address.includes(":")) return false;
-  const [a, b] = address.split(".").map(Number);
+  const [a, b, c] = normalised.split(".").map(Number);
   return (
     a === 0 ||
     a === 10 ||
     a === 127 ||
+    (a === 100 && b >= 64 && b <= 127) ||
     (a === 169 && b === 254) ||
     (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 0 && c === 0) ||
+    (a === 192 && b === 0 && c === 2) ||
     (a === 192 && b === 168) ||
+    (a === 198 && (b === 18 || b === 19)) ||
+    (a === 198 && b === 51 && c === 100) ||
+    (a === 203 && b === 0 && c === 113) ||
     a >= 224
   );
 }
