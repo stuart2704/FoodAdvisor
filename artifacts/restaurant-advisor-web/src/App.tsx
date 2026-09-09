@@ -5,6 +5,8 @@ import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import Dashboard from '@/pages/dashboard';
+import ClaimRestaurant from '@/pages/claim';
+import Unsubscribe from '@/pages/unsubscribe';
 import {
   Route,
   Switch,
@@ -19,6 +21,8 @@ function Router() {
     <RoutedErrorBoundary>
       <Switch>
         <Route path="/" component={Dashboard} />
+        <Route path="/claim/:placeId" component={ClaimRestaurant} />
+        <Route path="/unsubscribe/:token" component={Unsubscribe} />
         <Route component={NotFound} />
       </Switch>
     </RoutedErrorBoundary>
