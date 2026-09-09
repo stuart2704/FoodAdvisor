@@ -21,6 +21,7 @@ import type {
 
 import type {
   ErrorResponse,
+  GmailSyncResult,
   HealthStatus,
   IncomingReplyInput,
   ListRestaurantsParams,
@@ -804,6 +805,78 @@ export const useClassifyIncomingReply = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getClassifyIncomingReplyMutationOptions(options));
+    }
+
+export const getSyncGmailRepliesUrl = () => {
+
+
+
+
+  return `/api/gmail/sync`
+}
+
+/**
+ * Read-only bounded polling. Gmail messages are not modified.
+ * @summary Poll Gmail for replies to previously recorded outreach threads
+ */
+export const syncGmailReplies = async ( options?: Parameters<typeof customFetch>[1]): Promise<GmailSyncResult> => {
+
+  return customFetch<GmailSyncResult>(getSyncGmailRepliesUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getSyncGmailRepliesMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncGmailReplies>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof syncGmailReplies>>, TError,void, TContext> => {
+
+const mutationKey = ['syncGmailReplies'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncGmailReplies>>, void> = () => {
+
+
+          return  syncGmailReplies(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SyncGmailRepliesMutationResult = NonNullable<Awaited<ReturnType<typeof syncGmailReplies>>>
+
+    export type SyncGmailRepliesMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Poll Gmail for replies to previously recorded outreach threads
+ */
+export const useSyncGmailReplies = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncGmailReplies>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof syncGmailReplies>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getSyncGmailRepliesMutationOptions(options));
     }
 
 export const getEnrichRestaurantUrl = (placeId: string,) => {

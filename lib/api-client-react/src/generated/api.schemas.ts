@@ -185,6 +185,34 @@ export interface ReplyClassification {
   recommendedAction: ReplyClassificationRecommendedAction;
 }
 
+export interface GmailSyncResult {
+  /**
+     * @minimum 0
+     * @maximum 50
+     */
+  searchedThreads: number;
+  /**
+     * @minimum 0
+     * @maximum 50
+     */
+  matchedThreads: number;
+  /**
+     * @minimum 0
+     * @maximum 20
+     */
+  processed: number;
+  /** @minimum 0 */
+  skipped: number;
+  /** @minimum 0 */
+  failed: number;
+  capped: boolean;
+  /**
+     * @maxItems 20
+     * @items.maxLength 200
+     */
+  errors: string[];
+}
+
 export type RestaurantEnrichmentResultConfidence = typeof RestaurantEnrichmentResultConfidence[keyof typeof RestaurantEnrichmentResultConfidence];
 
 

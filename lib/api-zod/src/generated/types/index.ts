@@ -7,6 +7,7 @@
  */
 
 export * from './errorResponse';
+export * from './gmailSyncResult';
 export * from './healthStatus';
 export * from './incomingReplyInput';
 export * from './listRestaurantsParams';

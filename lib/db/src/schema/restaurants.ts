@@ -86,6 +86,35 @@ export const outreachAuditTable = pgTable("outreach_audit", {
     .defaultNow(),
 });
 
+// Created only after Gmail acknowledges an outreach send. The primary key makes
+// the Gmail thread -> restaurant relationship immutable and unambiguous.
+export const gmailOutreachThreadsTable = pgTable("gmail_outreach_threads", {
+  threadId: text("thread_id").primaryKey(),
+  sentMessageId: text("sent_message_id").notNull().unique(),
+  placeId: text("place_id")
+    .notNull()
+    .references(() => restaurantsTable.placeId),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const processedGmailMessagesTable = pgTable(
+  "processed_gmail_messages",
+  {
+    messageId: text("message_id").primaryKey(),
+    threadId: text("thread_id")
+      .notNull()
+      .references(() => gmailOutreachThreadsTable.threadId),
+    placeId: text("place_id")
+      .notNull()
+      .references(() => restaurantsTable.placeId),
+    processedAt: timestamp("processed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+);
+
 export const insertRestaurantSchema = createInsertSchema(restaurantsTable);
 export const insertRestaurantImportRunSchema = createInsertSchema(
   restaurantImportRunsTable,

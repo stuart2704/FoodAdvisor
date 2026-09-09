@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { ReplitConnectors } from "@replit/connectors-sdk";
 import {
   db,
+  gmailOutreachThreadsTable,
   outreachAuditTable,
   pool,
   restaurantsTable,
@@ -82,7 +83,12 @@ function buildRawEmail(input: {
   ].join("\r\n");
 }
 
-async function sendGmail(rawMessage: string): Promise<void> {
+interface GmailSendResult {
+  id: string;
+  threadId: string;
+}
+
+export async function sendGmail(rawMessage: string): Promise<GmailSendResult> {
   const connectors = new ReplitConnectors();
   const response = await connectors.proxy(
     "google-mail",
@@ -98,6 +104,20 @@ async function sendGmail(rawMessage: string): Promise<void> {
   if (!response.ok) {
     throw new Error(`Gmail connector returned HTTP ${response.status}.`);
   }
+  const value: unknown = await response.json();
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    typeof (value as { id?: unknown }).id !== "string" ||
+    typeof (value as { threadId?: unknown }).threadId !== "string"
+  ) {
+    throw new Error("Gmail connector returned an invalid send acknowledgement.");
+  }
+  const { id, threadId } = value as { id: string; threadId: string };
+  if (!id || id.length > 255 || !threadId || threadId.length > 255) {
+    throw new Error("Gmail connector returned invalid message identifiers.");
+  }
+  return { id, threadId };
 }
 
 function nextCooldown(): Date {
@@ -222,26 +242,37 @@ export async function runDailyOutreach(): Promise<{
           recipientDomain: email.split("@")[1],
         });
         attempts += 1;
-        await sendGmail(
+        const gmailMessage = await sendGmail(
           buildRawEmail({
             to: email,
             restaurantName: candidate.name,
             unsubscribeUrl,
           }),
         );
-        await db
-          .update(restaurantsTable)
-          .set({
-            outreachStatus: "sent",
-            lastOutreachAt: new Date(),
-            nextOutreachAfter: nextCooldown(),
-            outreachCount: sql`${restaurantsTable.outreachCount} + 1`,
-          })
-          .where(eq(restaurantsTable.placeId, candidate.placeId));
-        await db.insert(outreachAuditTable).values({
-          placeId: candidate.placeId,
-          event: "sent",
-          recipientDomain: email.split("@")[1],
+        await db.transaction(async (tx) => {
+          await tx.insert(gmailOutreachThreadsTable).values({
+            threadId: gmailMessage.threadId,
+            sentMessageId: gmailMessage.id,
+            placeId: candidate.placeId,
+          });
+          await tx
+            .update(restaurantsTable)
+            .set({
+              outreachStatus: "sent",
+              lastOutreachAt: new Date(),
+              nextOutreachAfter: nextCooldown(),
+              outreachCount: sql`${restaurantsTable.outreachCount} + 1`,
+            })
+            .where(eq(restaurantsTable.placeId, candidate.placeId));
+          await tx.insert(outreachAuditTable).values({
+            placeId: candidate.placeId,
+            event: "sent",
+            recipientDomain: email.split("@")[1],
+            detail: JSON.stringify({
+              gmailMessageId: gmailMessage.id,
+              gmailThreadId: gmailMessage.threadId,
+            }),
+          });
         });
         sent += 1;
       } catch (error) {

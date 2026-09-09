@@ -301,6 +301,45 @@ export const ClassifyIncomingReplyResponse = zod.object({
 
 
 /**
+ * Read-only bounded polling. Gmail messages are not modified.
+ * @summary Poll Gmail for replies to previously recorded outreach threads
+ */
+export const syncGmailRepliesResponseSearchedThreadsMin = 0;
+export const syncGmailRepliesResponseSearchedThreadsMax = 50;
+export const syncGmailRepliesResponseSearchedThreadsMultipleOf = 1;
+
+export const syncGmailRepliesResponseMatchedThreadsMin = 0;
+export const syncGmailRepliesResponseMatchedThreadsMax = 50;
+export const syncGmailRepliesResponseMatchedThreadsMultipleOf = 1;
+
+export const syncGmailRepliesResponseProcessedMin = 0;
+export const syncGmailRepliesResponseProcessedMax = 20;
+export const syncGmailRepliesResponseProcessedMultipleOf = 1;
+
+export const syncGmailRepliesResponseSkippedMin = 0;
+export const syncGmailRepliesResponseSkippedMultipleOf = 1;
+
+export const syncGmailRepliesResponseFailedMin = 0;
+export const syncGmailRepliesResponseFailedMultipleOf = 1;
+
+export const syncGmailRepliesResponseErrorsItemMax = 200;
+
+export const syncGmailRepliesResponseErrorsMax = 20;
+
+
+
+export const SyncGmailRepliesResponse = zod.object({
+  "searchedThreads": zod.number().min(syncGmailRepliesResponseSearchedThreadsMin).max(syncGmailRepliesResponseSearchedThreadsMax).multipleOf(syncGmailRepliesResponseSearchedThreadsMultipleOf),
+  "matchedThreads": zod.number().min(syncGmailRepliesResponseMatchedThreadsMin).max(syncGmailRepliesResponseMatchedThreadsMax).multipleOf(syncGmailRepliesResponseMatchedThreadsMultipleOf),
+  "processed": zod.number().min(syncGmailRepliesResponseProcessedMin).max(syncGmailRepliesResponseProcessedMax).multipleOf(syncGmailRepliesResponseProcessedMultipleOf),
+  "skipped": zod.number().min(syncGmailRepliesResponseSkippedMin).multipleOf(syncGmailRepliesResponseSkippedMultipleOf),
+  "failed": zod.number().min(syncGmailRepliesResponseFailedMin).multipleOf(syncGmailRepliesResponseFailedMultipleOf),
+  "capped": zod.boolean(),
+  "errors": zod.array(zod.string().max(syncGmailRepliesResponseErrorsItemMax)).max(syncGmailRepliesResponseErrorsMax)
+})
+
+
+/**
  * @summary Enrich one restaurant from its public website
  */
 

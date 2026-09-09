@@ -4,9 +4,7 @@ import {
   ClassifyIncomingReplyBody,
   ClassifyIncomingReplyResponse,
 } from "@workspace/api-zod";
-import { db, outreachAuditTable, restaurantsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
-import { classifyReply } from "../services/replyClassifier/classifyReply";
+import { processIncomingReply } from "../services/replyClassifier/processIncomingReply";
 
 const router: IRouter = Router();
 
@@ -17,12 +15,6 @@ function validAutomationToken(header: string | undefined): boolean {
   const expectedHash = createHash("sha256").update(expected).digest();
   const suppliedHash = createHash("sha256").update(supplied).digest();
   return timingSafeEqual(expectedHash, suppliedHash);
-}
-
-function senderDomain(from: string | undefined): string | undefined {
-  if (!from) return undefined;
-  const match = from.match(/@([a-z0-9.-]+\.[a-z]{2,})(?:>|\s|$)/i);
-  return match?.[1]?.toLowerCase();
 }
 
 router.post("/replies/incoming", async (req, res): Promise<void> => {
@@ -36,47 +28,16 @@ router.post("/replies/incoming", async (req, res): Promise<void> => {
     return;
   }
 
-  const classification = classifyReply(parsed.data.body);
-  const suppress =
-    classification.category === "unsubscribe" ||
-    classification.category === "wrong_contact" ||
-    classification.category === "not_interested";
-  const outreachStatus =
-    classification.category === "unknown" ? "replied" : classification.category;
-
-  const found = await db.transaction(async (tx) => {
-    const [restaurant] = await tx
-      .update(restaurantsTable)
-      .set(
-        suppress
-          ? {
-              outreachStatus: "suppressed",
-              suppressedAt: new Date(),
-              suppressionReason: classification.category,
-              publicBusinessEmail: null,
-            }
-          : { outreachStatus },
-      )
-      .where(eq(restaurantsTable.placeId, parsed.data.placeId))
-      .returning({ placeId: restaurantsTable.placeId });
-    if (!restaurant) return false;
-    await tx.insert(outreachAuditTable).values({
-      placeId: restaurant.placeId,
-      event: "reply_classified",
-      recipientDomain: senderDomain(parsed.data.from),
-      detail: JSON.stringify({
-        category: classification.category,
-        confidence: classification.confidence,
-      }),
-    });
-    return true;
-  });
-
-  if (!found) {
+  const result = await processIncomingReply(parsed.data);
+  if (result.status === "not_found") {
     res.status(404).json({ error: "Restaurant not found." });
     return;
   }
-  res.json(ClassifyIncomingReplyResponse.parse(classification));
+  if (result.status !== "processed") {
+    res.status(409).json({ error: "Reply was already processed." });
+    return;
+  }
+  res.json(ClassifyIncomingReplyResponse.parse(result.classification));
 });
 
 export default router;

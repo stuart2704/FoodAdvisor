@@ -18,6 +18,8 @@ tags:
     description: Outreach preferences and automation
   - name: replies
     description: Protected inbound outreach reply classification
+  - name: gmail
+    description: Protected Gmail reply polling
 paths:
   /healthz:
     get:
@@ -274,6 +276,33 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Restaurant not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /gmail/sync:
+    post:
+      operationId: syncGmailReplies
+      tags: [gmail]
+      summary: Poll Gmail for replies to previously recorded outreach threads
+      description: Read-only bounded polling. Gmail messages are not modified.
+      security:
+        - automationBearer: []
+      responses:
+        "200":
+          description: Gmail polling result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GmailSyncResult"
+        "401":
+          description: Invalid automation credential
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Gmail polling could not start
           content:
             application/json:
               schema:
@@ -571,6 +600,42 @@ components:
           type: string
           enum: [suppress, pause, sales_follow_up, answer_question, manual_review]
       required: [category, confidence, matchedPattern, recommendedAction]
+    GmailSyncResult:
+      type: object
+      additionalProperties: false
+      properties:
+        searchedThreads:
+          type: number
+          multipleOf: 1
+          minimum: 0
+          maximum: 50
+        matchedThreads:
+          type: number
+          multipleOf: 1
+          minimum: 0
+          maximum: 50
+        processed:
+          type: number
+          multipleOf: 1
+          minimum: 0
+          maximum: 20
+        skipped:
+          type: number
+          multipleOf: 1
+          minimum: 0
+        failed:
+          type: number
+          multipleOf: 1
+          minimum: 0
+        capped:
+          type: boolean
+        errors:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            maxLength: 200
+      required: [searchedThreads, matchedThreads, processed, skipped, failed, capped, errors]
     RestaurantEnrichmentResult:
       type: object
       properties:
