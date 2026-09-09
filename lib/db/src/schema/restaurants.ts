@@ -1,26 +1,55 @@
 import {
+  boolean,
   integer,
   pgTable,
   real,
   serial,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 
-export const restaurantsTable = pgTable("restaurants", {
-  placeId: text("place_id").primaryKey(),
-  name: text("name").notNull(),
-  address: text("address").notNull(),
-  city: text("city").notNull(),
-  rating: real("rating"),
-  website: text("website"),
-  googleMapsUrl: text("google_maps_url").notNull(),
-  types: text("types").array().notNull().default([]),
-  importedAt: timestamp("imported_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const restaurantsTable = pgTable(
+  "restaurants",
+  {
+    // Google Place ID remains the canonical primary key.
+    placeId: text("place_id").primaryKey(),
+    name: text("name").notNull(),
+    address: text("address").notNull(),
+    city: text("city").notNull(),
+    rating: real("rating"),
+    website: text("website"),
+    googleMapsUrl: text("google_maps_url").notNull(),
+    types: text("types").array().notNull().default([]),
+    importedAt: timestamp("imported_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    publicBusinessEmail: text("public_business_email"),
+    emailSourceUrl: text("email_source_url"),
+    emailDiscoveredAt: timestamp("email_discovered_at", {
+      withTimezone: true,
+    }),
+    outreachStatus: text("outreach_status").notNull().default("pending"),
+    outreachFailure: text("outreach_failure"),
+    outreachCount: integer("outreach_count").notNull().default(0),
+    lastOutreachAt: timestamp("last_outreach_at", { withTimezone: true }),
+    nextOutreachAfter: timestamp("next_outreach_after", { withTimezone: true }),
+    unsubscribeTokenHash: text("unsubscribe_token_hash"),
+    suppressedAt: timestamp("suppressed_at", { withTimezone: true }),
+    suppressionReason: text("suppression_reason"),
+    claimEmail: text("claim_email"),
+    claimStatus: text("claim_status"),
+    claimedAt: timestamp("claimed_at", { withTimezone: true }),
+    stripeCustomerId: text("stripe_customer_id"),
+    stripeSubscriptionId: text("stripe_subscription_id"),
+  },
+  (table) => [
+    uniqueIndex("restaurants_unsubscribe_token_hash_unique").on(
+      table.unsubscribeTokenHash,
+    ),
+  ],
+);
 
 export const restaurantImportRunsTable = pgTable("restaurant_import_runs", {
   id: serial("id").primaryKey(),
@@ -37,6 +66,19 @@ export const restaurantImportRunsTable = pgTable("restaurant_import_runs", {
     .defaultNow(),
 });
 
+export const outreachAuditTable = pgTable("outreach_audit", {
+  id: serial("id").primaryKey(),
+  placeId: text("place_id")
+    .notNull()
+    .references(() => restaurantsTable.placeId),
+  event: text("event").notNull(),
+  recipientDomain: text("recipient_domain"),
+  detail: text("detail"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const insertRestaurantSchema = createInsertSchema(restaurantsTable);
 export const insertRestaurantImportRunSchema = createInsertSchema(
   restaurantImportRunsTable,
@@ -46,3 +88,4 @@ export type RestaurantRecord = typeof restaurantsTable.$inferSelect;
 export type InsertRestaurant = typeof restaurantsTable.$inferInsert;
 export type RestaurantImportRun =
   typeof restaurantImportRunsTable.$inferSelect;
+export type OutreachAudit = typeof outreachAuditTable.$inferSelect;

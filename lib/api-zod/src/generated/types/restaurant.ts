@@ -17,4 +17,6 @@ export interface Restaurant {
   website: string | null;
   googleMapsUrl: string;
   types: string[];
+  outreachStatus: string;
+  claimed: boolean;
 }

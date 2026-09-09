@@ -82,6 +82,62 @@ export interface Restaurant {
   website: string | null;
   googleMapsUrl: string;
   types: string[];
+  outreachStatus: string;
+  claimed: boolean;
+}
+
+export interface RestaurantClaimInput {
+  /**
+     * @maxLength 254
+     * @pattern ^[^\s@]+@[^\s@]+\.[^\s@]+$
+     */
+  email: string;
+}
+
+export type RestaurantClaimResultStatus = typeof RestaurantClaimResultStatus[keyof typeof RestaurantClaimResultStatus];
+
+
+export const RestaurantClaimResultStatus = {
+  pending_checkout: 'pending_checkout',
+} as const;
+
+export interface RestaurantClaimResult {
+  placeId: string;
+  status: RestaurantClaimResultStatus;
+  monthlyPricePence: 9900;
+  currency: 'gbp';
+}
+
+export interface RestaurantCheckoutInput {
+  /**
+     * @maxLength 254
+     * @pattern ^[^\s@]+@[^\s@]+\.[^\s@]+$
+     */
+  email: string;
+}
+
+export interface RestaurantCheckoutResult {
+  /** @pattern ^https:// */
+  checkoutUrl: string;
+}
+
+export interface UnsubscribeResult {
+  suppressed: boolean;
+}
+
+export interface OutreachRunResult {
+  /** @minimum 0 */
+  discovered: number;
+  /**
+     * @minimum 0
+     * @maximum 20
+     */
+  sent: number;
+  /** @minimum 0 */
+  skipped: number;
+  /** @minimum 0 */
+  failed: number;
+  dailyMaximum: 20;
 }
 
 export interface RestaurantImportRunResult {

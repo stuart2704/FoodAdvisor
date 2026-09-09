@@ -144,7 +144,9 @@ export const RunRestaurantImportResponse = zod.object({
   "rating": zod.number().nullable(),
   "website": zod.string().nullable(),
   "googleMapsUrl": zod.string(),
-  "types": zod.array(zod.string())
+  "types": zod.array(zod.string()),
+  "outreachStatus": zod.string(),
+  "claimed": zod.boolean()
 }))
 })
 
@@ -164,8 +166,109 @@ export const ListRestaurantsResponseItem = zod.object({
   "rating": zod.number().nullable(),
   "website": zod.string().nullable(),
   "googleMapsUrl": zod.string(),
-  "types": zod.array(zod.string())
+  "types": zod.array(zod.string()),
+  "outreachStatus": zod.string(),
+  "claimed": zod.boolean()
 })
 export const ListRestaurantsResponse = zod.array(ListRestaurantsResponseItem)
+
+
+/**
+ * @summary Start a restaurant ownership claim
+ */
+
+
+
+export const ClaimRestaurantParams = zod.object({
+  "placeId": zod.coerce.string().min(1)
+})
+
+export const claimRestaurantBodyEmailMax = 254;
+
+
+export const claimRestaurantBodyEmailRegExp = new RegExp('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$');
+
+
+export const ClaimRestaurantBody = zod.object({
+  "email": zod.string().max(claimRestaurantBodyEmailMax).regex(claimRestaurantBodyEmailRegExp)
+})
+
+export const ClaimRestaurantResponse = zod.object({
+  "placeId": zod.string(),
+  "status": zod.enum(['pending_checkout']),
+  "monthlyPricePence": zod.literal(9900),
+  "currency": zod.literal("gbp")
+})
+
+
+/**
+ * @summary Create a £99 GBP monthly Stripe Checkout session
+ */
+
+
+
+export const CreateRestaurantCheckoutParams = zod.object({
+  "placeId": zod.coerce.string().min(1)
+})
+
+export const createRestaurantCheckoutBodyEmailMax = 254;
+
+
+export const createRestaurantCheckoutBodyEmailRegExp = new RegExp('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$');
+
+
+export const CreateRestaurantCheckoutBody = zod.object({
+  "email": zod.string().max(createRestaurantCheckoutBodyEmailMax).regex(createRestaurantCheckoutBodyEmailRegExp)
+})
+
+export const createRestaurantCheckoutResponseCheckoutUrlRegExp = new RegExp('^https:/');
+
+
+export const CreateRestaurantCheckoutResponse = zod.object({
+  "checkoutUrl": zod.string().regex(createRestaurantCheckoutResponseCheckoutUrlRegExp)
+})
+
+
+/**
+ * @summary Suppress all future outreach for a restaurant
+ */
+export const unsubscribeRestaurantOutreachPathTokenMin = 32;
+
+
+
+export const UnsubscribeRestaurantOutreachParams = zod.object({
+  "token": zod.coerce.string().min(unsubscribeRestaurantOutreachPathTokenMin)
+})
+
+export const UnsubscribeRestaurantOutreachResponse = zod.object({
+  "suppressed": zod.boolean()
+})
+
+
+/**
+ * @summary Run one protected, daily outreach batch (maximum 20 sends)
+ */
+export const runOutreachAutomationResponseDiscoveredMin = 0;
+export const runOutreachAutomationResponseDiscoveredMultipleOf = 1;
+
+export const runOutreachAutomationResponseSentMin = 0;
+export const runOutreachAutomationResponseSentMax = 20;
+export const runOutreachAutomationResponseSentMultipleOf = 1;
+
+export const runOutreachAutomationResponseSkippedMin = 0;
+export const runOutreachAutomationResponseSkippedMultipleOf = 1;
+
+export const runOutreachAutomationResponseFailedMin = 0;
+export const runOutreachAutomationResponseFailedMultipleOf = 1;
+
+
+
+export const RunOutreachAutomationResponse = zod.object({
+  "discovered": zod.number().min(runOutreachAutomationResponseDiscoveredMin).multipleOf(runOutreachAutomationResponseDiscoveredMultipleOf),
+  "sent": zod.number().min(runOutreachAutomationResponseSentMin).max(runOutreachAutomationResponseSentMax).multipleOf(runOutreachAutomationResponseSentMultipleOf),
+  "skipped": zod.number().min(runOutreachAutomationResponseSkippedMin).multipleOf(runOutreachAutomationResponseSkippedMultipleOf),
+  "failed": zod.number().min(runOutreachAutomationResponseFailedMin).multipleOf(runOutreachAutomationResponseFailedMultipleOf),
+  "dailyMaximum": zod.literal(20)
+})
 
 

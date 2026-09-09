@@ -173,7 +173,7 @@ export default function Dashboard() {
           <div className="bg-primary text-primary-foreground p-2 rounded-lg shadow-sm">
             <UtensilsCrossed className="h-5 w-5" />
           </div>
-          <h1 className="font-serif text-2xl md:text-3xl font-semibold tracking-tight">The Restaurant Advisor</h1>
+          <h1 className="font-serif text-2xl md:text-3xl font-semibold tracking-tight">The Food Advisor</h1>
         </div>
         <div className="hidden md:flex items-center gap-2 text-sm font-medium text-muted-foreground">
           <LayoutDashboard className="h-4 w-4" />

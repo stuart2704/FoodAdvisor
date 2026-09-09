@@ -12,6 +12,10 @@ tags:
     description: Health operations
   - name: restaurants
     description: Budget-safe restaurant discovery and import operations
+  - name: subscriptions
+    description: Restaurant claim and subscription operations
+  - name: outreach
+    description: Outreach preferences and automation
 paths:
   /healthz:
     get:
@@ -112,7 +116,140 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Restaurant"
+  /restaurants/{placeId}/claim:
+    post:
+      operationId: claimRestaurant
+      tags: [subscriptions]
+      summary: Start a restaurant ownership claim
+      parameters:
+        - $ref: "#/components/parameters/PlaceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RestaurantClaimInput"
+      responses:
+        "200":
+          description: Claim recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestaurantClaimResult"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Restaurant not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /restaurants/{placeId}/checkout:
+    post:
+      operationId: createRestaurantCheckout
+      tags: [subscriptions]
+      summary: Create a £99 GBP monthly Stripe Checkout session
+      parameters:
+        - $ref: "#/components/parameters/PlaceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RestaurantCheckoutInput"
+      responses:
+        "200":
+          description: Stripe-hosted checkout URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestaurantCheckoutResult"
+        "400":
+          description: Invalid request or price configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Restaurant not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Stripe or public URL is not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /outreach/unsubscribe/{token}:
+    post:
+      operationId: unsubscribeRestaurantOutreach
+      tags: [outreach]
+      summary: Suppress all future outreach for a restaurant
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema:
+            type: string
+            minLength: 32
+      responses:
+        "200":
+          description: Suppression recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnsubscribeResult"
+        "404":
+          description: Invalid unsubscribe token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /automation/outreach:
+    post:
+      operationId: runOutreachAutomation
+      tags: [outreach]
+      summary: Run one protected, daily outreach batch (maximum 20 sends)
+      security:
+        - automationBearer: []
+      responses:
+        "200":
+          description: Automation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OutreachRunResult"
+        "401":
+          description: Invalid automation credential
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Sending is disabled or configuration is unsafe
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
+  securitySchemes:
+    automationBearer:
+      type: http
+      scheme: bearer
+  parameters:
+    PlaceId:
+      in: path
+      name: placeId
+      required: true
+      schema:
+        type: string
+        minLength: 1
   schemas:
     HealthStatus:
       type: object
@@ -267,6 +404,10 @@ components:
           type: array
           items:
             type: string
+        outreachStatus:
+          type: string
+        claimed:
+          type: boolean
       required:
         - id
         - name
@@ -276,6 +417,76 @@ components:
         - website
         - googleMapsUrl
         - types
+        - outreachStatus
+        - claimed
+    RestaurantClaimInput:
+      type: object
+      properties:
+        email:
+          type: string
+          pattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
+          maxLength: 254
+      required: [email]
+    RestaurantClaimResult:
+      type: object
+      properties:
+        placeId:
+          type: string
+        status:
+          type: string
+          enum: [pending_checkout]
+        monthlyPricePence:
+          type: integer
+          const: 9900
+        currency:
+          type: string
+          const: gbp
+      required: [placeId, status, monthlyPricePence, currency]
+    RestaurantCheckoutInput:
+      type: object
+      properties:
+        email:
+          type: string
+          pattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
+          maxLength: 254
+      required: [email]
+    RestaurantCheckoutResult:
+      type: object
+      properties:
+        checkoutUrl:
+          type: string
+          pattern: "^https://"
+      required: [checkoutUrl]
+    UnsubscribeResult:
+      type: object
+      properties:
+        suppressed:
+          type: boolean
+      required: [suppressed]
+    OutreachRunResult:
+      type: object
+      properties:
+        discovered:
+          type: number
+          multipleOf: 1
+          minimum: 0
+        sent:
+          type: number
+          multipleOf: 1
+          minimum: 0
+          maximum: 20
+        skipped:
+          type: number
+          multipleOf: 1
+          minimum: 0
+        failed:
+          type: number
+          multipleOf: 1
+          minimum: 0
+        dailyMaximum:
+          type: integer
+          const: 20
+      required: [discovered, sent, skipped, failed, dailyMaximum]
     RestaurantImportRunResult:
       type: object
       properties:

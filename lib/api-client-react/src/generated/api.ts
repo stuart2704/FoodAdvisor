@@ -23,12 +23,18 @@ import type {
   ErrorResponse,
   HealthStatus,
   ListRestaurantsParams,
+  OutreachRunResult,
   Restaurant,
+  RestaurantCheckoutInput,
+  RestaurantCheckoutResult,
+  RestaurantClaimInput,
+  RestaurantClaimResult,
   RestaurantImportPlan,
   RestaurantImportPlanInput,
   RestaurantImportRunInput,
   RestaurantImportRunResult,
-  RestaurantImportStatus
+  RestaurantImportStatus,
+  UnsubscribeResult
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -438,4 +444,290 @@ export function useListRestaurants<TData = Awaited<ReturnType<typeof listRestaur
 
 
 
+
+export const getClaimRestaurantUrl = (placeId: string,) => {
+
+
+
+
+  return `/api/restaurants/${placeId}/claim`
+}
+
+/**
+ * @summary Start a restaurant ownership claim
+ */
+export const claimRestaurant = async (placeId: string,
+    restaurantClaimInput: RestaurantClaimInput, options?: Parameters<typeof customFetch>[1]): Promise<RestaurantClaimResult> => {
+
+  return customFetch<RestaurantClaimResult>(getClaimRestaurantUrl(placeId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(restaurantClaimInput)
+  }
+);}
+
+
+
+
+
+export const getClaimRestaurantMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimRestaurant>>, TError,{placeId: string;data: BodyType<RestaurantClaimInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof claimRestaurant>>, TError,{placeId: string;data: BodyType<RestaurantClaimInput>}, TContext> => {
+
+const mutationKey = ['claimRestaurant'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof claimRestaurant>>, {placeId: string;data: BodyType<RestaurantClaimInput>}> = (props) => {
+          const {placeId,data} = props ?? {};
+
+          return  claimRestaurant(placeId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClaimRestaurantMutationResult = NonNullable<Awaited<ReturnType<typeof claimRestaurant>>>
+    export type ClaimRestaurantMutationBody = BodyType<RestaurantClaimInput>
+    export type ClaimRestaurantMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Start a restaurant ownership claim
+ */
+export const useClaimRestaurant = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimRestaurant>>, TError,{placeId: string;data: BodyType<RestaurantClaimInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof claimRestaurant>>,
+        TError,
+        {placeId: string;data: BodyType<RestaurantClaimInput>},
+        TContext
+      > => {
+      return useMutation(getClaimRestaurantMutationOptions(options));
+    }
+
+export const getCreateRestaurantCheckoutUrl = (placeId: string,) => {
+
+
+
+
+  return `/api/restaurants/${placeId}/checkout`
+}
+
+/**
+ * @summary Create a £99 GBP monthly Stripe Checkout session
+ */
+export const createRestaurantCheckout = async (placeId: string,
+    restaurantCheckoutInput: RestaurantCheckoutInput, options?: Parameters<typeof customFetch>[1]): Promise<RestaurantCheckoutResult> => {
+
+  return customFetch<RestaurantCheckoutResult>(getCreateRestaurantCheckoutUrl(placeId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(restaurantCheckoutInput)
+  }
+);}
+
+
+
+
+
+export const getCreateRestaurantCheckoutMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRestaurantCheckout>>, TError,{placeId: string;data: BodyType<RestaurantCheckoutInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createRestaurantCheckout>>, TError,{placeId: string;data: BodyType<RestaurantCheckoutInput>}, TContext> => {
+
+const mutationKey = ['createRestaurantCheckout'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRestaurantCheckout>>, {placeId: string;data: BodyType<RestaurantCheckoutInput>}> = (props) => {
+          const {placeId,data} = props ?? {};
+
+          return  createRestaurantCheckout(placeId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateRestaurantCheckoutMutationResult = NonNullable<Awaited<ReturnType<typeof createRestaurantCheckout>>>
+    export type CreateRestaurantCheckoutMutationBody = BodyType<RestaurantCheckoutInput>
+    export type CreateRestaurantCheckoutMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Create a £99 GBP monthly Stripe Checkout session
+ */
+export const useCreateRestaurantCheckout = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRestaurantCheckout>>, TError,{placeId: string;data: BodyType<RestaurantCheckoutInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createRestaurantCheckout>>,
+        TError,
+        {placeId: string;data: BodyType<RestaurantCheckoutInput>},
+        TContext
+      > => {
+      return useMutation(getCreateRestaurantCheckoutMutationOptions(options));
+    }
+
+export const getUnsubscribeRestaurantOutreachUrl = (token: string,) => {
+
+
+
+
+  return `/api/outreach/unsubscribe/${token}`
+}
+
+/**
+ * @summary Suppress all future outreach for a restaurant
+ */
+export const unsubscribeRestaurantOutreach = async (token: string, options?: Parameters<typeof customFetch>[1]): Promise<UnsubscribeResult> => {
+
+  return customFetch<UnsubscribeResult>(getUnsubscribeRestaurantOutreachUrl(token),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getUnsubscribeRestaurantOutreachMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unsubscribeRestaurantOutreach>>, TError,{token: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof unsubscribeRestaurantOutreach>>, TError,{token: string}, TContext> => {
+
+const mutationKey = ['unsubscribeRestaurantOutreach'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unsubscribeRestaurantOutreach>>, {token: string}> = (props) => {
+          const {token} = props ?? {};
+
+          return  unsubscribeRestaurantOutreach(token,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnsubscribeRestaurantOutreachMutationResult = NonNullable<Awaited<ReturnType<typeof unsubscribeRestaurantOutreach>>>
+
+    export type UnsubscribeRestaurantOutreachMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Suppress all future outreach for a restaurant
+ */
+export const useUnsubscribeRestaurantOutreach = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unsubscribeRestaurantOutreach>>, TError,{token: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof unsubscribeRestaurantOutreach>>,
+        TError,
+        {token: string},
+        TContext
+      > => {
+      return useMutation(getUnsubscribeRestaurantOutreachMutationOptions(options));
+    }
+
+export const getRunOutreachAutomationUrl = () => {
+
+
+
+
+  return `/api/automation/outreach`
+}
+
+/**
+ * @summary Run one protected, daily outreach batch (maximum 20 sends)
+ */
+export const runOutreachAutomation = async ( options?: Parameters<typeof customFetch>[1]): Promise<OutreachRunResult> => {
+
+  return customFetch<OutreachRunResult>(getRunOutreachAutomationUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRunOutreachAutomationMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runOutreachAutomation>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof runOutreachAutomation>>, TError,void, TContext> => {
+
+const mutationKey = ['runOutreachAutomation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runOutreachAutomation>>, void> = () => {
+
+
+          return  runOutreachAutomation(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RunOutreachAutomationMutationResult = NonNullable<Awaited<ReturnType<typeof runOutreachAutomation>>>
+
+    export type RunOutreachAutomationMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Run one protected, daily outreach batch (maximum 20 sends)
+ */
+export const useRunOutreachAutomation = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runOutreachAutomation>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof runOutreachAutomation>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getRunOutreachAutomationMutationOptions(options));
+    }
 

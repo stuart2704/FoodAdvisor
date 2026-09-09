@@ -51,6 +51,8 @@ export type ImportedRestaurant = {
   website: string | null;
   googleMapsUrl: string;
   types: string[];
+  outreachStatus: string;
+  claimed: boolean;
 };
 
 function costPerSearchCents(): number {
@@ -218,6 +220,8 @@ async function searchRestaurants(
         place.googleMapsUri ??
         `https://www.google.com/maps/search/?api=1&query_place_id=${encodeURIComponent(place.id)}`,
       types: place.types ?? ["restaurant"],
+      outreachStatus: "pending",
+      claimed: false,
     }));
 }
 

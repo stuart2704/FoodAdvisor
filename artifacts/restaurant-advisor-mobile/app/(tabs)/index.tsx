@@ -106,7 +106,7 @@ export default function DiscoverScreen() {
               <Feather name="map-pin" size={18} color={colors.primaryForeground} />
             </View>
             <Text style={[styles.eyebrow, { color: colors.primary }]}>
-              THE RESTAURANT ADVISOR
+              THE FOOD ADVISOR
             </Text>
           </View>
           <Text style={[styles.hero, { color: colors.foreground }]}>

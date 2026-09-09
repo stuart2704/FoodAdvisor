@@ -91,6 +91,8 @@ router.get("/restaurants", async (req, res): Promise<void> => {
         website: row.website,
         googleMapsUrl: row.googleMapsUrl,
         types: row.types,
+        outreachStatus: row.outreachStatus,
+        claimed: row.claimedAt !== null,
       })),
     ),
   );
