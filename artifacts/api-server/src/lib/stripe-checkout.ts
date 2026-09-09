@@ -7,6 +7,7 @@ type StripePrice = {
   active?: boolean;
   currency?: string;
   id?: string;
+  product?: string | { id?: string; active?: boolean; metadata?: Record<string, string> } | null;
   recurring?: { interval?: string } | null;
   unit_amount?: number | null;
 };
@@ -15,14 +16,14 @@ type StripeCheckoutSession = { url?: string | null };
 
 async function stripeRequest<T>(
   path: string,
-  options?: { method: string; body: URLSearchParams },
+  options?: { method: string; body: URLSearchParams; headers?: Record<string, string> },
 ): Promise<T> {
   const connectors = new ReplitConnectors();
   const response = await connectors.proxy("stripe", path, {
     method: options?.method ?? "GET",
     body: options?.body,
-    headers: options
-      ? { "Content-Type": "application/x-www-form-urlencoded" }
+      headers: options
+      ? { "Content-Type": "application/x-www-form-urlencoded", ...options.headers }
       : undefined,
   });
   if (!response.ok) {
@@ -35,6 +36,7 @@ export async function createMonthlyCheckout(input: {
   placeId: string;
   restaurantName: string;
   email: string;
+  attemptId: string;
 }): Promise<string> {
   const priceId = process.env.STRIPE_MONTHLY_PRICE_ID;
   if (!priceId) {
@@ -46,7 +48,7 @@ export async function createMonthlyCheckout(input: {
     canonical: true,
   });
   const price = await stripeRequest<StripePrice>(
-    `/v1/prices/${encodeURIComponent(priceId)}`,
+    `/v1/prices/${encodeURIComponent(priceId)}?expand[]=product`,
   );
   if (
     price.id !== priceId ||
@@ -54,6 +56,9 @@ export async function createMonthlyCheckout(input: {
     price.currency !== "gbp" ||
     price.unit_amount !== MONTHLY_PRICE_PENCE ||
     price.recurring?.interval !== "month"
+    || typeof price.product !== "object" || price.product === null ||
+    price.product.active !== true ||
+    price.product.metadata?.plan !== "verified_listing"
   ) {
     throw new Error(
       "STRIPE_MONTHLY_PRICE_ID is not an active £99 GBP monthly recurring price.",
@@ -66,7 +71,7 @@ export async function createMonthlyCheckout(input: {
   body.set("line_items[0][quantity]", "1");
   body.set("customer_email", input.email);
   body.set("success_url", `${publicUrl.origin}/claim/success?session_id={CHECKOUT_SESSION_ID}`);
-  body.set("cancel_url", `${publicUrl.origin}/restaurants/${encodeURIComponent(input.placeId)}`);
+  body.set("cancel_url", `${publicUrl.origin}/claim/${encodeURIComponent(input.placeId)}`);
   body.set("client_reference_id", input.placeId);
   body.set("metadata[place_id]", input.placeId);
   body.set("metadata[brand]", "The Food Advisor");
@@ -75,7 +80,9 @@ export async function createMonthlyCheckout(input: {
 
   const session = await stripeRequest<StripeCheckoutSession>(
     "/v1/checkout/sessions",
-    { method: "POST", body },
+    { method: "POST", body, headers: {
+      "Idempotency-Key": `thefoodadvisor:claim:${input.attemptId}`,
+    } },
   );
   if (!session.url?.startsWith("https://checkout.stripe.com/")) {
     throw new Error("Stripe did not return a valid hosted Checkout URL.");

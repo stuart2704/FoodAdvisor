@@ -195,6 +195,7 @@ export const ClaimRestaurantBody = zod.object({
 
 export const ClaimRestaurantResponse = zod.object({
   "placeId": zod.string(),
+  "attemptId": zod.string(),
   "status": zod.enum(['pending_checkout']),
   "monthlyPricePence": zod.literal(9900),
   "currency": zod.literal("gbp")
@@ -218,7 +219,8 @@ export const createRestaurantCheckoutBodyEmailRegExp = new RegExp('^[^\\s@]+@[^\
 
 
 export const CreateRestaurantCheckoutBody = zod.object({
-  "email": zod.string().max(createRestaurantCheckoutBodyEmailMax).regex(createRestaurantCheckoutBodyEmailRegExp)
+  "email": zod.string().max(createRestaurantCheckoutBodyEmailMax).regex(createRestaurantCheckoutBodyEmailRegExp),
+  "attemptId": zod.string().uuid()
 })
 
 export const createRestaurantCheckoutResponseCheckoutUrlRegExp = new RegExp('^https:/');
@@ -226,6 +228,25 @@ export const createRestaurantCheckoutResponseCheckoutUrlRegExp = new RegExp('^ht
 
 export const CreateRestaurantCheckoutResponse = zod.object({
   "checkoutUrl": zod.string().regex(createRestaurantCheckoutResponseCheckoutUrlRegExp)
+})
+
+
+/**
+ * @summary Get the minimal status of a completed Stripe Checkout session
+ */
+export const getCheckoutCompletionPathSessionIdMax = 255;
+
+
+
+export const GetCheckoutCompletionParams = zod.object({
+  "sessionId": zod.coerce.string().min(1).max(getCheckoutCompletionPathSessionIdMax)
+})
+
+export const GetCheckoutCompletionResponse = zod.object({
+  "placeId": zod.string().nullable(),
+  "name": zod.string().nullable(),
+  "claimStatus": zod.enum(['processing', 'pending_checkout', 'checkout_created', 'active', 'past_due', 'revoked']),
+  "paymentStatus": zod.enum(['processing', 'paid', 'unpaid', 'no_payment_required'])
 })
 
 

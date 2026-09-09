@@ -9,6 +9,7 @@ import type { RestaurantClaimResultStatus } from './restaurantClaimResultStatus'
 
 export interface RestaurantClaimResult {
   placeId: string;
+  attemptId: string;
   status: RestaurantClaimResultStatus;
   monthlyPricePence: 9900;
   currency: 'gbp';

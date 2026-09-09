@@ -21,3 +21,9 @@ timeoutMs = 20000
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+STRIPE_MONTHLY_PRICE_ID = "price_1UDjrDPJ1YGb5rVkcTcJQ3Gm"
+PUBLIC_APP_URL = "https://thefoodadvisor.co.uk"

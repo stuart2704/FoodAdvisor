@@ -51,7 +51,7 @@ export default function ClaimRestaurant() {
     setErrorMsg(null);
     try {
       // 1. Claim Restaurant
-      await claimMutation.mutateAsync({
+      const claimResult = await claimMutation.mutateAsync({
         placeId,
         data: { email: values.email }
       });
@@ -59,7 +59,7 @@ export default function ClaimRestaurant() {
       // 2. Create Checkout
       const checkoutResult = await checkoutMutation.mutateAsync({
         placeId,
-        data: { email: values.email }
+        data: { email: values.email, attemptId: claimResult.attemptId }
       });
 
       // 3. Redirect to Stripe

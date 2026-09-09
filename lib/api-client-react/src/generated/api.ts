@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  CheckoutCompletion,
   ErrorResponse,
   GmailSyncResult,
   HealthStatus,
@@ -592,6 +593,83 @@ export const useCreateRestaurantCheckout = <TError = ErrorType<ErrorResponse>,
       > => {
       return useMutation(getCreateRestaurantCheckoutMutationOptions(options));
     }
+
+export const getGetCheckoutCompletionUrl = (sessionId: string,) => {
+
+
+
+
+  return `/api/checkout-completion/${sessionId}`
+}
+
+/**
+ * @summary Get the minimal status of a completed Stripe Checkout session
+ */
+export const getCheckoutCompletion = async (sessionId: string, options?: Parameters<typeof customFetch>[1]): Promise<CheckoutCompletion> => {
+
+  return customFetch<CheckoutCompletion>(getGetCheckoutCompletionUrl(sessionId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCheckoutCompletionQueryKey = (sessionId: string,) => {
+    return [
+    `/api/checkout-completion/${sessionId}`
+    ] as const;
+    }
+
+
+export const getGetCheckoutCompletionQueryOptions = <TData = Awaited<ReturnType<typeof getCheckoutCompletion>>, TError = ErrorType<ErrorResponse>>(sessionId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCheckoutCompletion>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCheckoutCompletionQueryKey(sessionId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCheckoutCompletion>>> = ({ signal }) => getCheckoutCompletion(sessionId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: sessionId !== null && sessionId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCheckoutCompletion>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCheckoutCompletionQueryResult = NonNullable<Awaited<ReturnType<typeof getCheckoutCompletion>>>
+export type GetCheckoutCompletionQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Get the minimal status of a completed Stripe Checkout session
+ */
+
+export function useGetCheckoutCompletion<TData = Awaited<ReturnType<typeof getCheckoutCompletion>>, TError = ErrorType<ErrorResponse>>(
+ sessionId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCheckoutCompletion>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCheckoutCompletionQueryOptions(sessionId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getUnsubscribeRestaurantOutreachUrl = (token: string,) => {
 

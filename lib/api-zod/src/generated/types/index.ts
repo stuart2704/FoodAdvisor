@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './checkoutCompletion';
+export * from './checkoutCompletionClaimStatus';
+export * from './checkoutCompletionPaymentStatus';
 export * from './errorResponse';
 export * from './gmailSyncResult';
 export * from './healthStatus';

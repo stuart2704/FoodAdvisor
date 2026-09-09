@@ -3,6 +3,7 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { StripeWebhookHandlers } from "./lib/stripe-webhook-handlers";
 
 const app: Express = express();
 
@@ -26,17 +27,28 @@ app.use(
   }),
 );
 app.use(cors());
-// Stripe webhooks must always receive the exact bytes. Full processing remains
-// intentionally fail-closed until stripe-replit-sync is installed/configured.
 app.post(
   "/api/stripe/webhook",
   express.raw({ type: "application/json", limit: "1mb" }),
-  (req, res) => {
-    req.log.warn("Rejected Stripe webhook because sync is not configured");
-    res.status(503).json({
-      error:
-        "Stripe webhook processing is not configured; no event was accepted.",
-    });
+  async (req, res) => {
+    const signature = req.headers["stripe-signature"];
+    if (!signature) {
+      res.status(400).json({ error: "Missing stripe-signature" });
+      return;
+    }
+
+    const sig = Array.isArray(signature) ? signature[0] : signature;
+    if (typeof sig !== "string" || !Buffer.isBuffer(req.body)) {
+      res.status(400).json({ error: "Invalid Stripe webhook request" });
+      return;
+    }
+
+    try {
+      await StripeWebhookHandlers.processWebhook(req.body, sig);
+      res.status(200).json({ received: true });
+    } catch {
+      res.status(400).json({ error: "Webhook processing error" });
+    }
   },
 );
 app.use(express.json());

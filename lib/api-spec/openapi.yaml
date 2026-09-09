@@ -178,6 +178,32 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /checkout-completion/{sessionId}:
+    get:
+      operationId: getCheckoutCompletion
+      tags: [subscriptions]
+      summary: Get the minimal status of a completed Stripe Checkout session
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+      responses:
+        "200":
+          description: Checkout completion status (may briefly be processing)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutCompletion"
+        "400":
+          description: Invalid session ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Restaurant not found
           content:
@@ -536,6 +562,8 @@ components:
       properties:
         placeId:
           type: string
+        attemptId:
+          type: string
         status:
           type: string
           enum: [pending_checkout]
@@ -545,7 +573,7 @@ components:
         currency:
           type: string
           const: gbp
-      required: [placeId, status, monthlyPricePence, currency]
+      required: [placeId, attemptId, status, monthlyPricePence, currency]
     RestaurantCheckoutInput:
       type: object
       properties:
@@ -553,7 +581,10 @@ components:
           type: string
           pattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
           maxLength: 254
-      required: [email]
+        attemptId:
+          type: string
+          format: uuid
+      required: [email, attemptId]
     RestaurantCheckoutResult:
       type: object
       properties:
@@ -561,6 +592,21 @@ components:
           type: string
           pattern: "^https://"
       required: [checkoutUrl]
+    CheckoutCompletion:
+      type: object
+      additionalProperties: false
+      properties:
+        placeId:
+          type: ["string", "null"]
+        name:
+          type: ["string", "null"]
+        claimStatus:
+          type: string
+          enum: [processing, pending_checkout, checkout_created, active, past_due, revoked]
+        paymentStatus:
+          type: string
+          enum: [processing, paid, unpaid, no_payment_required]
+      required: [placeId, name, claimStatus, paymentStatus]
     UnsubscribeResult:
       type: object
       properties:

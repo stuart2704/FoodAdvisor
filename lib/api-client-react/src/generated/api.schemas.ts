@@ -103,6 +103,7 @@ export const RestaurantClaimResultStatus = {
 
 export interface RestaurantClaimResult {
   placeId: string;
+  attemptId: string;
   status: RestaurantClaimResultStatus;
   monthlyPricePence: 9900;
   currency: 'gbp';
@@ -114,11 +115,43 @@ export interface RestaurantCheckoutInput {
      * @pattern ^[^\s@]+@[^\s@]+\.[^\s@]+$
      */
   email: string;
+  attemptId: string;
 }
 
 export interface RestaurantCheckoutResult {
   /** @pattern ^https:// */
   checkoutUrl: string;
+}
+
+export type CheckoutCompletionClaimStatus = typeof CheckoutCompletionClaimStatus[keyof typeof CheckoutCompletionClaimStatus];
+
+
+export const CheckoutCompletionClaimStatus = {
+  processing: 'processing',
+  pending_checkout: 'pending_checkout',
+  checkout_created: 'checkout_created',
+  active: 'active',
+  past_due: 'past_due',
+  revoked: 'revoked',
+} as const;
+
+export type CheckoutCompletionPaymentStatus = typeof CheckoutCompletionPaymentStatus[keyof typeof CheckoutCompletionPaymentStatus];
+
+
+export const CheckoutCompletionPaymentStatus = {
+  processing: 'processing',
+  paid: 'paid',
+  unpaid: 'unpaid',
+  no_payment_required: 'no_payment_required',
+} as const;
+
+export interface CheckoutCompletion {
+  /** @nullable */
+  placeId: string | null;
+  /** @nullable */
+  name: string | null;
+  claimStatus: CheckoutCompletionClaimStatus;
+  paymentStatus: CheckoutCompletionPaymentStatus;
 }
 
 export interface UnsubscribeResult {

@@ -6,6 +6,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import Dashboard from '@/pages/dashboard';
 import ClaimRestaurant from '@/pages/claim';
+import ClaimSuccess from '@/pages/claim-success';
 import Unsubscribe from '@/pages/unsubscribe';
 import {
   Route,
@@ -21,6 +22,7 @@ function Router() {
     <RoutedErrorBoundary>
       <Switch>
         <Route path="/" component={Dashboard} />
+        <Route path="/claim/success" component={ClaimSuccess} />
         <Route path="/claim/:placeId" component={ClaimRestaurant} />
         <Route path="/unsubscribe/:token" component={Unsubscribe} />
         <Route component={NotFound} />

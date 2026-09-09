@@ -1,0 +1,1 @@
+- [Stripe sync safeguards](stripe-sync-safeguards.md) — preserve package migrations when bundling and make subscription status authoritative over Checkout events.

@@ -12,4 +12,5 @@ export interface RestaurantCheckoutInput {
      * @pattern ^[^\s@]+@[^\s@]+\.[^\s@]+$
      */
   email: string;
+  attemptId: string;
 }

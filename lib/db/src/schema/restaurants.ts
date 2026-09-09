@@ -47,6 +47,7 @@ export const restaurantsTable = pgTable(
     suppressionReason: text("suppression_reason"),
     claimEmail: text("claim_email"),
     claimStatus: text("claim_status"),
+    claimAttemptId: text("claim_attempt_id"),
     claimedAt: timestamp("claimed_at", { withTimezone: true }),
     stripeCustomerId: text("stripe_customer_id"),
     stripeSubscriptionId: text("stripe_subscription_id"),
