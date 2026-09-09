@@ -347,13 +347,7 @@ paths:
               $ref: "#/components/schemas/PubSubPushEnvelope"
       responses:
         "204":
-          description: Notification accepted or already processed
-        "400":
-          description: Invalid envelope, subscription, or Gmail notification
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+          description: Authenticated notification was accepted, duplicated, or permanently invalid
         "401":
           description: Invalid Pub/Sub OIDC identity
           content:

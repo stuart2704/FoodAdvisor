@@ -1,4 +1,11 @@
 import { ReplitConnectors } from "@replit/connectors-sdk";
+import {
+  GmailHttpError,
+  gmailThreadsPagePath,
+  threadDiscoveryComplete,
+} from "./gmailContracts";
+
+export { GmailHttpError } from "./gmailContracts";
 
 export const GMAIL_REPLY_QUERY = "in:inbox newer_than:30d -from:me";
 export const GMAIL_SEARCH_PAGE_SIZE = 50;
@@ -30,12 +37,6 @@ export function validHistoryId(value: unknown): value is string {
     return BigInt(value) <= 18_446_744_073_709_551_615n;
   } catch {
     return false;
-  }
-}
-
-export class GmailHttpError extends Error {
-  constructor(public readonly status: number) {
-    super("Gmail connector request failed.");
   }
 }
 
@@ -108,100 +109,103 @@ export async function activateGmailWatch(topicName: string): Promise<GmailWatch>
 }
 
 export interface GmailHistoryResult {
-  messageIds: string[];
+  messages: GmailMessageSummary[];
   historyId: string;
+  nextPageToken?: string;
 }
 
 const HISTORY_PAGE_SIZE = 100;
-const HISTORY_MAX_PAGES = 10;
-const HISTORY_MAX_MESSAGES = 500;
-
-export async function listGmailHistory(startHistoryId: string): Promise<GmailHistoryResult> {
+export async function listGmailHistory(
+  startHistoryId: string,
+  pageToken?: string,
+): Promise<GmailHistoryResult> {
   if (!validHistoryId(startHistoryId)) throw new Error("Gmail history cursor is invalid.");
-  let pageToken: string | undefined;
-  let latestHistoryId: string | undefined;
-  const ids = new Set<string>();
-  for (let page = 0; page < HISTORY_MAX_PAGES; page += 1) {
-    const query = new URLSearchParams({
-      startHistoryId,
-      historyTypes: "messageAdded",
-      labelId: "INBOX",
-      maxResults: String(HISTORY_PAGE_SIZE),
-    });
-    if (pageToken) query.set("pageToken", pageToken);
-    const value = await gmailJson(`/gmail/v1/users/me/history?${query.toString()}`);
-    if (typeof value !== "object" || value === null) {
-      throw new Error("Gmail history response was invalid.");
-    }
-    const item = value as {
-      history?: unknown;
-      historyId?: unknown;
-      nextPageToken?: unknown;
-    };
-    if (!validHistoryId(item.historyId)) {
-      throw new Error("Gmail history response was invalid.");
-    }
-    latestHistoryId = item.historyId;
-    if (item.history !== undefined && !Array.isArray(item.history)) {
-      throw new Error("Gmail history response was invalid.");
-    }
-    for (const record of item.history ?? []) {
-      if (typeof record !== "object" || record === null) {
-        throw new Error("Gmail history response was invalid.");
-      }
-      const added = (record as { messagesAdded?: unknown }).messagesAdded;
-      if (added !== undefined && !Array.isArray(added)) {
-        throw new Error("Gmail history response was invalid.");
-      }
-      for (const entry of added ?? []) {
-        const message =
-          typeof entry === "object" && entry !== null
-            ? (entry as { message?: unknown }).message
-            : undefined;
-        const id =
-          typeof message === "object" && message !== null
-            ? (message as { id?: unknown }).id
-            : undefined;
-        if (!validId(id)) throw new Error("Gmail history message was invalid.");
-        ids.add(id);
-        if (ids.size > HISTORY_MAX_MESSAGES) {
-          throw new Error("Gmail history exceeded its safety limit.");
-        }
-      }
-    }
-    if (item.nextPageToken === undefined) {
-      return { messageIds: [...ids], historyId: latestHistoryId };
-    }
-    if (!validId(item.nextPageToken)) {
-      throw new Error("Gmail history page token was invalid.");
-    }
-    pageToken = item.nextPageToken;
+  const query = new URLSearchParams({
+    startHistoryId,
+    historyTypes: "messageAdded",
+    labelId: "INBOX",
+    maxResults: String(HISTORY_PAGE_SIZE),
+  });
+  if (pageToken) query.set("pageToken", pageToken);
+  const value = await gmailJson(`/gmail/v1/users/me/history?${query.toString()}`);
+  if (typeof value !== "object" || value === null) {
+    throw new Error("Gmail history response was invalid.");
   }
-  throw new Error("Gmail history exceeded its page limit.");
+  const item = value as {
+    history?: unknown;
+    historyId?: unknown;
+    nextPageToken?: unknown;
+  };
+  if (!validHistoryId(item.historyId) || (item.history !== undefined && !Array.isArray(item.history))) {
+    throw new Error("Gmail history response was invalid.");
+  }
+  const messages: GmailMessageSummary[] = [];
+  for (const record of item.history ?? []) {
+    if (typeof record !== "object" || record === null) {
+      throw new Error("Gmail history response was invalid.");
+    }
+    const added = (record as { messagesAdded?: unknown }).messagesAdded;
+    if (added !== undefined && !Array.isArray(added)) {
+      throw new Error("Gmail history response was invalid.");
+    }
+    for (const entry of added ?? []) {
+      const message =
+        typeof entry === "object" && entry !== null
+          ? (entry as { message?: unknown }).message
+          : undefined;
+      if (typeof message !== "object" || message === null) {
+        throw new Error("Gmail history message was invalid.");
+      }
+      const item = message as { id?: unknown; threadId?: unknown; labelIds?: unknown };
+      if (!validId(item.id) || !validId(item.threadId)) {
+        throw new Error("Gmail history message was invalid.");
+      }
+      messages.push({
+        id: item.id,
+        threadId: item.threadId,
+        labelIds: Array.isArray(item.labelIds)
+          ? item.labelIds.filter((label): label is string => typeof label === "string")
+          : [],
+      });
+    }
+  }
+  if (item.nextPageToken !== undefined && !validId(item.nextPageToken)) {
+    throw new Error("Gmail history page token was invalid.");
+  }
+  return {
+    messages,
+    historyId: item.historyId,
+    nextPageToken: item.nextPageToken,
+  };
 }
 
+export const GMAIL_RECOVERY_MAX_PAGES = 100;
+
 export async function searchInboxThreads(): Promise<string[]> {
-  const query = new URLSearchParams({
-    q: GMAIL_REPLY_QUERY,
-    pageSize: String(GMAIL_SEARCH_PAGE_SIZE),
-  });
-  const value = await gmailJson(
-    `/gmail/v1/users/me/threads:search?${query.toString()}`,
-  );
-  const threads =
-    typeof value === "object" && value !== null
-      ? (value as { threads?: unknown }).threads
-      : undefined;
-  if (threads === undefined) return [];
-  if (!Array.isArray(threads)) throw new Error("Gmail thread search was invalid.");
-  return threads
-    .map((thread) =>
-      typeof thread === "object" && thread !== null
-        ? (thread as { id?: unknown }).id
-        : undefined,
-    )
-    .filter(validId)
-    .slice(0, GMAIL_SEARCH_PAGE_SIZE);
+  const ids = new Set<string>();
+  let pageToken: string | undefined;
+  for (let page = 0; page < GMAIL_RECOVERY_MAX_PAGES; page += 1) {
+    const value = await gmailJson(gmailThreadsPagePath(GMAIL_REPLY_QUERY, pageToken));
+    if (typeof value !== "object" || value === null) {
+      throw new Error("Gmail thread search was invalid.");
+    }
+    const item = value as { threads?: unknown; nextPageToken?: unknown };
+    if (item.threads !== undefined && !Array.isArray(item.threads)) {
+      throw new Error("Gmail thread search was invalid.");
+    }
+    for (const thread of item.threads ?? []) {
+      const id =
+        typeof thread === "object" && thread !== null
+          ? (thread as { id?: unknown }).id
+          : undefined;
+      if (!validId(id)) throw new Error("Gmail thread search was invalid.");
+      ids.add(id);
+    }
+    if (item.nextPageToken === undefined) return [...ids];
+    if (!validId(item.nextPageToken)) throw new Error("Gmail thread search was invalid.");
+    pageToken = item.nextPageToken;
+  }
+  throw new Error("Gmail recovery search exceeded its page limit.");
 }
 
 export async function listThreadMessages(
@@ -217,22 +221,32 @@ export async function listThreadMessages(
   if (!Array.isArray(messages)) {
     throw new Error("Gmail thread response was invalid.");
   }
-  // A pathological thread must not create unbounded database or network work.
-  return messages.slice(0, 200).flatMap((message) => {
-    if (typeof message !== "object" || message === null) return [];
+  if (!threadDiscoveryComplete(messages.length)) {
+    throw new Error("Gmail thread exceeded its safety limit.");
+  }
+  return messages.map((message) => {
+    if (typeof message !== "object" || message === null) {
+      throw new Error("Gmail thread message was invalid.");
+    }
     const item = message as {
       id?: unknown;
       threadId?: unknown;
       labelIds?: unknown;
     };
-    if (!validId(item.id) || !validId(item.threadId)) return [];
-    return [{
+    if (
+      !validId(item.id) ||
+      !validId(item.threadId) ||
+      item.threadId !== threadId ||
+      !Array.isArray(item.labelIds) ||
+      !item.labelIds.every((label) => typeof label === "string" && label.length <= 255)
+    ) {
+      throw new Error("Gmail thread message was invalid.");
+    }
+    return {
       id: item.id,
       threadId: item.threadId,
-      labelIds: Array.isArray(item.labelIds)
-        ? item.labelIds.filter((label): label is string => typeof label === "string")
-        : [],
-    }];
+      labelIds: item.labelIds,
+    };
   });
 }
 

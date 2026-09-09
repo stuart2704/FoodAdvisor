@@ -1,1 +1,2 @@
 - [Stripe sync safeguards](stripe-sync-safeguards.md) — preserve package migrations when bundling and make subscription status authoritative over Checkout events.
+- [Gmail Pub/Sub delivery](gmail-push-delivery.md) — authenticate exact OIDC identity, stage history before cursor advance, and retry every non-permanent message failure.

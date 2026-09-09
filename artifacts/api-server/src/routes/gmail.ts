@@ -3,6 +3,7 @@ import { OAuth2Client } from "google-auth-library";
 import { Router, type IRouter } from "express";
 import {
   db,
+  gmailHistoryMessagesTable,
   gmailWatchStateTable,
   pool,
 } from "@workspace/db";
@@ -17,9 +18,15 @@ import {
   validHistoryId,
 } from "../services/gmail/gmailClient";
 import {
-  pollGmailReplies,
-  processGmailMessageIds,
+  drainStagedGmailMessages,
+  stageGmailRecovery,
 } from "../services/gmail/gmailWebhookHandler";
+import {
+  completedRecoveryState,
+  historyDeliveryStatus,
+  gmailPushStatus,
+  gmailNotificationStatus,
+} from "../services/gmail/gmailContracts";
 
 const router: IRouter = Router();
 const oidcClient = new OAuth2Client();
@@ -187,13 +194,22 @@ router.post("/gmail/push", async (req, res): Promise<void> => {
     const envelope = parseEnvelope(req.body);
     notification = decodeNotification(envelope.message.data);
   } catch {
-    res.status(400).json({ error: "Invalid Pub/Sub request." });
+    res.status(gmailPushStatus({ authenticated: true, poison: true })).end();
     return;
   }
 
-  const lockClient = await pool.connect();
+  let lockClient:
+    | {
+        query: <T = unknown>(
+          queryText: string,
+          values?: readonly unknown[],
+        ) => Promise<{ rows: T[] }>;
+        release: (destroy?: boolean) => void;
+      }
+    | undefined;
   let locked = false;
   try {
+    lockClient = (await pool.connect()) as unknown as NonNullable<typeof lockClient>;
     const lockResult = await lockClient.query<{ locked: boolean }>(
       "select pg_try_advisory_lock($1) as locked",
       [PUSH_LOCK_KEY],
@@ -210,52 +226,125 @@ router.post("/gmail/push", async (req, res): Promise<void> => {
       .where(eq(gmailWatchStateTable.accountEmail, notification.emailAddress))
       .limit(1);
     if (!state) {
-      res.status(400).json({ error: "Invalid Pub/Sub request." });
-      return;
-    }
-    if (BigInt(notification.historyId) <= BigInt(state.lastHistoryId)) {
-      res.status(204).end();
+      const [managedAccount] = await db
+        .select({ accountEmail: gmailWatchStateTable.accountEmail })
+        .from(gmailWatchStateTable)
+        .limit(1);
+      if (managedAccount) {
+        // Authenticated notification for a different, permanently unmanaged
+        // account is poison, whereas an empty table is a startup race.
+        res.status(204).end();
+        return;
+      }
+      res
+        .status(gmailNotificationStatus({
+          authenticated: true,
+          poison: false,
+          hasWatchState: false,
+        }))
+        .json({ error: "Gmail watch state is not ready." });
       return;
     }
 
     try {
-      const history = await listGmailHistory(state.lastHistoryId);
-      if (BigInt(history.historyId) < BigInt(state.lastHistoryId)) {
-        throw new Error("Gmail returned an invalid history cursor.");
+      let scanStart = state.historyScanStartId ?? state.lastHistoryId;
+      let pageToken = state.historyPageToken ?? undefined;
+      let complete = false;
+      for (let page = 0; page < 10; page += 1) {
+        if (!pageToken && BigInt(notification.historyId) <= BigInt(state.lastHistoryId)) {
+          complete = true;
+          break;
+        }
+        const history = await listGmailHistory(scanStart, pageToken);
+        await db.transaction(async (tx) => {
+          for (const message of history.messages) {
+            await tx
+              .insert(gmailHistoryMessagesTable)
+              .values({
+                accountEmail: state.accountEmail,
+                messageId: message.id,
+                threadId: message.threadId,
+                status: "pending",
+                updatedAt: new Date(),
+              })
+              .onConflictDoNothing();
+          }
+          if (history.nextPageToken) {
+            await tx
+              .update(gmailWatchStateTable)
+              .set({
+                historyScanStartId: scanStart,
+                historyPageToken: history.nextPageToken,
+                updatedAt: new Date(),
+              })
+              .where(eq(gmailWatchStateTable.accountEmail, state.accountEmail));
+          } else {
+            await tx
+              .update(gmailWatchStateTable)
+              .set({
+                lastHistoryId: history.historyId,
+                historyScanStartId: null,
+                historyPageToken: null,
+                updatedAt: new Date(),
+              })
+              .where(eq(gmailWatchStateTable.accountEmail, state.accountEmail));
+          }
+        });
+        if (!history.nextPageToken) {
+          complete = true;
+          break;
+        }
+        pageToken = history.nextPageToken;
       }
-      const result = await processGmailMessageIds(history.messageIds);
-      if (result.failed || result.capped) {
-        res.status(503).json({ error: "Gmail push processing was incomplete." });
+      const drain = await drainStagedGmailMessages(state.accountEmail);
+      if (historyDeliveryStatus({
+        complete,
+        failed: drain.failed > 0,
+        capped: drain.capped,
+      }) !== 204) {
+        res.status(503).json({ error: "Gmail push processing is incomplete." });
         return;
       }
-      await db
-        .update(gmailWatchStateTable)
-        .set({ lastHistoryId: history.historyId, updatedAt: new Date() })
-        .where(eq(gmailWatchStateTable.accountEmail, state.accountEmail));
     } catch (error) {
       if (!(error instanceof GmailHttpError) || error.status !== 404) throw error;
-      // Establish the new watch boundary before polling. Messages arriving after
-      // this boundary remain available from the saved baseline on redelivery.
+      // Establish the new watch boundary before durable discovery. Messages
+      // arriving after this boundary remain available on the new cursor.
       const watch = await activateGmailWatch(state.topicName);
-      const recovery = await pollGmailReplies();
-      if (recovery.failed || recovery.capped) {
-        throw new Error("Gmail history recovery was incomplete.");
+      await stageGmailRecovery(state.accountEmail);
+      await db.transaction(async (tx) => {
+        const recoveryState = completedRecoveryState({
+            lastHistoryId: watch.historyId,
+            watchExpiration: watch.expiration,
+            updatedAt: new Date(),
+          });
+        await tx
+          .update(gmailWatchStateTable)
+          .set(recoveryState)
+          .where(eq(gmailWatchStateTable.accountEmail, state.accountEmail));
+      });
+      const drain = await drainStagedGmailMessages(state.accountEmail);
+      if (drain.failed || drain.capped) {
+        res.status(503).json({ error: "Gmail push processing is incomplete." });
+        return;
       }
-      await db
-        .update(gmailWatchStateTable)
-        .set({
-          lastHistoryId: watch.historyId,
-          watchExpiration: watch.expiration,
-          updatedAt: new Date(),
-        })
-        .where(eq(gmailWatchStateTable.accountEmail, state.accountEmail));
     }
     res.status(204).end();
   } catch {
     res.status(503).json({ error: "Gmail push processing failed." });
   } finally {
-    if (locked) await lockClient.query("select pg_advisory_unlock($1)", [PUSH_LOCK_KEY]);
-    lockClient.release();
+    let destroy = false;
+    try {
+      if (locked && lockClient) {
+        await lockClient.query("select pg_advisory_unlock($1)", [PUSH_LOCK_KEY]);
+      }
+    } catch {
+      destroy = true;
+      if (!res.headersSent) {
+        res.status(503).json({ error: "Gmail push cleanup failed." });
+      }
+    } finally {
+      lockClient?.release(destroy);
+    }
   }
 });
 

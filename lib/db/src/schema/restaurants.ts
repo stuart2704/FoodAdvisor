@@ -126,6 +126,23 @@ export const gmailWatchStateTable = pgTable("gmail_watch_state", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+  historyScanStartId: text("history_scan_start_id"),
+  historyPageToken: text("history_page_token"),
+});
+
+// Durable, body-free inbox history staging. Rows are advanced independently
+// from the Gmail cursor so a large history window cannot wedge delivery.
+export const gmailHistoryMessagesTable = pgTable("gmail_history_messages", {
+  messageId: text("message_id").primaryKey(),
+  accountEmail: text("account_email").notNull(),
+  threadId: text("thread_id").notNull(),
+  status: text("status").notNull().default("pending"),
+  attempts: integer("attempts").notNull().default(0),
+  nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  tombstonedAt: timestamp("tombstoned_at", { withTimezone: true }),
 });
 
 export const insertRestaurantSchema = createInsertSchema(restaurantsTable);
