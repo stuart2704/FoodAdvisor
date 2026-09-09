@@ -216,11 +216,12 @@ export const createRestaurantCheckoutBodyEmailMax = 254;
 
 
 export const createRestaurantCheckoutBodyEmailRegExp = new RegExp('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$');
+export const createRestaurantCheckoutBodyAttemptIdRegExp = new RegExp('^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$');
 
 
 export const CreateRestaurantCheckoutBody = zod.object({
   "email": zod.string().max(createRestaurantCheckoutBodyEmailMax).regex(createRestaurantCheckoutBodyEmailRegExp),
-  "attemptId": zod.string().uuid()
+  "attemptId": zod.string().regex(createRestaurantCheckoutBodyAttemptIdRegExp)
 })
 
 export const createRestaurantCheckoutResponseCheckoutUrlRegExp = new RegExp('^https:/');
@@ -322,42 +323,39 @@ export const ClassifyIncomingReplyResponse = zod.object({
 
 
 /**
- * Read-only bounded polling. Gmail messages are not modified.
- * @summary Poll Gmail for replies to previously recorded outreach threads
+ * @summary Activate or renew the managed Gmail users.watch subscription
  */
-export const syncGmailRepliesResponseSearchedThreadsMin = 0;
-export const syncGmailRepliesResponseSearchedThreadsMax = 50;
-export const syncGmailRepliesResponseSearchedThreadsMultipleOf = 1;
-
-export const syncGmailRepliesResponseMatchedThreadsMin = 0;
-export const syncGmailRepliesResponseMatchedThreadsMax = 50;
-export const syncGmailRepliesResponseMatchedThreadsMultipleOf = 1;
-
-export const syncGmailRepliesResponseProcessedMin = 0;
-export const syncGmailRepliesResponseProcessedMax = 20;
-export const syncGmailRepliesResponseProcessedMultipleOf = 1;
-
-export const syncGmailRepliesResponseSkippedMin = 0;
-export const syncGmailRepliesResponseSkippedMultipleOf = 1;
-
-export const syncGmailRepliesResponseFailedMin = 0;
-export const syncGmailRepliesResponseFailedMultipleOf = 1;
-
-export const syncGmailRepliesResponseErrorsItemMax = 200;
-
-export const syncGmailRepliesResponseErrorsMax = 20;
+export const renewGmailWatchResponseHistoryIdRegExp = new RegExp('^[1-9][0-9]{0,19}$');
+export const renewGmailWatchResponseTopicRegExp = new RegExp('^projects/[^/]+/topics/[^/]+$');
 
 
-
-export const SyncGmailRepliesResponse = zod.object({
-  "searchedThreads": zod.number().min(syncGmailRepliesResponseSearchedThreadsMin).max(syncGmailRepliesResponseSearchedThreadsMax).multipleOf(syncGmailRepliesResponseSearchedThreadsMultipleOf),
-  "matchedThreads": zod.number().min(syncGmailRepliesResponseMatchedThreadsMin).max(syncGmailRepliesResponseMatchedThreadsMax).multipleOf(syncGmailRepliesResponseMatchedThreadsMultipleOf),
-  "processed": zod.number().min(syncGmailRepliesResponseProcessedMin).max(syncGmailRepliesResponseProcessedMax).multipleOf(syncGmailRepliesResponseProcessedMultipleOf),
-  "skipped": zod.number().min(syncGmailRepliesResponseSkippedMin).multipleOf(syncGmailRepliesResponseSkippedMultipleOf),
-  "failed": zod.number().min(syncGmailRepliesResponseFailedMin).multipleOf(syncGmailRepliesResponseFailedMultipleOf),
-  "capped": zod.boolean(),
-  "errors": zod.array(zod.string().max(syncGmailRepliesResponseErrorsItemMax)).max(syncGmailRepliesResponseErrorsMax)
+export const RenewGmailWatchResponse = zod.object({
+  "historyId": zod.string().regex(renewGmailWatchResponseHistoryIdRegExp),
+  "expiration": zod.coerce.date(),
+  "topic": zod.string().regex(renewGmailWatchResponseTopicRegExp)
 })
+
+
+/**
+ * @summary Receive an authenticated Google Cloud Pub/Sub Gmail notification
+ */
+export const receiveGmailPushBodySubscriptionMax = 255;
+
+export const receiveGmailPushBodyMessageMessageIdMax = 255;
+
+export const receiveGmailPushBodyMessageDataMax = 8192;
+
+
+
+export const ReceiveGmailPushBody = zod.object({
+  "subscription": zod.string().max(receiveGmailPushBodySubscriptionMax),
+  "message": zod.object({
+  "messageId": zod.string().min(1).max(receiveGmailPushBodyMessageMessageIdMax),
+  "data": zod.string().min(1).max(receiveGmailPushBodyMessageDataMax)
+})
+})
+
+export const ReceiveGmailPushResponse = zod.void()
 
 
 /**

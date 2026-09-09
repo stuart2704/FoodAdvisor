@@ -24,14 +24,160 @@ function validId(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && value.length <= 255;
 }
 
-async function gmailJson(path: string): Promise<unknown> {
+export function validHistoryId(value: unknown): value is string {
+  if (typeof value !== "string" || !/^[1-9]\d{0,19}$/.test(value)) return false;
+  try {
+    return BigInt(value) <= 18_446_744_073_709_551_615n;
+  } catch {
+    return false;
+  }
+}
+
+export class GmailHttpError extends Error {
+  constructor(public readonly status: number) {
+    super("Gmail connector request failed.");
+  }
+}
+
+export async function gmailJson(
+  path: string,
+  options: { method?: "GET" | "POST"; body?: unknown } = {},
+): Promise<unknown> {
   // Connector clients must be created per operation because OAuth tokens refresh.
   const connectors = new ReplitConnectors();
-  const response = await connectors.proxy("google-mail", path, { method: "GET" });
+  const response = await connectors.proxy("google-mail", path, {
+    method: options.method ?? "GET",
+    headers: options.body === undefined ? undefined : { "content-type": "application/json" },
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+  });
   if (!response.ok) {
-    throw new Error(`Gmail connector returned HTTP ${response.status}.`);
+    throw new GmailHttpError(response.status);
   }
   return response.json();
+}
+
+export async function getGmailProfile(): Promise<{ emailAddress: string }> {
+  const value = await gmailJson("/gmail/v1/users/me/profile");
+  const emailAddress =
+    typeof value === "object" && value !== null
+      ? (value as { emailAddress?: unknown }).emailAddress
+      : undefined;
+  if (
+    typeof emailAddress !== "string" ||
+    emailAddress.length > 254 ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailAddress)
+  ) {
+    throw new Error("Gmail profile response was invalid.");
+  }
+  return { emailAddress: emailAddress.toLowerCase() };
+}
+
+export interface GmailWatch {
+  historyId: string;
+  expiration: Date;
+}
+
+export async function activateGmailWatch(topicName: string): Promise<GmailWatch> {
+  if (!/^projects\/[^/]+\/topics\/[^/]+$/.test(topicName) || topicName.length > 255) {
+    throw new Error("Gmail Pub/Sub topic is invalid.");
+  }
+  const value = await gmailJson("/gmail/v1/users/me/watch", {
+    method: "POST",
+    body: {
+      topicName,
+      labelIds: ["INBOX"],
+      labelFilterBehavior: "include",
+    },
+  });
+  const item =
+    typeof value === "object" && value !== null
+      ? (value as { historyId?: unknown; expiration?: unknown })
+      : {};
+  if (
+    !validHistoryId(item.historyId) ||
+    typeof item.expiration !== "string" ||
+    !/^[1-9]\d{12}$/.test(item.expiration)
+  ) {
+    throw new Error("Gmail watch response was invalid.");
+  }
+  const expiration = new Date(Number(item.expiration));
+  if (!Number.isFinite(expiration.getTime()) || expiration <= new Date()) {
+    throw new Error("Gmail watch expiration was invalid.");
+  }
+  return { historyId: item.historyId, expiration };
+}
+
+export interface GmailHistoryResult {
+  messageIds: string[];
+  historyId: string;
+}
+
+const HISTORY_PAGE_SIZE = 100;
+const HISTORY_MAX_PAGES = 10;
+const HISTORY_MAX_MESSAGES = 500;
+
+export async function listGmailHistory(startHistoryId: string): Promise<GmailHistoryResult> {
+  if (!validHistoryId(startHistoryId)) throw new Error("Gmail history cursor is invalid.");
+  let pageToken: string | undefined;
+  let latestHistoryId: string | undefined;
+  const ids = new Set<string>();
+  for (let page = 0; page < HISTORY_MAX_PAGES; page += 1) {
+    const query = new URLSearchParams({
+      startHistoryId,
+      historyTypes: "messageAdded",
+      labelId: "INBOX",
+      maxResults: String(HISTORY_PAGE_SIZE),
+    });
+    if (pageToken) query.set("pageToken", pageToken);
+    const value = await gmailJson(`/gmail/v1/users/me/history?${query.toString()}`);
+    if (typeof value !== "object" || value === null) {
+      throw new Error("Gmail history response was invalid.");
+    }
+    const item = value as {
+      history?: unknown;
+      historyId?: unknown;
+      nextPageToken?: unknown;
+    };
+    if (!validHistoryId(item.historyId)) {
+      throw new Error("Gmail history response was invalid.");
+    }
+    latestHistoryId = item.historyId;
+    if (item.history !== undefined && !Array.isArray(item.history)) {
+      throw new Error("Gmail history response was invalid.");
+    }
+    for (const record of item.history ?? []) {
+      if (typeof record !== "object" || record === null) {
+        throw new Error("Gmail history response was invalid.");
+      }
+      const added = (record as { messagesAdded?: unknown }).messagesAdded;
+      if (added !== undefined && !Array.isArray(added)) {
+        throw new Error("Gmail history response was invalid.");
+      }
+      for (const entry of added ?? []) {
+        const message =
+          typeof entry === "object" && entry !== null
+            ? (entry as { message?: unknown }).message
+            : undefined;
+        const id =
+          typeof message === "object" && message !== null
+            ? (message as { id?: unknown }).id
+            : undefined;
+        if (!validId(id)) throw new Error("Gmail history message was invalid.");
+        ids.add(id);
+        if (ids.size > HISTORY_MAX_MESSAGES) {
+          throw new Error("Gmail history exceeded its safety limit.");
+        }
+      }
+    }
+    if (item.nextPageToken === undefined) {
+      return { messageIds: [...ids], historyId: latestHistoryId };
+    }
+    if (!validId(item.nextPageToken)) {
+      throw new Error("Gmail history page token was invalid.");
+    }
+    pageToken = item.nextPageToken;
+  }
+  throw new Error("Gmail history exceeded its page limit.");
 }
 
 export async function searchInboxThreads(): Promise<string[]> {
@@ -103,17 +249,42 @@ export async function getFullMessage(messageId: string): Promise<GmailMessage> {
     labelIds?: unknown;
     payload?: GmailMessagePart;
   };
-  if (!validId(item.id) || !validId(item.threadId)) {
+  if (
+    !validId(item.id) ||
+    item.id !== messageId ||
+    !validId(item.threadId) ||
+    !Array.isArray(item.labelIds) ||
+    !item.labelIds.every((label) => typeof label === "string" && label.length <= 255)
+  ) {
     throw new Error("Gmail message identifiers were invalid.");
   }
   return {
     id: item.id,
     threadId: item.threadId,
-    labelIds: Array.isArray(item.labelIds)
-      ? item.labelIds.filter((label): label is string => typeof label === "string")
-      : [],
+    labelIds: item.labelIds,
     payload: item.payload,
   };
+}
+
+export async function getMessageSummary(messageId: string): Promise<GmailMessageSummary> {
+  if (!validId(messageId)) throw new Error("Gmail message identifier was invalid.");
+  const value = await gmailJson(
+    `/gmail/v1/users/me/messages/${encodeURIComponent(messageId)}?format=minimal`,
+  );
+  if (typeof value !== "object" || value === null) {
+    throw new Error("Gmail message response was invalid.");
+  }
+  const item = value as { id?: unknown; threadId?: unknown; labelIds?: unknown };
+  if (
+    !validId(item.id) ||
+    item.id !== messageId ||
+    !validId(item.threadId) ||
+    !Array.isArray(item.labelIds) ||
+    !item.labelIds.every((label) => typeof label === "string" && label.length <= 255)
+  ) {
+    throw new Error("Gmail message summary was invalid.");
+  }
+  return { id: item.id, threadId: item.threadId, labelIds: item.labelIds };
 }
 
 export function getHeader(

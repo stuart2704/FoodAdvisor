@@ -1,4 +1,9 @@
-import express, { type Express } from "express";
+import express, {
+  type Express,
+  type NextFunction,
+  type Request,
+  type Response,
+} from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
@@ -55,5 +60,25 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
+
+app.use(
+  (
+    error: unknown,
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): void => {
+    if (
+      req.path === "/api/gmail/push" &&
+      typeof error === "object" &&
+      error !== null &&
+      ("status" in error || error instanceof SyntaxError)
+    ) {
+      res.status(400).json({ error: "Invalid Pub/Sub request." });
+      return;
+    }
+    next(error);
+  },
+);
 
 export default app;

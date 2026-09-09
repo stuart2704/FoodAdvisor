@@ -115,6 +115,7 @@ export interface RestaurantCheckoutInput {
      * @pattern ^[^\s@]+@[^\s@]+\.[^\s@]+$
      */
   email: string;
+  /** @pattern ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$ */
   attemptId: string;
 }
 
@@ -218,33 +219,34 @@ export interface ReplyClassification {
   recommendedAction: ReplyClassificationRecommendedAction;
 }
 
-export interface GmailSyncResult {
-  /**
-     * @minimum 0
-     * @maximum 50
-     */
-  searchedThreads: number;
-  /**
-     * @minimum 0
-     * @maximum 50
-     */
-  matchedThreads: number;
-  /**
-     * @minimum 0
-     * @maximum 20
-     */
-  processed: number;
-  /** @minimum 0 */
-  skipped: number;
-  /** @minimum 0 */
-  failed: number;
-  capped: boolean;
-  /**
-     * @maxItems 20
-     * @items.maxLength 200
-     */
-  errors: string[];
+export interface GmailWatch {
+  /** @pattern ^[1-9][0-9]{0,19}$ */
+  historyId: string;
+  expiration: string;
+  /** @pattern ^projects/[^/]+/topics/[^/]+$ */
+  topic: string;
 }
+
+export type PubSubPushEnvelopeMessage = {
+  /**
+     * @minLength 1
+     * @maxLength 255
+     */
+  messageId: string;
+  /**
+     * @minLength 1
+     * @maxLength 8192
+     */
+  data: string;
+  [key: string]: unknown;
+ };
+
+export interface PubSubPushEnvelope {
+  /** @maxLength 255 */
+  subscription: string;
+  message: PubSubPushEnvelopeMessage;
+  [key: string]: unknown;
+ }
 
 export type RestaurantEnrichmentResultConfidence = typeof RestaurantEnrichmentResultConfidence[keyof typeof RestaurantEnrichmentResultConfidence];
 

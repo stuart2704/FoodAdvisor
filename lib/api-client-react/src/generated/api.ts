@@ -22,11 +22,12 @@ import type {
 import type {
   CheckoutCompletion,
   ErrorResponse,
-  GmailSyncResult,
+  GmailWatch,
   HealthStatus,
   IncomingReplyInput,
   ListRestaurantsParams,
   OutreachRunResult,
+  PubSubPushEnvelope,
   ReplyClassification,
   Restaurant,
   RestaurantCheckoutInput,
@@ -885,21 +886,20 @@ export const useClassifyIncomingReply = <TError = ErrorType<ErrorResponse>,
       return useMutation(getClassifyIncomingReplyMutationOptions(options));
     }
 
-export const getSyncGmailRepliesUrl = () => {
+export const getRenewGmailWatchUrl = () => {
 
 
 
 
-  return `/api/gmail/sync`
+  return `/api/gmail/watch`
 }
 
 /**
- * Read-only bounded polling. Gmail messages are not modified.
- * @summary Poll Gmail for replies to previously recorded outreach threads
+ * @summary Activate or renew the managed Gmail users.watch subscription
  */
-export const syncGmailReplies = async ( options?: Parameters<typeof customFetch>[1]): Promise<GmailSyncResult> => {
+export const renewGmailWatch = async ( options?: Parameters<typeof customFetch>[1]): Promise<GmailWatch> => {
 
-  return customFetch<GmailSyncResult>(getSyncGmailRepliesUrl(),
+  return customFetch<GmailWatch>(getRenewGmailWatchUrl(),
   {
     ...options,
     method: 'POST'
@@ -912,11 +912,11 @@ export const syncGmailReplies = async ( options?: Parameters<typeof customFetch>
 
 
 
-export const getSyncGmailRepliesMutationOptions = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncGmailReplies>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof syncGmailReplies>>, TError,void, TContext> => {
+export const getRenewGmailWatchMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renewGmailWatch>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof renewGmailWatch>>, TError,void, TContext> => {
 
-const mutationKey = ['syncGmailReplies'];
+const mutationKey = ['renewGmailWatch'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -926,10 +926,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncGmailReplies>>, void> = () => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof renewGmailWatch>>, void> = () => {
 
 
-          return  syncGmailReplies(requestOptions)
+          return  renewGmailWatch(requestOptions)
         }
 
 
@@ -939,22 +939,93 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type SyncGmailRepliesMutationResult = NonNullable<Awaited<ReturnType<typeof syncGmailReplies>>>
+    export type RenewGmailWatchMutationResult = NonNullable<Awaited<ReturnType<typeof renewGmailWatch>>>
 
-    export type SyncGmailRepliesMutationError = ErrorType<ErrorResponse>
+    export type RenewGmailWatchMutationError = ErrorType<ErrorResponse>
 
     /**
- * @summary Poll Gmail for replies to previously recorded outreach threads
+ * @summary Activate or renew the managed Gmail users.watch subscription
  */
-export const useSyncGmailReplies = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncGmailReplies>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+export const useRenewGmailWatch = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renewGmailWatch>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
-        Awaited<ReturnType<typeof syncGmailReplies>>,
+        Awaited<ReturnType<typeof renewGmailWatch>>,
         TError,
         void,
         TContext
       > => {
-      return useMutation(getSyncGmailRepliesMutationOptions(options));
+      return useMutation(getRenewGmailWatchMutationOptions(options));
+    }
+
+export const getReceiveGmailPushUrl = () => {
+
+
+
+
+  return `/api/gmail/push`
+}
+
+/**
+ * @summary Receive an authenticated Google Cloud Pub/Sub Gmail notification
+ */
+export const receiveGmailPush = async (pubSubPushEnvelope: PubSubPushEnvelope, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getReceiveGmailPushUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(pubSubPushEnvelope)
+  }
+);}
+
+
+
+
+
+export const getReceiveGmailPushMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof receiveGmailPush>>, TError,{data: BodyType<PubSubPushEnvelope>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof receiveGmailPush>>, TError,{data: BodyType<PubSubPushEnvelope>}, TContext> => {
+
+const mutationKey = ['receiveGmailPush'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof receiveGmailPush>>, {data: BodyType<PubSubPushEnvelope>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  receiveGmailPush(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReceiveGmailPushMutationResult = NonNullable<Awaited<ReturnType<typeof receiveGmailPush>>>
+    export type ReceiveGmailPushMutationBody = BodyType<PubSubPushEnvelope>
+    export type ReceiveGmailPushMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Receive an authenticated Google Cloud Pub/Sub Gmail notification
+ */
+export const useReceiveGmailPush = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof receiveGmailPush>>, TError,{data: BodyType<PubSubPushEnvelope>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof receiveGmailPush>>,
+        TError,
+        {data: BodyType<PubSubPushEnvelope>},
+        TContext
+      > => {
+      return useMutation(getReceiveGmailPushMutationOptions(options));
     }
 
 export const getEnrichRestaurantUrl = (placeId: string,) => {

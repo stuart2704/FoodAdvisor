@@ -116,6 +116,18 @@ export const processedGmailMessagesTable = pgTable(
   },
 );
 
+// One row per managed Gmail connector account. Gmail history IDs are opaque
+// unsigned 64-bit decimal values and therefore must never be stored as numbers.
+export const gmailWatchStateTable = pgTable("gmail_watch_state", {
+  accountEmail: text("account_email").primaryKey(),
+  lastHistoryId: text("last_history_id").notNull(),
+  watchExpiration: timestamp("watch_expiration", { withTimezone: true }).notNull(),
+  topicName: text("topic_name").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const insertRestaurantSchema = createInsertSchema(restaurantsTable);
 export const insertRestaurantImportRunSchema = createInsertSchema(
   restaurantImportRunsTable,

@@ -19,7 +19,7 @@ tags:
   - name: replies
     description: Protected inbound outreach reply classification
   - name: gmail
-    description: Protected Gmail reply polling
+    description: Gmail watch renewal and authenticated Pub/Sub push
 paths:
   /healthz:
     get:
@@ -306,21 +306,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-  /gmail/sync:
+  /gmail/watch:
     post:
-      operationId: syncGmailReplies
+      operationId: renewGmailWatch
       tags: [gmail]
-      summary: Poll Gmail for replies to previously recorded outreach threads
-      description: Read-only bounded polling. Gmail messages are not modified.
+      summary: Activate or renew the managed Gmail users.watch subscription
       security:
         - automationBearer: []
       responses:
         "200":
-          description: Gmail polling result
+          description: Current durable Gmail history cursor and watch expiration
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GmailSyncResult"
+                $ref: "#/components/schemas/GmailWatch"
         "401":
           description: Invalid automation credential
           content:
@@ -328,7 +327,41 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
-          description: Gmail polling could not start
+          description: Gmail watch could not be activated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /gmail/push:
+    post:
+      operationId: receiveGmailPush
+      tags: [gmail]
+      summary: Receive an authenticated Google Cloud Pub/Sub Gmail notification
+      security:
+        - pubsubOidc: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PubSubPushEnvelope"
+      responses:
+        "204":
+          description: Notification accepted or already processed
+        "400":
+          description: Invalid envelope, subscription, or Gmail notification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid Pub/Sub OIDC identity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Temporary or incomplete processing failure
           content:
             application/json:
               schema:
@@ -372,6 +405,10 @@ components:
     automationBearer:
       type: http
       scheme: bearer
+    pubsubOidc:
+      type: http
+      scheme: bearer
+      bearerFormat: Google OIDC ID token
   parameters:
     PlaceId:
       in: path
@@ -583,7 +620,7 @@ components:
           maxLength: 254
         attemptId:
           type: string
-          format: uuid
+          pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
       required: [email, attemptId]
     RestaurantCheckoutResult:
       type: object
@@ -646,42 +683,41 @@ components:
           type: string
           enum: [suppress, pause, sales_follow_up, answer_question, manual_review]
       required: [category, confidence, matchedPattern, recommendedAction]
-    GmailSyncResult:
+    GmailWatch:
       type: object
       additionalProperties: false
       properties:
-        searchedThreads:
-          type: number
-          multipleOf: 1
-          minimum: 0
-          maximum: 50
-        matchedThreads:
-          type: number
-          multipleOf: 1
-          minimum: 0
-          maximum: 50
-        processed:
-          type: number
-          multipleOf: 1
-          minimum: 0
-          maximum: 20
-        skipped:
-          type: number
-          multipleOf: 1
-          minimum: 0
-        failed:
-          type: number
-          multipleOf: 1
-          minimum: 0
-        capped:
-          type: boolean
-        errors:
-          type: array
-          maxItems: 20
-          items:
-            type: string
-            maxLength: 200
-      required: [searchedThreads, matchedThreads, processed, skipped, failed, capped, errors]
+        historyId:
+          type: string
+          pattern: "^[1-9][0-9]{0,19}$"
+        expiration:
+          type: string
+          format: date-time
+        topic:
+          type: string
+          pattern: "^projects/[^/]+/topics/[^/]+$"
+      required: [historyId, expiration, topic]
+    PubSubPushEnvelope:
+      type: object
+      additionalProperties: true
+      properties:
+        subscription:
+          type: string
+          maxLength: 255
+        message:
+          type: object
+          additionalProperties: true
+          properties:
+            messageId:
+              type: string
+              minLength: 1
+              maxLength: 255
+            data:
+              type: string
+              minLength: 1
+              maxLength: 8192
+          required: [messageId, data]
+      required: [subscription, message]
     RestaurantEnrichmentResult:
       type: object
       properties:

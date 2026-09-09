@@ -3,17 +3,95 @@ import {
   gmailOutreachThreadsTable,
   processedGmailMessagesTable,
 } from "@workspace/db";
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import {
   decodeBoundedPlainText,
   getFullMessage,
   getHeader,
+  getMessageSummary,
   listThreadMessages,
   searchInboxThreads,
 } from "./gmailClient";
 import { processGmailIncomingReply } from "../replyClassifier/processIncomingReply";
 
 const MAX_INBOUND_PER_RUN = 20;
+
+export interface GmailMessageProcessingResult {
+  processed: number;
+  skipped: number;
+  failed: number;
+  capped: boolean;
+}
+
+export async function processGmailMessageIds(
+  inputIds: string[],
+): Promise<GmailMessageProcessingResult> {
+  const result: GmailMessageProcessingResult = {
+    processed: 0,
+    skipped: 0,
+    failed: 0,
+    capped: false,
+  };
+  let attempted = 0;
+  for (const messageId of [...new Set(inputIds)]) {
+    const prior = await db
+      .select({ messageId: processedGmailMessagesTable.messageId })
+      .from(processedGmailMessagesTable)
+      .where(eq(processedGmailMessagesTable.messageId, messageId))
+      .limit(1);
+    if (prior.length) {
+      result.skipped += 1;
+      continue;
+    }
+    try {
+      const summary = await getMessageSummary(messageId);
+      const [mapping] = await db
+        .select()
+        .from(gmailOutreachThreadsTable)
+        .where(eq(gmailOutreachThreadsTable.threadId, summary.threadId))
+        .limit(1);
+      if (
+        !mapping ||
+        summary.id === mapping.sentMessageId ||
+        summary.labelIds.includes("SENT")
+      ) {
+        result.skipped += 1;
+        continue;
+      }
+      if (attempted >= MAX_INBOUND_PER_RUN) {
+        result.capped = true;
+        break;
+      }
+      attempted += 1;
+      const message = await getFullMessage(messageId);
+      if (
+        message.threadId !== mapping.threadId ||
+        message.id === mapping.sentMessageId ||
+        message.labelIds.includes("SENT")
+      ) {
+        result.skipped += 1;
+        continue;
+      }
+      const body = decodeBoundedPlainText(message);
+      if (!body) {
+        result.skipped += 1;
+        continue;
+      }
+      const processed = await processGmailIncomingReply({
+        placeId: mapping.placeId,
+        body,
+        from: getHeader(message, "from"),
+        gmailMessageId: message.id,
+        gmailThreadId: mapping.threadId,
+      });
+      if (processed.status === "processed") result.processed += 1;
+      else result.skipped += 1;
+    } catch {
+      result.failed += 1;
+    }
+  }
+  return result;
+}
 
 export interface GmailPollingResult {
   searchedThreads: number;
