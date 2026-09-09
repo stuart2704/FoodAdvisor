@@ -125,6 +125,66 @@ export interface UnsubscribeResult {
   suppressed: boolean;
 }
 
+export interface IncomingReplyInput {
+  /**
+     * @minLength 1
+     * @maxLength 255
+     */
+  placeId: string;
+  /**
+     * @minLength 1
+     * @maxLength 10000
+     */
+  body: string;
+  /**
+     * @maxLength 254
+     * @pattern ^[^\s@]+@[^\s@]+\.[^\s@]+$
+     */
+  from?: string;
+}
+
+export type ReplyClassificationCategory = typeof ReplyClassificationCategory[keyof typeof ReplyClassificationCategory];
+
+
+export const ReplyClassificationCategory = {
+  unsubscribe: 'unsubscribe',
+  wrong_contact: 'wrong_contact',
+  out_of_office: 'out_of_office',
+  not_interested: 'not_interested',
+  upgrade: 'upgrade',
+  interested: 'interested',
+  question: 'question',
+  unknown: 'unknown',
+} as const;
+
+export type ReplyClassificationConfidence = typeof ReplyClassificationConfidence[keyof typeof ReplyClassificationConfidence];
+
+
+export const ReplyClassificationConfidence = {
+  low: 'low',
+  medium: 'medium',
+  high: 'high',
+} as const;
+
+export type ReplyClassificationRecommendedAction = typeof ReplyClassificationRecommendedAction[keyof typeof ReplyClassificationRecommendedAction];
+
+
+export const ReplyClassificationRecommendedAction = {
+  suppress: 'suppress',
+  pause: 'pause',
+  sales_follow_up: 'sales_follow_up',
+  answer_question: 'answer_question',
+  manual_review: 'manual_review',
+} as const;
+
+export interface ReplyClassification {
+  category: ReplyClassificationCategory;
+  confidence: ReplyClassificationConfidence;
+  /** @nullable */
+  matchedPattern: string | null;
+  recommendedAction: ReplyClassificationRecommendedAction;
+}
+
 export type RestaurantEnrichmentResultConfidence = typeof RestaurantEnrichmentResultConfidence[keyof typeof RestaurantEnrichmentResultConfidence];
 
 

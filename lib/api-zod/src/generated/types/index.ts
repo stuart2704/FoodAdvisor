@@ -8,8 +8,13 @@
 
 export * from './errorResponse';
 export * from './healthStatus';
+export * from './incomingReplyInput';
 export * from './listRestaurantsParams';
 export * from './outreachRunResult';
+export * from './replyClassification';
+export * from './replyClassificationCategory';
+export * from './replyClassificationConfidence';
+export * from './replyClassificationRecommendedAction';
 export * from './restaurant';
 export * from './restaurantCheckoutInput';
 export * from './restaurantCheckoutResult';

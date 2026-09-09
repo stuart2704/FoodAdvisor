@@ -22,8 +22,10 @@ import type {
 import type {
   ErrorResponse,
   HealthStatus,
+  IncomingReplyInput,
   ListRestaurantsParams,
   OutreachRunResult,
+  ReplyClassification,
   Restaurant,
   RestaurantCheckoutInput,
   RestaurantCheckoutResult,
@@ -730,6 +732,78 @@ export const useRunOutreachAutomation = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getRunOutreachAutomationMutationOptions(options));
+    }
+
+export const getClassifyIncomingReplyUrl = () => {
+
+
+
+
+  return `/api/replies/incoming`
+}
+
+/**
+ * Classifies only the supplied body. It does not read or modify an email mailbox.
+ * @summary Classify a supplied outreach reply and update its restaurant
+ */
+export const classifyIncomingReply = async (incomingReplyInput: IncomingReplyInput, options?: Parameters<typeof customFetch>[1]): Promise<ReplyClassification> => {
+
+  return customFetch<ReplyClassification>(getClassifyIncomingReplyUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(incomingReplyInput)
+  }
+);}
+
+
+
+
+
+export const getClassifyIncomingReplyMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof classifyIncomingReply>>, TError,{data: BodyType<IncomingReplyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof classifyIncomingReply>>, TError,{data: BodyType<IncomingReplyInput>}, TContext> => {
+
+const mutationKey = ['classifyIncomingReply'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof classifyIncomingReply>>, {data: BodyType<IncomingReplyInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  classifyIncomingReply(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClassifyIncomingReplyMutationResult = NonNullable<Awaited<ReturnType<typeof classifyIncomingReply>>>
+    export type ClassifyIncomingReplyMutationBody = BodyType<IncomingReplyInput>
+    export type ClassifyIncomingReplyMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Classify a supplied outreach reply and update its restaurant
+ */
+export const useClassifyIncomingReply = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof classifyIncomingReply>>, TError,{data: BodyType<IncomingReplyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof classifyIncomingReply>>,
+        TError,
+        {data: BodyType<IncomingReplyInput>},
+        TContext
+      > => {
+      return useMutation(getClassifyIncomingReplyMutationOptions(options));
     }
 
 export const getEnrichRestaurantUrl = (placeId: string,) => {

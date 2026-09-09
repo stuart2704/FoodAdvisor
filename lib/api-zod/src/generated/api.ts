@@ -273,6 +273,34 @@ export const RunOutreachAutomationResponse = zod.object({
 
 
 /**
+ * Classifies only the supplied body. It does not read or modify an email mailbox.
+ * @summary Classify a supplied outreach reply and update its restaurant
+ */
+export const classifyIncomingReplyBodyPlaceIdMax = 255;
+
+export const classifyIncomingReplyBodyBodyMax = 10000;
+
+export const classifyIncomingReplyBodyFromMax = 254;
+
+
+export const classifyIncomingReplyBodyFromRegExp = new RegExp('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$');
+
+
+export const ClassifyIncomingReplyBody = zod.object({
+  "placeId": zod.string().min(1).max(classifyIncomingReplyBodyPlaceIdMax),
+  "body": zod.string().min(1).max(classifyIncomingReplyBodyBodyMax),
+  "from": zod.string().max(classifyIncomingReplyBodyFromMax).regex(classifyIncomingReplyBodyFromRegExp).optional()
+})
+
+export const ClassifyIncomingReplyResponse = zod.object({
+  "category": zod.enum(['unsubscribe', 'wrong_contact', 'out_of_office', 'not_interested', 'upgrade', 'interested', 'question', 'unknown']),
+  "confidence": zod.enum(['low', 'medium', 'high']),
+  "matchedPattern": zod.string().nullable(),
+  "recommendedAction": zod.enum(['suppress', 'pause', 'sales_follow_up', 'answer_question', 'manual_review'])
+})
+
+
+/**
  * @summary Enrich one restaurant from its public website
  */
 

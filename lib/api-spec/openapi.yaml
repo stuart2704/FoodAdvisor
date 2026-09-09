@@ -16,6 +16,8 @@ tags:
     description: Restaurant claim and subscription operations
   - name: outreach
     description: Outreach preferences and automation
+  - name: replies
+    description: Protected inbound outreach reply classification
 paths:
   /healthz:
     get:
@@ -233,6 +235,45 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
           description: Sending is disabled or configuration is unsafe
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /replies/incoming:
+    post:
+      operationId: classifyIncomingReply
+      tags: [replies]
+      summary: Classify a supplied outreach reply and update its restaurant
+      description: Classifies only the supplied body. It does not read or modify an email mailbox.
+      security:
+        - automationBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IncomingReplyInput"
+      responses:
+        "200":
+          description: Reply classified and recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReplyClassification"
+        "400":
+          description: Invalid or oversized request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid automation credential
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Restaurant not found
           content:
             application/json:
               schema:
@@ -497,6 +538,39 @@ components:
         suppressed:
           type: boolean
       required: [suppressed]
+    IncomingReplyInput:
+      type: object
+      additionalProperties: false
+      properties:
+        placeId:
+          type: string
+          minLength: 1
+          maxLength: 255
+        body:
+          type: string
+          minLength: 1
+          maxLength: 10000
+        from:
+          type: string
+          pattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
+          maxLength: 254
+      required: [placeId, body]
+    ReplyClassification:
+      type: object
+      additionalProperties: false
+      properties:
+        category:
+          type: string
+          enum: [unsubscribe, wrong_contact, out_of_office, not_interested, upgrade, interested, question, unknown]
+        confidence:
+          type: string
+          enum: [low, medium, high]
+        matchedPattern:
+          type: ["string", "null"]
+        recommendedAction:
+          type: string
+          enum: [suppress, pause, sales_follow_up, answer_question, manual_review]
+      required: [category, confidence, matchedPattern, recommendedAction]
     RestaurantEnrichmentResult:
       type: object
       properties:
