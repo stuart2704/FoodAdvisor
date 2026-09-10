@@ -8,6 +8,7 @@ import {
 } from "../services/gmail/gmailClient";
 import { processGmailIncomingReply } from "../services/replyClassifier/processIncomingReply";
 import { logEvent } from "../utils/eventLog";
+import { mapReplyIntent } from "./classifier";
 
 async function getWatchAccount(): Promise<string | null> {
   const states = await db.select().from(gmailWatchStateTable).limit(2);
@@ -97,7 +98,7 @@ export async function handleReply(reply: unknown) {
       ? "suppressed" : intent === "unknown" ? "replied" : intent;
     return {
       status: "processed" as const,
-      intent,
+      intent: mapReplyIntent(result.classification),
       classification: result.classification,
       newStatus,
       aiResponse: null,

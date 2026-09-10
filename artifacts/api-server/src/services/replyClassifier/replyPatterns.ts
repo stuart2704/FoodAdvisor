@@ -35,6 +35,7 @@ export const REPLY_PATTERN_GROUPS: readonly ReplyPatternGroup[] = [
     recommendedAction: "suppress",
     patterns: [
       { name: "unsubscribe", expression: /\b(?:please\s+)?unsubscribe(?:\s+(?:me|us))?\b/i, confidence: "high" },
+      { name: "stop_emailing", expression: /\bstop\s+emailing(?:\s+(?:me|us))?\b/i, confidence: "high" },
       { name: "remove_from_list", expression: /\b(?:remove|take)\s+(?:me|us)\s+(?:off|from)\s+(?:your\s+)?(?:list|mailing list|emails?)\b/i, confidence: "high" },
       { name: "stop_contact", expression: /\b(?:do not|don't|stop)\s+(?:emailing|contacting|sending(?:\s+(?:me|us))?\s+emails?\s+to)\s+(?:me|us)\b/i, confidence: "high" },
       { name: "opt_out", expression: /\b(?:i|we)\s+(?:want|would like)\s+to\s+opt\s*out\b/i, confidence: "high" },
@@ -66,6 +67,10 @@ export const REPLY_PATTERN_GROUPS: readonly ReplyPatternGroup[] = [
     recommendedAction: "suppress",
     patterns: [
       { name: "not_interested", expression: /\b(?:not|no longer)\s+interested\b/i, confidence: "high" },
+      { name: "no_thank_you", expression: /\bno\s+thank\s+you\b/i, confidence: "high" },
+      { name: "decline_for_now", expression: /\b(?:not\s+right\s+now|maybe\s+later)\b/i, confidence: "medium" },
+      { name: "no_need", expression: /\b(?:don't|do\s+not)\s+need\b/i, confidence: "medium" },
+      { name: "already_okay", expression: /\b(?:we're|we\s+are)\s+(?:okay|fine)\b/i, confidence: "medium" },
       { name: "no_thanks", expression: /\b(?:no|not)\s+thanks?\b/i, confidence: "high" },
       { name: "decline_offer", expression: /\b(?:i|we)(?:'re|'m|\s+are|\s+am)?\s*(?:will\s+)?(?:pass|decline)\b/i, confidence: "medium" },
       { name: "do_not_want", expression: /\b(?:do not|don't)\s+want\s+(?:to\s+)?(?:subscribe|upgrade|claim|proceed|continue)\b/i, confidence: "high" },
@@ -86,6 +91,10 @@ export const REPLY_PATTERN_GROUPS: readonly ReplyPatternGroup[] = [
     recommendedAction: "sales_follow_up",
     patterns: [
       { name: "explicit_interest", expression: /\b(?:i am|i'm|we are|we're)\s+(?:very\s+|definitely\s+)?interested\b/i, confidence: "high" },
+      { name: "standalone_interest", expression: /^(?:yes[,.! ]+)?interested[.! ]*$/i, confidence: "medium" },
+      { name: "affirmative_reply", expression: /^yes(?:[,.! ]|$)/i, confidence: "medium" },
+      { name: "positive_proceed", expression: /\b(?:sounds\s+good|let's\s+do\s+it|go\s+ahead|please\s+proceed|sign\s+us\s+up)\b/i, confidence: "medium" },
+      { name: "keen_to_proceed", expression: /^(?:(?:i'm|i\s+am|we're|we\s+are)\s+)?keen[.! ]*$/i, confidence: "medium" },
       { name: "sounds_interesting", expression: /\b(?:this|that|it)\s+sounds\s+(?:very\s+)?interesting\b/i, confidence: "medium" },
       { name: "tell_me_more", expression: /\b(?:tell|send)\s+(?:me|us)\s+more\b/i, confidence: "medium" },
     ],
@@ -95,6 +104,7 @@ export const REPLY_PATTERN_GROUPS: readonly ReplyPatternGroup[] = [
     recommendedAction: "answer_question",
     patterns: [
       { name: "pricing_question", expression: /\b(?:how much|what(?:'s| is)\s+the\s+(?:price|cost)|pricing|does it cost)\b/i, confidence: "high" },
+      { name: "request_information", expression: /\b(?:more\s+info(?:rmation)?|can\s+you\s+explain|what\s+do\s+you\s+offer|details|price)\b/i, confidence: "medium" },
       { name: "process_question", expression: /\b(?:how|where|when|what)\s+(?:do|does|can|would|is|are)\b/i, confidence: "medium" },
       { name: "question_mark", expression: /\?/i, confidence: "low" },
     ],
