@@ -11,6 +11,7 @@ import { insertQueuedRestaurants } from "../pipeline/insertService";
 import { generateOutreachFor } from "../outreach/messageGenerator";
 import { getNewReplies, handleReply } from "../replies/replyService";
 import { enrichRestaurant } from "../services/enrichment/enrichRestaurant";
+import { generateDailySummary } from "../dashboard/metricsService";
 
 export interface DailyCycleOptions {
   restaurantImport?: {
@@ -48,6 +49,7 @@ export interface DailyCycleResult {
   replies: { status: "handled_by_pubsub" }
     | { status: "completed"; processed: number; skipped: number; failed: number };
   summary: Awaited<ReturnType<typeof getImportStatus>>;
+  dailySummary: string;
 }
 
 let running = false;
@@ -185,14 +187,17 @@ export async function runDailyCycle(
         `Staged reply processing finished: ${replies.processed} processed, ${replies.failed} failed`);
     }
     phase = "summary";
-    const summary = await getImportStatus();
+    const [summary, dailySummary] = await Promise.all([
+      getImportStatus(),
+      generateDailySummary(),
+    ]);
     const status = (outreach.status === "completed" && outreach.result.failed > 0)
       || enrichment.failed > 0 || (replies.status === "completed" && replies.failed > 0)
       ? "completed_with_errors" : "completed";
     logEvent("info", "Replies and their status updates remain handled by Gmail Pub/Sub");
     logEvent(status === "completed" ? "success" : "warning",
       status === "completed" ? "Daily cycle completed" : "Daily cycle completed with errors");
-    return { status, import: imported, insertion, enrichment, drafts, outreach, replies, summary };
+    return { status, import: imported, insertion, enrichment, drafts, outreach, replies, summary, dailySummary };
   } catch {
     // Never publish raw provider errors or report success after a failed phase.
     logEvent("error", `Daily cycle failed during ${phase}`);

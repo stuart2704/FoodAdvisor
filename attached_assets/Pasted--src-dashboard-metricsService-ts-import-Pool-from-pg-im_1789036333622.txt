@@ -1,0 +1,85 @@
+// src/dashboard/metricsService.ts
+
+import { Pool } from "pg";
+import { logEvent, logError } from "./eventsFeed";
+import { classifyScraperError } from "../errors/errorService";
+
+// Neon connection
+const connectionString = process.env.DATABASE_URL;
+
+const pool = new Pool({
+  connectionString,
+  ssl: { rejectUnauthorized: false }
+});
+
+/**
+ * Generate a daily summary of system activity.
+ * This is used at the end of the daily cycle.
+ */
+export async function generateDailySummary() {
+  try {
+    logEvent("Generating daily summary");
+
+    const stats = {
+      scraped: await countByStatus("scraped"),
+      inserted: await countByStatus("inserted"),
+      contacted: await countByStatus("contacted"),
+      engaged: await countByStatus("engaged"),
+      awaiting_followup: await countByStatus("awaiting_followup"),
+      closed: await countByStatus("closed"),
+      unknown_reply: await countByStatus("unknown_reply")
+    };
+
+    const summary = buildSummary(stats);
+
+    logEvent("Daily summary ready");
+
+    return summary;
+
+  } catch (err) {
+    const category = classifyScraperError(err);
+    logError("Failed to generate daily summary", category);
+    return null;
+  }
+}
+
+/**
+ * Count restaurants by status
+ */
+async function countByStatus(status: string): Promise<number> {
+  try {
+    const query = `
+      SELECT COUNT(*) AS count
+      FROM restaurants
+      WHERE status = $1;
+    `;
+
+    const result = await pool.query(query, [status]);
+
+    return Number(result.rows[0].count);
+
+  } catch (err) {
+    const category = classifyScraperError(err);
+    logError(`Failed to count status '${status}'`, category);
+    return 0;
+  }
+}
+
+/**
+ * Build a human-readable summary
+ */
+function buildSummary(stats: any) {
+  return `
+📊 DAILY SUMMARY — The Food Advisor
+
+Scraped: ${stats.scraped}
+Inserted: ${stats.inserted}
+Contacted: ${stats.contacted}
+Engaged: ${stats.engaged}
+Awaiting Follow-up: ${stats.awaiting_followup}
+Closed: ${stats.closed}
+Unknown Replies: ${stats.unknown_reply}
+
+Generated at: ${new Date().toISOString()}
+  `.trim();
+}
