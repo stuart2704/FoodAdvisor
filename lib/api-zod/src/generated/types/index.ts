@@ -8,9 +8,6 @@
 
 export * from './adminActivateGmailWatch200';
 export * from './adminRenewGmailWatch200';
-export * from './checkoutCompletion';
-export * from './checkoutCompletionClaimStatus';
-export * from './checkoutCompletionPaymentStatus';
 export * from './dashboardHealth';
 export * from './dashboardHealthRecentItem';
 export * from './dashboardHealthRecentItemProxyUsed';
@@ -38,8 +35,6 @@ export * from './replyClassificationCategory';
 export * from './replyClassificationConfidence';
 export * from './replyClassificationRecommendedAction';
 export * from './restaurant';
-export * from './restaurantCheckoutInput';
-export * from './restaurantCheckoutResult';
 export * from './restaurantClaimInput';
 export * from './restaurantClaimResult';
 export * from './restaurantClaimResultStatus';

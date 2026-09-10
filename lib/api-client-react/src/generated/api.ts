@@ -22,7 +22,6 @@ import type {
 import type {
   AdminActivateGmailWatch200,
   AdminRenewGmailWatch200,
-  CheckoutCompletion,
   DashboardHealth,
   DashboardStatusCounts,
   ErrorResponse,
@@ -39,8 +38,6 @@ import type {
   PubSubPushEnvelope,
   ReplyClassification,
   Restaurant,
-  RestaurantCheckoutInput,
-  RestaurantCheckoutResult,
   RestaurantClaimInput,
   RestaurantClaimResult,
   RestaurantEnrichmentResult,
@@ -931,7 +928,8 @@ export const getClaimRestaurantUrl = (placeId: string,) => {
 }
 
 /**
- * @summary Start a restaurant ownership claim
+ * Requires a valid, unexpired claim link sent to the restaurant's business email. Paid verification and checkout are currently unavailable.
+ * @summary Claim a free basic restaurant listing
  */
 export const claimRestaurant = async (placeId: string,
     restaurantClaimInput: RestaurantClaimInput, options?: Parameters<typeof customFetch>[1]): Promise<RestaurantClaimResult> => {
@@ -981,7 +979,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type ClaimRestaurantMutationError = ErrorType<ErrorResponse>
 
     /**
- * @summary Start a restaurant ownership claim
+ * @summary Claim a free basic restaurant listing
  */
 export const useClaimRestaurant = <TError = ErrorType<ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimRestaurant>>, TError,{placeId: string;data: BodyType<RestaurantClaimInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -993,155 +991,6 @@ export const useClaimRestaurant = <TError = ErrorType<ErrorResponse>,
       > => {
       return useMutation(getClaimRestaurantMutationOptions(options));
     }
-
-export const getCreateRestaurantCheckoutUrl = (placeId: string,) => {
-
-
-
-
-  return `/api/restaurants/${placeId}/checkout`
-}
-
-/**
- * @summary Create a £99 GBP monthly Stripe Checkout session
- */
-export const createRestaurantCheckout = async (placeId: string,
-    restaurantCheckoutInput: RestaurantCheckoutInput, options?: Parameters<typeof customFetch>[1]): Promise<RestaurantCheckoutResult> => {
-
-  return customFetch<RestaurantCheckoutResult>(getCreateRestaurantCheckoutUrl(placeId),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(restaurantCheckoutInput)
-  }
-);}
-
-
-
-
-
-export const getCreateRestaurantCheckoutMutationOptions = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRestaurantCheckout>>, TError,{placeId: string;data: BodyType<RestaurantCheckoutInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createRestaurantCheckout>>, TError,{placeId: string;data: BodyType<RestaurantCheckoutInput>}, TContext> => {
-
-const mutationKey = ['createRestaurantCheckout'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRestaurantCheckout>>, {placeId: string;data: BodyType<RestaurantCheckoutInput>}> = (props) => {
-          const {placeId,data} = props ?? {};
-
-          return  createRestaurantCheckout(placeId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type CreateRestaurantCheckoutMutationResult = NonNullable<Awaited<ReturnType<typeof createRestaurantCheckout>>>
-    export type CreateRestaurantCheckoutMutationBody = BodyType<RestaurantCheckoutInput>
-    export type CreateRestaurantCheckoutMutationError = ErrorType<ErrorResponse>
-
-    /**
- * @summary Create a £99 GBP monthly Stripe Checkout session
- */
-export const useCreateRestaurantCheckout = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRestaurantCheckout>>, TError,{placeId: string;data: BodyType<RestaurantCheckoutInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof createRestaurantCheckout>>,
-        TError,
-        {placeId: string;data: BodyType<RestaurantCheckoutInput>},
-        TContext
-      > => {
-      return useMutation(getCreateRestaurantCheckoutMutationOptions(options));
-    }
-
-export const getGetCheckoutCompletionUrl = (sessionId: string,) => {
-
-
-
-
-  return `/api/checkout-completion/${sessionId}`
-}
-
-/**
- * @summary Get the minimal status of a completed Stripe Checkout session
- */
-export const getCheckoutCompletion = async (sessionId: string, options?: Parameters<typeof customFetch>[1]): Promise<CheckoutCompletion> => {
-
-  return customFetch<CheckoutCompletion>(getGetCheckoutCompletionUrl(sessionId),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getGetCheckoutCompletionQueryKey = (sessionId: string,) => {
-    return [
-    `/api/checkout-completion/${sessionId}`
-    ] as const;
-    }
-
-
-export const getGetCheckoutCompletionQueryOptions = <TData = Awaited<ReturnType<typeof getCheckoutCompletion>>, TError = ErrorType<ErrorResponse>>(sessionId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCheckoutCompletion>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetCheckoutCompletionQueryKey(sessionId);
-
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCheckoutCompletion>>> = ({ signal }) => getCheckoutCompletion(sessionId, { signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, enabled: sessionId !== null && sessionId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCheckoutCompletion>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type GetCheckoutCompletionQueryResult = NonNullable<Awaited<ReturnType<typeof getCheckoutCompletion>>>
-export type GetCheckoutCompletionQueryError = ErrorType<ErrorResponse>
-
-
-/**
- * @summary Get the minimal status of a completed Stripe Checkout session
- */
-
-export function useGetCheckoutCompletion<TData = Awaited<ReturnType<typeof getCheckoutCompletion>>, TError = ErrorType<ErrorResponse>>(
- sessionId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCheckoutCompletion>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getGetCheckoutCompletionQueryOptions(sessionId,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  return withQueryKey(query, queryOptions.queryKey);
-}
-
-
-
-
-
-
 
 export const getUnsubscribeRestaurantOutreachUrl = (token: string,) => {
 

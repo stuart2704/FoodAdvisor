@@ -12,4 +12,9 @@ export interface RestaurantClaimInput {
      * @pattern ^[^\s@]+@[^\s@]+\.[^\s@]+$
      */
   email: string;
+  /**
+     * @minLength 40
+     * @maxLength 2048
+     */
+  claimToken: string;
 }

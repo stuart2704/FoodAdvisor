@@ -153,67 +153,24 @@ export interface RestaurantClaimInput {
      * @pattern ^[^\s@]+@[^\s@]+\.[^\s@]+$
      */
   email: string;
+  /**
+     * @minLength 40
+     * @maxLength 2048
+     */
+  claimToken: string;
 }
 
 export type RestaurantClaimResultStatus = typeof RestaurantClaimResultStatus[keyof typeof RestaurantClaimResultStatus];
 
 
 export const RestaurantClaimResultStatus = {
-  pending_checkout: 'pending_checkout',
+  basic: 'basic',
+  already_claimed: 'already_claimed',
 } as const;
 
 export interface RestaurantClaimResult {
   placeId: string;
-  attemptId: string;
   status: RestaurantClaimResultStatus;
-  monthlyPricePence: 9900;
-  currency: 'gbp';
-}
-
-export interface RestaurantCheckoutInput {
-  /**
-     * @maxLength 254
-     * @pattern ^[^\s@]+@[^\s@]+\.[^\s@]+$
-     */
-  email: string;
-  /** @pattern ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$ */
-  attemptId: string;
-}
-
-export interface RestaurantCheckoutResult {
-  /** @pattern ^https:// */
-  checkoutUrl: string;
-}
-
-export type CheckoutCompletionClaimStatus = typeof CheckoutCompletionClaimStatus[keyof typeof CheckoutCompletionClaimStatus];
-
-
-export const CheckoutCompletionClaimStatus = {
-  processing: 'processing',
-  pending_checkout: 'pending_checkout',
-  checkout_created: 'checkout_created',
-  active: 'active',
-  past_due: 'past_due',
-  revoked: 'revoked',
-} as const;
-
-export type CheckoutCompletionPaymentStatus = typeof CheckoutCompletionPaymentStatus[keyof typeof CheckoutCompletionPaymentStatus];
-
-
-export const CheckoutCompletionPaymentStatus = {
-  processing: 'processing',
-  paid: 'paid',
-  unpaid: 'unpaid',
-  no_payment_required: 'no_payment_required',
-} as const;
-
-export interface CheckoutCompletion {
-  /** @nullable */
-  placeId: string | null;
-  /** @nullable */
-  name: string | null;
-  claimStatus: CheckoutCompletionClaimStatus;
-  paymentStatus: CheckoutCompletionPaymentStatus;
 }
 
 export interface UnsubscribeResult {

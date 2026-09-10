@@ -11,6 +11,7 @@ import { and, eq, gte, isNull, lte, or, sql } from "drizzle-orm";
 import { enrichRestaurant } from "../services/enrichment/enrichRestaurant";
 import { validateEmail } from "../services/enrichment/validateEmail";
 import { assertPublicHttpsUrl } from "./public-url";
+import { issueClaimLink } from "./claim-link";
 import { generateOutreachFor } from "../outreach/messageGenerator";
 import {
   buildFollowupMessage,
@@ -240,6 +241,7 @@ export async function runDailyOutreach(options: {
           });
 
       const token = randomBytes(32).toString("base64url");
+      const claimToken = issueClaimLink(candidate.placeId);
       // Keep all earlier unsubscribe links valid when issuing a follow-up.
       if (candidate.unsubscribeTokenHash) {
         await db.insert(outreachAuditTable).values({
@@ -282,6 +284,11 @@ export async function runDailyOutreach(options: {
           `/api/outreach/unsubscribe/${token}`,
           publicUrl,
         ).href;
+        const claimUrl = new URL(
+          `/claim/${encodeURIComponent(candidate.placeId)}`,
+          publicUrl,
+        );
+        claimUrl.searchParams.set("token", claimToken);
         // Reserve the daily slot before the external call. Counting attempts,
         // rather than acknowledgements, keeps the hard cap safe on crashes.
         await db.insert(outreachAuditTable).values({
@@ -295,7 +302,7 @@ export async function runDailyOutreach(options: {
           placeId: candidate.placeId,
           name: candidate.name,
           subject: message.subject,
-          body: `${message.body}\r\n\r\nUnsubscribe: ${unsubscribeUrl}`,
+          body: `${message.body}\r\n\r\nClaim your free basic listing: ${claimUrl.href}\r\n\r\nUnsubscribe: ${unsubscribeUrl}`,
         }, email, options.followupStep ?? 1);
         await db.transaction(async (tx) => {
           await tx

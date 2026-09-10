@@ -11,9 +11,7 @@
   "private": true,
   "dependencies": {
     "@replit/connectors-sdk": "^0.4.1",
-    "google-auth-library": "^11.0.2",
-    "stripe": "^22.6.1",
-    "stripe-replit-sync": "^1.0.0"
+    "google-auth-library": "^11.0.2"
   },
   "devDependencies": {
     "prettier": "^3.9.6",

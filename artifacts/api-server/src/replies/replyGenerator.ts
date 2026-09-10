@@ -19,7 +19,7 @@ export function generateReplyMessage(intent: ReplyIntent | string, reply: ReplyC
     : "";
   const greeting = name ? `Hi ${name} team,` : "Hello,";
   const signature = "Best wishes,\nStuart\nThe Food Advisor";
-  const offer = "A basic listing is free. Verification is optional and costs £99 GBP per month. You do not need to subscribe to have a basic listing.";
+  const offer = "A basic listing is free. Paid verification is currently unavailable, and no subscription is needed for a basic listing.";
   switch (intent) {
     case "interested":
       return {

@@ -12,8 +12,6 @@ tags:
     description: Health operations
   - name: restaurants
     description: Budget-safe restaurant discovery and import operations
-  - name: subscriptions
-    description: Restaurant claim and subscription operations
   - name: outreach
     description: Outreach preferences and automation
   - name: replies
@@ -275,8 +273,9 @@ paths:
   /restaurants/{placeId}/claim:
     post:
       operationId: claimRestaurant
-      tags: [subscriptions]
-      summary: Start a restaurant ownership claim
+      tags: [restaurants]
+      summary: Claim a free basic restaurant listing
+      description: Requires a valid, unexpired claim link sent to the restaurant's business email. Paid verification and checkout are currently unavailable.
       parameters:
         - $ref: "#/components/parameters/PlaceId"
       requestBody:
@@ -287,7 +286,7 @@ paths:
               $ref: "#/components/schemas/RestaurantClaimInput"
       responses:
         "200":
-          description: Claim recorded
+          description: Free basic claim recorded, or an existing claim retained
           content:
             application/json:
               schema:
@@ -304,66 +303,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-  /restaurants/{placeId}/checkout:
-    post:
-      operationId: createRestaurantCheckout
-      tags: [subscriptions]
-      summary: Create a £99 GBP monthly Stripe Checkout session
-      parameters:
-        - $ref: "#/components/parameters/PlaceId"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RestaurantCheckoutInput"
-      responses:
-        "200":
-          description: Stripe-hosted checkout URL
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/RestaurantCheckoutResult"
-        "400":
-          description: Invalid request or price configuration
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-  /checkout-completion/{sessionId}:
-    get:
-      operationId: getCheckoutCompletion
-      tags: [subscriptions]
-      summary: Get the minimal status of a completed Stripe Checkout session
-      parameters:
-        - in: path
-          name: sessionId
-          required: true
-          schema:
-            type: string
-            minLength: 1
-            maxLength: 255
-      responses:
-        "200":
-          description: Checkout completion status (may briefly be processing)
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CheckoutCompletion"
-        "400":
-          description: Invalid session ID
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "404":
-          description: Restaurant not found
+        "403":
+          description: Missing, invalid, expired, or restaurant-mismatched claim link
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
-          description: Stripe or public URL is not configured
+          description: Claim links are unavailable because secure server configuration is missing
           content:
             application/json:
               schema:
@@ -862,57 +809,20 @@ components:
           type: string
           pattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
           maxLength: 254
-      required: [email]
+        claimToken:
+          type: string
+          minLength: 40
+          maxLength: 2048
+      required: [email, claimToken]
     RestaurantClaimResult:
       type: object
       properties:
         placeId:
           type: string
-        attemptId:
-          type: string
         status:
           type: string
-          enum: [pending_checkout]
-        monthlyPricePence:
-          type: integer
-          const: 9900
-        currency:
-          type: string
-          const: gbp
-      required: [placeId, attemptId, status, monthlyPricePence, currency]
-    RestaurantCheckoutInput:
-      type: object
-      properties:
-        email:
-          type: string
-          pattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
-          maxLength: 254
-        attemptId:
-          type: string
-          pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
-      required: [email, attemptId]
-    RestaurantCheckoutResult:
-      type: object
-      properties:
-        checkoutUrl:
-          type: string
-          pattern: "^https://"
-      required: [checkoutUrl]
-    CheckoutCompletion:
-      type: object
-      additionalProperties: false
-      properties:
-        placeId:
-          type: ["string", "null"]
-        name:
-          type: ["string", "null"]
-        claimStatus:
-          type: string
-          enum: [processing, pending_checkout, checkout_created, active, past_due, revoked]
-        paymentStatus:
-          type: string
-          enum: [processing, paid, unpaid, no_payment_required]
-      required: [placeId, name, claimStatus, paymentStatus]
+          enum: [basic, already_claimed]
+      required: [placeId, status]
     UnsubscribeResult:
       type: object
       properties:

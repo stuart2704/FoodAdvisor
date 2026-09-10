@@ -538,6 +538,7 @@ function setState(value) {
   process.env.OUTREACH_ENABLED = "true";
   process.env.INSTANTLY_CAMPAIGN_CREATION_ENABLED = "true";
   process.env.PUBLIC_APP_URL = "https://thefoodadvisor.co.uk";
+  process.env.SESSION_SECRET = "test-session-secret-with-at-least-thirty-two-bytes";
   process.env.OUTREACH_DAILY_LIMIT = "20";
 }
 

@@ -10,5 +10,6 @@ export type RestaurantClaimResultStatus = typeof RestaurantClaimResultStatus[key
 
 
 export const RestaurantClaimResultStatus = {
-  pending_checkout: 'pending_checkout',
+  basic: 'basic',
+  already_claimed: 'already_claimed',
 } as const;

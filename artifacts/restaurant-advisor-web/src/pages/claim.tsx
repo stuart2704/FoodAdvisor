@@ -3,16 +3,13 @@ import { useParams } from 'wouter';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { 
-  useClaimRestaurant, 
-  useCreateRestaurantCheckout 
-} from '@workspace/api-client-react';
+import { useClaimRestaurant } from '@workspace/api-client-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { AlertCircle, ShieldCheck, UtensilsCrossed, Check, ArrowRight, Loader2 } from 'lucide-react';
+import { AlertCircle, ShieldCheck, UtensilsCrossed, Check, Loader2 } from 'lucide-react';
 
 const formSchema = z.object({
   email: z.string().min(1, "Email is required").email("Please enter a valid email address"),
@@ -23,8 +20,10 @@ type FormValues = z.infer<typeof formSchema>;
 export default function ClaimRestaurant() {
   const params = useParams<{ placeId: string }>();
   const placeId = params.placeId || '';
+  const claimToken = new URLSearchParams(window.location.search).get('token') || '';
   
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [claimStatus, setClaimStatus] = useState<'basic' | 'already_claimed' | null>(null);
 
   useEffect(() => {
     document.title = "Claim Your Restaurant | The Food Advisor";
@@ -43,34 +42,22 @@ export default function ClaimRestaurant() {
   });
 
   const claimMutation = useClaimRestaurant();
-  const checkoutMutation = useCreateRestaurantCheckout();
 
-  const isPending = claimMutation.isPending || checkoutMutation.isPending;
+  const isPending = claimMutation.isPending;
 
   const onSubmit = async (values: FormValues) => {
     setErrorMsg(null);
     try {
-      // 1. Claim Restaurant
       const claimResult = await claimMutation.mutateAsync({
         placeId,
-        data: { email: values.email }
+        data: { email: values.email, claimToken }
       });
-
-      // 2. Create Checkout
-      const checkoutResult = await checkoutMutation.mutateAsync({
-        placeId,
-        data: { email: values.email, attemptId: claimResult.attemptId }
-      });
-
-      // 3. Redirect to Stripe
-      if (checkoutResult?.checkoutUrl) {
-        window.location.href = checkoutResult.checkoutUrl;
-      } else {
-        throw new Error("No checkout URL received.");
-      }
+      setClaimStatus(claimResult.status);
     } catch (err: any) {
       const msg = err?.error || err?.response?.data?.error || err?.message || "An unexpected error occurred.";
-      if (msg.toLowerCase().includes('already claimed')) {
+      if (msg.toLowerCase().includes('invalid') || msg.toLowerCase().includes('expired')) {
+        setErrorMsg("This claim link is invalid or has expired. Please use the link sent to your business email.");
+      } else if (msg.toLowerCase().includes('already claimed')) {
         setErrorMsg("This restaurant has already been claimed.");
       } else if (msg.toLowerCase().includes('not found') || msg.toLowerCase().includes('invalid')) {
         setErrorMsg("Restaurant not found. The link may be invalid.");
@@ -99,7 +86,7 @@ export default function ClaimRestaurant() {
           <div className="space-y-5">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary text-secondary-foreground text-sm font-semibold shadow-sm border border-border/50">
               <ShieldCheck className="h-4 w-4 text-primary" />
-              <span>Verified Owner Program</span>
+              <span>Free basic listing claim</span>
             </div>
             <h2 className="text-4xl md:text-5xl font-serif font-semibold tracking-tight leading-[1.15] text-foreground">
               Take control of your establishment's presence.
@@ -131,9 +118,9 @@ export default function ClaimRestaurant() {
           <Card className="shadow-2xl border-card-border/60 bg-card/80 backdrop-blur-xl relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-primary via-primary/80 to-primary/40"></div>
             <CardHeader className="pb-6 pt-8 px-8">
-              <CardTitle className="text-2xl font-serif">Secure your listing</CardTitle>
+              <CardTitle className="text-2xl font-serif">Claim your free basic listing</CardTitle>
               <CardDescription className="text-base mt-2">
-                Verify ownership to activate your enhanced profile for just £99/month.
+                Basic listing claims are free. Paid £99/month verification is currently unavailable.
               </CardDescription>
             </CardHeader>
             
@@ -145,8 +132,19 @@ export default function ClaimRestaurant() {
                 </div>
               )}
 
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              {!claimToken ? (
+                <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm leading-relaxed text-destructive">
+                  This claim link is missing. Please use the link sent to your business email.
+                </div>
+              ) : claimStatus ? (
+                <div className="rounded-lg border border-primary/20 bg-primary/10 p-4 text-sm leading-relaxed text-foreground">
+                  {claimStatus === 'basic'
+                    ? 'Your free basic listing claim has been received. We will use this business email for follow-up.'
+                    : 'This restaurant already has a claim on file. Its existing listing status has not been changed.'}
+                </div>
+              ) : (
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                   <FormField
                     control={form.control}
                     name="email"
@@ -171,7 +169,7 @@ export default function ClaimRestaurant() {
                   <Button 
                     type="submit" 
                     className="w-full h-12 text-base font-semibold shadow-md group transition-all"
-                    disabled={isPending}
+                    disabled={isPending || !claimToken}
                     data-testid="button-submit-claim"
                   >
                     {isPending ? (
@@ -181,19 +179,19 @@ export default function ClaimRestaurant() {
                       </>
                     ) : (
                       <>
-                        Continue to Checkout
-                        <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                        Claim free basic listing
                       </>
                     )}
                   </Button>
-                </form>
-              </Form>
+                  </form>
+                </Form>
+              )}
             </CardContent>
             <CardFooter className="bg-secondary/40 px-8 py-4 border-t border-border/50 flex justify-between items-center text-sm text-muted-foreground">
               <span className="flex items-center gap-1.5 font-medium">
-                <ShieldCheck className="h-4 w-4 text-primary/70" /> Secure payment
+                <ShieldCheck className="h-4 w-4 text-primary/70" /> No payment required
               </span>
-              <span className="font-semibold text-foreground bg-background px-2.5 py-1 rounded-md shadow-sm border border-border/50">£99 / month</span>
+              <span className="font-semibold text-foreground bg-background px-2.5 py-1 rounded-md shadow-sm border border-border/50">Free basic listing</span>
             </CardFooter>
           </Card>
         </div>

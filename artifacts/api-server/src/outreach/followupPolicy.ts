@@ -36,7 +36,7 @@ export function buildFollowupMessage(step: FollowupStep, restaurantName: string)
       step === 2
         ? "I’m following up on my earlier email about The Food Advisor."
         : "This is my final follow-up about listing your restaurant on The Food Advisor.",
-      "A basic listing is free. Verification is optional and costs £99 GBP per month; you do not need to subscribe to have a basic listing.",
+      "A basic listing is free. Paid verification is currently unavailable, and no subscription is needed for a basic listing.",
       "",
       "If you’d like more information, just reply. If this isn’t of interest, you can unsubscribe using the link below.",
       "",

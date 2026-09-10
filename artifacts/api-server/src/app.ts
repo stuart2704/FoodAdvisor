@@ -11,7 +11,6 @@ import adminRoutes from "./routes/admin";
 import statusRoutes from "./routes/status";
 import { dashboardRouter } from "./dashboard/dashboardAPI";
 import { logger } from "./lib/logger";
-import { StripeWebhookHandlers } from "./lib/stripe-webhook-handlers";
 import { instantlyWebhookRouter } from "./outreach/instantlyWebhook";
 
 const app: Express = express();
@@ -36,30 +35,6 @@ app.use(
   }),
 );
 app.use(cors());
-app.post(
-  "/api/stripe/webhook",
-  express.raw({ type: "application/json", limit: "1mb" }),
-  async (req, res) => {
-    const signature = req.headers["stripe-signature"];
-    if (!signature) {
-      res.status(400).json({ error: "Missing stripe-signature" });
-      return;
-    }
-
-    const sig = Array.isArray(signature) ? signature[0] : signature;
-    if (typeof sig !== "string" || !Buffer.isBuffer(req.body)) {
-      res.status(400).json({ error: "Invalid Stripe webhook request" });
-      return;
-    }
-
-    try {
-      await StripeWebhookHandlers.processWebhook(req.body, sig);
-      res.status(200).json({ received: true });
-    } catch {
-      res.status(400).json({ error: "Webhook processing error" });
-    }
-  },
-);
 // Instantly webhook authentication/body limits are owned by this router and
 // must run before the global JSON parser. Keep both documented aliases on the
 // same handler; neither path registers a provider webhook or sends mail.

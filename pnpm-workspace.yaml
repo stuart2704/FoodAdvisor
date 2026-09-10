@@ -34,7 +34,6 @@ minimumReleaseAge: 1440
 
 minimumReleaseAgeExclude:
   - '@replit/*'
-  - stripe-replit-sync
 
 onlyBuiltDependencies:
   - '@swc/core'

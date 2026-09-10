@@ -26,7 +26,7 @@ export function buildTemplate(input: TemplateInput) {
   const observation = input.cuisine
     ? `A listing can help diners looking for ${input.cuisine} restaurants discover your business.`
     : "A listing can help diners discover your restaurant.";
-  const cta = "Would you like more information about a free basic listing? Just reply to this email.";
+  const cta = "Use the secure claim link below to request your free basic listing, or reply to this email with any questions.";
   return {
     subject: subjects[tone],
     body: [
@@ -36,7 +36,7 @@ export function buildTemplate(input: TemplateInput) {
       "",
       observation,
       "",
-      "I run The Food Advisor — a directory helping diners discover restaurants across the UK. A basic listing is free. Verification is optional and costs £99 GBP per month; you do not need to subscribe to have a basic listing.",
+       "I run The Food Advisor — a directory helping diners discover restaurants across the UK. A basic listing is free. Paid verification is currently unavailable, and no payment is required for a basic listing.",
       "",
       cta,
       "",

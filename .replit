@@ -25,7 +25,6 @@ channel = "stable-25_05"
 [userenv]
 
 [userenv.shared]
-STRIPE_MONTHLY_PRICE_ID = "price_1UDojBB0ixVhWK9L7cRRJmmp"
 PUBLIC_APP_URL = "https://thefoodadvisor.co.uk"
 GMAIL_PUBSUB_SUBSCRIPTION = "projects/the-food-advisor/subscriptions/gmail-replies-sub-2"
 GMAIL_PUBSUB_TOPIC = "projects/the-food-advisor/topics/gmail-replies"
