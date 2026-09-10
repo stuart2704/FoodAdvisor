@@ -10,6 +10,8 @@ const inputSchema = z.object({
   id: singleLine(512).optional(),
   name: singleLine(500),
   city: singleLine(200),
+  cuisine: singleLine(100).optional(),
+  tone: z.enum(["friendly", "professional", "premium", "casual"]).optional(),
   brandingQuality: singleLine(50).optional(),
 });
 
@@ -24,7 +26,7 @@ export async function generateOutreachFor(restaurant: unknown) {
     const parsed = inputSchema.safeParse(restaurant);
     if (!parsed.success) throw new Error("Invalid outreach input.");
     const input = parsed.data;
-    const tone = analyzeTone(input);
+    const tone = input.tone ?? analyzeTone(input);
     const message = buildTemplate({ ...input, tone });
     const outreach = {
       restaurantId: input.placeId ?? input.id ?? null,

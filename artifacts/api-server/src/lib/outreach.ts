@@ -66,7 +66,7 @@ function buildRawEmail(input: {
     `Hello ${input.restaurantName} team,`,
     "",
     "The Food Advisor helps diners discover independent restaurants across the UK.",
-    "You can claim your listing and subscribe for £99 GBP per month.",
+    "A basic listing is free. Verification is optional and costs £99 GBP per month; you do not need to subscribe to have a basic listing.",
     "",
     "Learn more: https://thefoodadvisor.co.uk",
     `Unsubscribe: ${input.unsubscribeUrl}`,

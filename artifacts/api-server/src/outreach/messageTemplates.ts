@@ -10,18 +10,38 @@ export interface TemplateInput {
 }
 
 export function buildTemplate(input: TemplateInput) {
-  const cta = "Reply to this email if you would like more information about claiming your listing.";
+  const { name, city, tone } = input;
+  const subjects: Record<OutreachTone, string> = {
+    premium: `A quick idea for ${name} in ${city}`,
+    professional: `Opportunity for ${name} (${city})`,
+    friendly: `A free basic listing for ${name}`,
+    casual: `Quick question about ${name}`,
+  };
+  const introductions: Record<OutreachTone, string> = {
+    friendly: `I came across ${name} while exploring places in ${city} and wanted to introduce The Food Advisor.`,
+    professional: `I’m reaching out to introduce The Food Advisor to the team at ${name} in ${city}.`,
+    premium: `I’d like to introduce a listing opportunity for ${name} in ${city}.`,
+    casual: `I came across ${name} in ${city} and wanted to drop you a quick message.`,
+  };
+  const observation = input.cuisine
+    ? `A listing can help diners looking for ${input.cuisine} restaurants discover your business.`
+    : "A listing can help diners discover your restaurant.";
+  const cta = "Would you like more information about a free basic listing? Just reply to this email.";
   return {
-    subject: `A listing opportunity for ${input.name}`,
+    subject: subjects[tone],
     body: [
-      `${input.tone === "professional" ? "Hello" : "Hi"} ${input.name} team,`,
+      `Hi ${name} team,`,
       "",
-      "The Food Advisor helps diners discover independent restaurants across the UK.",
-      `We would like to introduce our listing service to your team in ${input.city}.`,
-      "You can claim your listing and subscribe for £99 GBP per month.",
+      introductions[tone],
+      "",
+      observation,
+      "",
+      "I run The Food Advisor — a directory helping diners discover restaurants across the UK. A basic listing is free. Verification is optional and costs £99 GBP per month; you do not need to subscribe to have a basic listing.",
       "",
       cta,
       "",
+      "Best wishes,",
+      "Stuart",
       "The Food Advisor",
     ].join("\r\n"),
     cta,
