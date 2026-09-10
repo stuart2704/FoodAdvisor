@@ -11,6 +11,11 @@ const inputSchema = z.object({
   name: singleLine(500),
   city: singleLine(200),
   cuisine: singleLine(100).optional(),
+  rating: z.number().finite().min(0).max(5).nullable().optional(),
+  website: z.string().max(2048).url().refine((value) => {
+    const url = new URL(value);
+    return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password;
+  }).nullable().optional(),
   tone: z.enum(["friendly", "professional", "premium", "casual"]).optional(),
   brandingQuality: singleLine(50).optional(),
 });
@@ -27,7 +32,7 @@ export async function generateOutreachFor(restaurant: unknown) {
     if (!parsed.success) throw new Error("Invalid outreach input.");
     const input = parsed.data;
     const tone = input.tone ?? analyzeTone(input);
-    const message = buildTemplate({ ...input, tone });
+    const message = buildTemplate({ ...input, website: input.website ?? undefined, tone });
     const outreach = {
       restaurantId: input.placeId ?? input.id ?? null,
       subject: message.subject,
