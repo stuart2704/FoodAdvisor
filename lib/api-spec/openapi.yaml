@@ -21,6 +21,89 @@ tags:
   - name: gmail
     description: Gmail watch renewal and authenticated Pub/Sub push
 paths:
+  /dashboard/health:
+    servers: [{ url: / }]
+    get:
+      operationId: getDashboardHealth
+      tags: [health]
+      security: [{ automationBearer: [] }]
+      summary: Read bounded process-local scraper health without launching scans
+      responses:
+        "200":
+          description: Score is null when there are no samples today in UTC
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DashboardHealth" }
+        "401":
+          description: Invalid automation credential
+  /dashboard/status:
+    servers: [{ url: / }]
+    get:
+      operationId: getDashboardStatus
+      tags: [restaurants]
+      security: [{ automationBearer: [] }]
+      summary: Aggregate current workflow counts from stored outreach states
+      responses:
+        "200":
+          description: Scraped and inserted are milestones and are not counted as stored outreach states
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DashboardStatusCounts" }
+        "401":
+          description: Invalid automation credential
+        "503":
+          description: Counts could not be read
+  /dashboard/errors:
+    servers: [{ url: / }]
+    get:
+      operationId: getDashboardErrors
+      tags: [health]
+      security: [{ automationBearer: [] }]
+      summary: Error category counts from the bounded current-process event buffer
+      responses:
+        "200":
+          description: Counts reset on restart; unrecognised categories appear under unknown
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: { type: integer, minimum: 0 }
+        "401":
+          description: Invalid automation credential
+  /dashboard/summary:
+    servers: [{ url: / }]
+    get:
+      operationId: getDashboardSummary
+      tags: [health]
+      security: [{ automationBearer: [] }]
+      summary: Current status counts, scraper health score, and ten latest events
+      responses:
+        "200":
+          description: Status counts are database totals; health and events are process-local
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [statusCounts, healthScore, recentEvents, healthScope]
+                properties:
+                  statusCounts: { $ref: "#/components/schemas/DashboardStatusCounts" }
+                  healthScore: { type: [integer, "null"], minimum: 0, maximum: 100 }
+                  healthScope: { type: string, enum: [current_process] }
+                  recentEvents:
+                    type: array
+                    maxItems: 10
+                    items:
+                      type: object
+                      required: [time, type, message]
+                      properties:
+                        time: { type: string, format: date-time }
+                        type: { type: string }
+                        message: { type: string }
+                        category: { type: string }
+        "401":
+          description: Invalid automation credential
+        "503":
+          description: Summary could not be read
   /dashboard/events:
     servers:
       - url: /
@@ -541,6 +624,42 @@ components:
         type: string
         minLength: 1
   schemas:
+    DashboardStatusCounts:
+      type: array
+      items:
+        type: object
+        required: [status, count]
+        properties:
+          status:
+            type: string
+            description: Workflow label, or sending/out_of_office/unmapped where no workflow label exists
+          count: { type: integer, minimum: 0 }
+    DashboardHealth:
+      type: object
+      required: [recent, score, scope, scoringWindow]
+      properties:
+        score: { type: [integer, "null"], minimum: 0, maximum: 100 }
+        scope: { type: string, enum: [current_process] }
+        scoringWindow: { type: string, enum: [last_10_samples_today_utc] }
+        recent:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            required: [timestamp, city, mapsSuccess, websiteSuccess, proxyUsed, durationMs, errors]
+            properties:
+              timestamp: { type: string, format: date-time }
+              city: { type: string }
+              mapsSuccess: { type: boolean }
+              websiteSuccess: { type: [boolean, "null"] }
+              proxyUsed:
+                type: string
+                enum: [none, residential, datacenter, mixed, unknown, redacted]
+              durationMs: { type: number, minimum: 0 }
+              errors:
+                type: array
+                maxItems: 50
+                items: { type: string }
     HealthStatus:
       type: object
       properties:

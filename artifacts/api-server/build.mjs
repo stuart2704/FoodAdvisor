@@ -30,6 +30,8 @@ async function buildAll() {
     external: [
       "*.node",
       "sharp",
+      "playwright",
+      "playwright-core",
       "better-sqlite3",
       "sqlite3",
       "canvas",

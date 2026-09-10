@@ -9,7 +9,7 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import adminRoutes from "./routes/admin";
 import statusRoutes from "./routes/status";
-import eventsRoutes from "./routes/events";
+import { dashboardRouter } from "./dashboard/dashboardAPI";
 import { logger } from "./lib/logger";
 import { StripeWebhookHandlers } from "./lib/stripe-webhook-handlers";
 
@@ -65,7 +65,9 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api", router);
 app.use("/admin", adminRoutes);
 app.use("/status", statusRoutes);
-app.use("/dashboard", eventsRoutes);
+app.use("/dashboard", dashboardRouter);
+// Generated clients use the shared /api base; both aliases use identical auth.
+app.use("/api/dashboard", dashboardRouter);
 
 app.use(
   (

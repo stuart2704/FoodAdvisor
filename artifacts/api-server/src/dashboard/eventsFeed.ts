@@ -30,3 +30,8 @@ export function getEvents(): EventItem[] {
     ...(event.category ? { category: event.category } : {}),
   }));
 }
+
+/** Raw events for dashboard consumers; preserves time/type/message fields. */
+export function getRecentEvents() {
+  return readEvents();
+}

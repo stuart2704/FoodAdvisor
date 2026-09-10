@@ -9,6 +9,88 @@ import * as zod from 'zod';
 
 
 /**
+ * @summary Read bounded process-local scraper health without launching scans
+ */
+export const getDashboardHealthResponseScoreMin = 0;
+export const getDashboardHealthResponseScoreMax = 100;
+
+export const getDashboardHealthResponseRecentItemDurationMsMin = 0;
+
+export const getDashboardHealthResponseRecentItemErrorsMax = 50;
+
+export const getDashboardHealthResponseRecentMax = 20;
+
+
+
+export const GetDashboardHealthResponse = zod.object({
+  "score": zod.number().int().min(getDashboardHealthResponseScoreMin).max(getDashboardHealthResponseScoreMax).nullable(),
+  "scope": zod.enum(['current_process']),
+  "scoringWindow": zod.enum(['last_10_samples_today_utc']),
+  "recent": zod.array(zod.object({
+  "timestamp": zod.coerce.date(),
+  "city": zod.string(),
+  "mapsSuccess": zod.boolean(),
+  "websiteSuccess": zod.boolean().nullable(),
+  "proxyUsed": zod.enum(['none', 'residential', 'datacenter', 'mixed', 'unknown', 'redacted']),
+  "durationMs": zod.number().min(getDashboardHealthResponseRecentItemDurationMsMin),
+  "errors": zod.array(zod.string()).max(getDashboardHealthResponseRecentItemErrorsMax)
+})).max(getDashboardHealthResponseRecentMax)
+})
+
+
+/**
+ * @summary Aggregate current workflow counts from stored outreach states
+ */
+export const getDashboardStatusResponseCountMin = 0;
+
+
+
+export const GetDashboardStatusResponseItem = zod.object({
+  "status": zod.string().describe('Workflow label, or sending\/out_of_office\/unmapped where no workflow label exists'),
+  "count": zod.number().int().min(getDashboardStatusResponseCountMin)
+})
+export const GetDashboardStatusResponse = zod.array(GetDashboardStatusResponseItem)
+
+
+/**
+ * @summary Error category counts from the bounded current-process event buffer
+ */
+export const getDashboardErrorsResponseMinOne = 0;
+
+
+
+export const GetDashboardErrorsResponse = zod.record(zod.string(), zod.number().int().min(getDashboardErrorsResponseMinOne))
+
+
+/**
+ * @summary Current status counts, scraper health score, and ten latest events
+ */
+export const getDashboardSummaryResponseStatusCountsItemCountMin = 0;
+
+export const getDashboardSummaryResponseHealthScoreMin = 0;
+export const getDashboardSummaryResponseHealthScoreMax = 100;
+
+export const getDashboardSummaryResponseRecentEventsMax = 10;
+
+
+
+export const GetDashboardSummaryResponse = zod.object({
+  "statusCounts": zod.array(zod.object({
+  "status": zod.string().describe('Workflow label, or sending\/out_of_office\/unmapped where no workflow label exists'),
+  "count": zod.number().int().min(getDashboardSummaryResponseStatusCountsItemCountMin)
+})),
+  "healthScore": zod.number().int().min(getDashboardSummaryResponseHealthScoreMin).max(getDashboardSummaryResponseHealthScoreMax).nullable(),
+  "healthScope": zod.enum(['current_process']),
+  "recentEvents": zod.array(zod.object({
+  "time": zod.coerce.date(),
+  "type": zod.string(),
+  "message": zod.string(),
+  "category": zod.string().optional()
+})).max(getDashboardSummaryResponseRecentEventsMax)
+})
+
+
+/**
  * @summary Latest 200 process-local operational events, oldest first
  */
 export const GetDashboardEventsResponseItem = zod.object({

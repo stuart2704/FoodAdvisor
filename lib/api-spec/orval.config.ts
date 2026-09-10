@@ -57,6 +57,8 @@ export default defineConfig({
       prettier: true,
       override: {
         zod: {
+          // The workspace uses Zod 3; catalog references defeat auto-detection.
+          version: 3,
           coerce: {
             query: ['boolean', 'number', 'string'],
             param: ['boolean', 'number', 'string'],

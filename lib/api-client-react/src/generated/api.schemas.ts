@@ -5,6 +5,67 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type DashboardStatusCountsItem = {
+  /** Workflow label, or sending/out_of_office/unmapped where no workflow label exists */
+  status: string;
+  /** @minimum 0 */
+  count: number;
+};
+
+export type DashboardStatusCounts = DashboardStatusCountsItem[];
+
+export type DashboardHealthScope = typeof DashboardHealthScope[keyof typeof DashboardHealthScope];
+
+
+export const DashboardHealthScope = {
+  current_process: 'current_process',
+} as const;
+
+export type DashboardHealthScoringWindow = typeof DashboardHealthScoringWindow[keyof typeof DashboardHealthScoringWindow];
+
+
+export const DashboardHealthScoringWindow = {
+  last_10_samples_today_utc: 'last_10_samples_today_utc',
+} as const;
+
+export type DashboardHealthRecentItemProxyUsed = typeof DashboardHealthRecentItemProxyUsed[keyof typeof DashboardHealthRecentItemProxyUsed];
+
+
+export const DashboardHealthRecentItemProxyUsed = {
+  none: 'none',
+  residential: 'residential',
+  datacenter: 'datacenter',
+  mixed: 'mixed',
+  unknown: 'unknown',
+  redacted: 'redacted',
+} as const;
+
+export type DashboardHealthRecentItem = {
+  timestamp: string;
+  city: string;
+  mapsSuccess: boolean;
+  /** @nullable */
+  websiteSuccess: boolean | null;
+  proxyUsed: DashboardHealthRecentItemProxyUsed;
+  /** @minimum 0 */
+  durationMs: number;
+  /** @maxItems 50 */
+  errors: string[];
+};
+
+export interface DashboardHealth {
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  score: number | null;
+  scope: DashboardHealthScope;
+  scoringWindow: DashboardHealthScoringWindow;
+  /** @maxItems 20 */
+  recent: DashboardHealthRecentItem[];
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -293,6 +354,35 @@ export interface RestaurantImportRunResult {
   stoppedBecause: string;
   restaurants: Restaurant[];
 }
+
+export type GetDashboardErrors200 = {[key: string]: number};
+
+export type GetDashboardSummary200HealthScope = typeof GetDashboardSummary200HealthScope[keyof typeof GetDashboardSummary200HealthScope];
+
+
+export const GetDashboardSummary200HealthScope = {
+  current_process: 'current_process',
+} as const;
+
+export type GetDashboardSummary200RecentEventsItem = {
+  time: string;
+  type: string;
+  message: string;
+  category?: string;
+};
+
+export type GetDashboardSummary200 = {
+  statusCounts: DashboardStatusCounts;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  healthScore: number | null;
+  healthScope: GetDashboardSummary200HealthScope;
+  /** @maxItems 10 */
+  recentEvents: GetDashboardSummary200RecentEventsItem[];
+};
 
 export type GetDashboardEvents200Item = {
   time: string;

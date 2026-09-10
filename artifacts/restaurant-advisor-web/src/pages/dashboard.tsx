@@ -1,6 +1,10 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import './live-events.css';
 import { LiveEvents } from '@/components/live-events';
+import HealthPanel from '@/components/health-panel';
+import StatusPanel from '@/components/status-panel';
+import ErrorPanel from '@/components/error-panel';
+import SummaryPanel from '@/components/summary-panel';
 import { DarkModeToggle } from '@/components/dark-mode-toggle';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -541,7 +545,10 @@ export default function Dashboard() {
 
           </section>
         </div>
-        <Card className="panel mt-8 shadow-sm border-card-border" aria-labelledby="live-events-title">
+        <section id="scraper-operations" className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3" aria-label="Scraper operations">
+          <div className="lg:col-span-2"><SummaryPanel /></div>
+          <StatusPanel />
+        <Card className="panel shadow-sm border-card-border" aria-labelledby="live-events-title">
           <CardHeader>
             <CardTitle id="live-events-title" className="text-xl">Live Events</CardTitle>
             <CardDescription>Recent Gmail push and watch-renewal activity.</CardDescription>
@@ -550,6 +557,9 @@ export default function Dashboard() {
             <LiveEvents />
           </CardContent>
         </Card>
+          <HealthPanel />
+          <ErrorPanel />
+        </section>
       </main>
     </div>
   );

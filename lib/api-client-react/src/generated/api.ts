@@ -23,8 +23,12 @@ import type {
   AdminActivateGmailWatch200,
   AdminRenewGmailWatch200,
   CheckoutCompletion,
+  DashboardHealth,
+  DashboardStatusCounts,
   ErrorResponse,
+  GetDashboardErrors200,
   GetDashboardEvents200Item,
+  GetDashboardSummary200,
   GetGmailWatchStatus200,
   GmailWatch,
   HealthStatus,
@@ -73,6 +77,314 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetDashboardHealthUrl = () => {
+
+
+
+
+  return `/api/dashboard/health`
+}
+
+/**
+ * @summary Read bounded process-local scraper health without launching scans
+ */
+export const getDashboardHealth = async ( options?: Parameters<typeof customFetch>[1]): Promise<DashboardHealth> => {
+
+  return customFetch<DashboardHealth>(getGetDashboardHealthUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDashboardHealthQueryKey = () => {
+    return [
+    `/api/dashboard/health`
+    ] as const;
+    }
+
+
+export const getGetDashboardHealthQueryOptions = <TData = Awaited<ReturnType<typeof getDashboardHealth>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDashboardHealth>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDashboardHealthQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDashboardHealth>>> = ({ signal }) => getDashboardHealth({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDashboardHealth>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDashboardHealthQueryResult = NonNullable<Awaited<ReturnType<typeof getDashboardHealth>>>
+export type GetDashboardHealthQueryError = ErrorType<void>
+
+
+/**
+ * @summary Read bounded process-local scraper health without launching scans
+ */
+
+export function useGetDashboardHealth<TData = Awaited<ReturnType<typeof getDashboardHealth>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDashboardHealth>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDashboardHealthQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetDashboardStatusUrl = () => {
+
+
+
+
+  return `/api/dashboard/status`
+}
+
+/**
+ * @summary Aggregate current workflow counts from stored outreach states
+ */
+export const getDashboardStatus = async ( options?: Parameters<typeof customFetch>[1]): Promise<DashboardStatusCounts> => {
+
+  return customFetch<DashboardStatusCounts>(getGetDashboardStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDashboardStatusQueryKey = () => {
+    return [
+    `/api/dashboard/status`
+    ] as const;
+    }
+
+
+export const getGetDashboardStatusQueryOptions = <TData = Awaited<ReturnType<typeof getDashboardStatus>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDashboardStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDashboardStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDashboardStatus>>> = ({ signal }) => getDashboardStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDashboardStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDashboardStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getDashboardStatus>>>
+export type GetDashboardStatusQueryError = ErrorType<void>
+
+
+/**
+ * @summary Aggregate current workflow counts from stored outreach states
+ */
+
+export function useGetDashboardStatus<TData = Awaited<ReturnType<typeof getDashboardStatus>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDashboardStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDashboardStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetDashboardErrorsUrl = () => {
+
+
+
+
+  return `/api/dashboard/errors`
+}
+
+/**
+ * @summary Error category counts from the bounded current-process event buffer
+ */
+export const getDashboardErrors = async ( options?: Parameters<typeof customFetch>[1]): Promise<GetDashboardErrors200> => {
+
+  return customFetch<GetDashboardErrors200>(getGetDashboardErrorsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDashboardErrorsQueryKey = () => {
+    return [
+    `/api/dashboard/errors`
+    ] as const;
+    }
+
+
+export const getGetDashboardErrorsQueryOptions = <TData = Awaited<ReturnType<typeof getDashboardErrors>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDashboardErrors>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDashboardErrorsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDashboardErrors>>> = ({ signal }) => getDashboardErrors({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDashboardErrors>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDashboardErrorsQueryResult = NonNullable<Awaited<ReturnType<typeof getDashboardErrors>>>
+export type GetDashboardErrorsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Error category counts from the bounded current-process event buffer
+ */
+
+export function useGetDashboardErrors<TData = Awaited<ReturnType<typeof getDashboardErrors>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDashboardErrors>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDashboardErrorsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetDashboardSummaryUrl = () => {
+
+
+
+
+  return `/api/dashboard/summary`
+}
+
+/**
+ * @summary Current status counts, scraper health score, and ten latest events
+ */
+export const getDashboardSummary = async ( options?: Parameters<typeof customFetch>[1]): Promise<GetDashboardSummary200> => {
+
+  return customFetch<GetDashboardSummary200>(getGetDashboardSummaryUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDashboardSummaryQueryKey = () => {
+    return [
+    `/api/dashboard/summary`
+    ] as const;
+    }
+
+
+export const getGetDashboardSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getDashboardSummary>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDashboardSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDashboardSummaryQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDashboardSummary>>> = ({ signal }) => getDashboardSummary({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDashboardSummary>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDashboardSummaryQueryResult = NonNullable<Awaited<ReturnType<typeof getDashboardSummary>>>
+export type GetDashboardSummaryQueryError = ErrorType<void>
+
+
+/**
+ * @summary Current status counts, scraper health score, and ten latest events
+ */
+
+export function useGetDashboardSummary<TData = Awaited<ReturnType<typeof getDashboardSummary>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDashboardSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDashboardSummaryQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetDashboardEventsUrl = () => {
 
