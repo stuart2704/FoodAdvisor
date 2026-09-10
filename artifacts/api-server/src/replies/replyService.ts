@@ -10,6 +10,7 @@ import {
 import { processGmailIncomingReply } from "../services/replyClassifier/processIncomingReply";
 import { logEvent } from "../utils/eventLog";
 import { mapReplyIntent } from "./classifier";
+import { toReplyIntentLabel } from "./replyClassifier";
 import { generateReplyMessage } from "./replyGenerator";
 
 async function getWatchAccount(): Promise<string | null> {
@@ -109,6 +110,7 @@ export async function handleReply(reply: unknown) {
     return {
       status: "processed" as const,
       intent: mapReplyIntent(result.classification),
+      intentLabel: toReplyIntentLabel(mapReplyIntent(result.classification)),
       classification: result.classification,
       newStatus,
       responseDraft: draft,

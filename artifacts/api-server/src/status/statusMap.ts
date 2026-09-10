@@ -6,6 +6,8 @@
 export const StatusMap = Object.freeze({
   NOT_CONTACTED: "not_contacted",
   CONTACTED: "contacted",
+  FOLLOWUP_SENT: "followup_sent",
+  FINAL_FOLLOWUP_SENT: "final_followup_sent",
   ENGAGED: "engaged",
   AWAITING_FOLLOWUP: "awaiting_followup",
   CLOSED: "closed",

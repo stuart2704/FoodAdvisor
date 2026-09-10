@@ -1,5 +1,5 @@
 import { db, restaurantsTable, outreachAuditTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or, isNull, isNotNull, ne, inArray } from "drizzle-orm";
 import { StatusMap, isValidStatus, type RestaurantStatus } from "./statusMap";
 import { logEvent } from "../utils/eventLog";
 
@@ -15,6 +15,8 @@ function workflowStatus(row: typeof restaurantsTable.$inferSelect): RestaurantSt
   switch (row.outreachStatus) {
     case "pending": return StatusMap.NOT_CONTACTED;
     case "sent": return StatusMap.CONTACTED;
+    case "followup_sent": return StatusMap.FOLLOWUP_SENT;
+    case "final_followup_sent": return StatusMap.FINAL_FOLLOWUP_SENT;
     case "interested":
     case "upgrade": return StatusMap.ENGAGED;
     case "question": return StatusMap.AWAITING_FOLLOWUP;
@@ -75,12 +77,14 @@ export async function updateStatus(restaurantId: string, newStatus: string) {
           break;
         }
         case StatusMap.CONTACTED:
+        case StatusMap.FOLLOWUP_SENT:
+        case StatusMap.FINAL_FOLLOWUP_SENT:
           // Only the Gmail sending transaction can establish sent status.
           throw new Error("Contacted status must be recorded by the Gmail sender.");
         case StatusMap.ENGAGED:
         case StatusMap.AWAITING_FOLLOWUP:
         case StatusMap.UNKNOWN_REPLY:
-          if (!["sent", "interested", "upgrade", "question", "replied"].includes(row.outreachStatus)) {
+          if (!["sent", "followup_sent", "final_followup_sent", "interested", "upgrade", "question", "replied"].includes(row.outreachStatus)) {
             throw new Error("No existing outreach conversation.");
           }
           storedStatus = newStatus === StatusMap.ENGAGED ? "interested"
@@ -117,4 +121,46 @@ export async function updateStatus(restaurantId: string, newStatus: string) {
 
 export async function setInitialStatus(restaurantId: string) {
   return updateStatus(restaurantId, StatusMap.NOT_CONTACTED);
+}
+
+/** Read-only, paginated lookup using workflow labels and real schema fields. */
+export async function getRestaurantsByStatus(
+  status: string,
+  options: { limit?: number; offset?: number } = {},
+) {
+  if (!isValidStatus(status)) throw new Error("Invalid workflow status.");
+  const limit = options.limit ?? 100;
+  const offset = options.offset ?? 0;
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000
+    || !Number.isSafeInteger(offset) || offset < 0) {
+    throw new Error("Status lookup requires a limit of 1–1000 and a non-negative offset.");
+  }
+  if (status === StatusMap.SCRAPED || status === StatusMap.INSERTED) {
+    throw new Error("Scraped and inserted are operational milestones, not stored outreach states.");
+  }
+  const stored = {
+    not_contacted: ["pending"],
+    contacted: ["sent"],
+    followup_sent: ["followup_sent"],
+    final_followup_sent: ["final_followup_sent"],
+    engaged: ["interested", "upgrade"],
+    awaiting_followup: ["question"],
+    unknown_reply: ["replied"],
+    error: ["send_failed"],
+    closed: ["suppressed"],
+  }[status];
+  const condition = status === StatusMap.CLOSED
+    ? or(isNotNull(restaurantsTable.suppressedAt), eq(restaurantsTable.outreachStatus, "suppressed"))
+    : and(
+        isNull(restaurantsTable.suppressedAt),
+        ne(restaurantsTable.outreachStatus, "suppressed"),
+        inArray(restaurantsTable.outreachStatus, stored),
+      );
+  try {
+    return await db.select().from(restaurantsTable).where(condition)
+      .orderBy(restaurantsTable.placeId).limit(limit).offset(offset);
+  } catch {
+    logEvent("error", "Restaurant status lookup failed");
+    throw new Error("Restaurants could not be fetched by status; retry later.");
+  }
 }

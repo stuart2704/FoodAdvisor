@@ -1,0 +1,82 @@
+// src/status/statusService.ts
+
+import { Pool } from "pg";
+import { logEvent, logError } from "../dashboard/eventsFeed";
+import { classifyScraperError } from "../errors/errorService";
+import { StatusMap } from "./statusMap";
+
+/**
+ * Neon connection
+ */
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
+
+/**
+ * Update a restaurant's status in Neon
+ */
+export async function updateStatus(id: number, newStatus: string) {
+  logEvent(`Updating status for ID ${id} → ${newStatus}`);
+
+  try {
+    // Validate status
+    if (!isValidStatus(newStatus)) {
+      logError(`Invalid status '${newStatus}' for ID ${id}`, "invalid_status");
+      return false;
+    }
+
+    const query = `
+      UPDATE restaurants
+      SET status = $1, updated_at = NOW()
+      WHERE id = $2
+      RETURNING id, name, status;
+    `;
+
+    const result = await pool.query(query, [newStatus, id]);
+
+    if (result.rows.length === 0) {
+      logError(`Status update failed — ID ${id} not found`, "not_found");
+      return false;
+    }
+
+    const row = result.rows[0];
+    logEvent(`Status updated: ${row.name} → ${row.status}`);
+
+    return true;
+
+  } catch (err) {
+    const category = classifyScraperError(err);
+    logError(`Status update failed for ID ${id}`, category);
+    return false;
+  }
+}
+
+/**
+ * Validate status transitions
+ */
+function isValidStatus(status: string) {
+  return Object.values(StatusMap).includes(status);
+}
+
+/**
+ * Fetch restaurants by status (used by outreach + daily cycle)
+ */
+export async function getRestaurantsByStatus(status: string) {
+  try {
+    const query = `
+      SELECT *
+      FROM restaurants
+      WHERE status = $1;
+    `;
+
+    const result = await pool.query(query, [status]);
+
+    return result.rows;
+
+  } catch (err) {
+    const category = classifyScraperError(err);
+    logError(`Failed to fetch restaurants by status '${status}'`, category);
+    return [];
+  }
+}

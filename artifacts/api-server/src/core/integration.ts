@@ -26,6 +26,8 @@ export interface DailyCycleOptions {
   };
   // The existing OUTREACH_ENABLED guard must also allow sending.
   sendOutreach?: boolean;
+  // Separate opt-in: follow-ups remain inactive unless explicitly requested.
+  sendFollowups?: boolean;
   drainInsertionQueue?: boolean;
   generateDrafts?: boolean;
   processStagedReplies?: boolean;
@@ -45,6 +47,7 @@ export interface DailyCycleResult {
       };
   outreach: { status: "skipped"; reason: string }
     | { status: "completed"; result: OutreachResult };
+  followups: { status: "skipped" } | { status: "completed"; results: OutreachResult[] };
   insertion: { status: "skipped" } | { status: "completed"; inserted: number };
   drafts: { status: "skipped" }
     | { status: "completed"; messages: Awaited<ReturnType<typeof generateOutreachFor>>[] };
@@ -73,7 +76,7 @@ export async function runDailyCycle(
   if (importOptions && (!Number.isInteger(budget) || budget <= 0 || budget > 2500)) {
     throw new Error("Monthly import budget must be between 1 and 2500 pence.");
   }
-  if (options.sendOutreach === true && process.env.OUTREACH_ENABLED !== "true") {
+  if ((options.sendOutreach === true || options.sendFollowups === true) && process.env.OUTREACH_ENABLED !== "true") {
     throw new Error("Outreach sending is disabled.");
   }
 
@@ -194,6 +197,17 @@ export async function runDailyCycle(
       logEvent(replies.failed ? "warning" : "info",
         `Staged reply processing finished: ${replies.processed} processed, ${replies.failed} failed`);
     }
+    let followups: DailyCycleResult["followups"] = { status: "skipped" };
+    if (options.sendFollowups === true) {
+      phase = "follow-up sending";
+      // Reply processing, when requested, happens first. All sending stages
+      // share the same database-backed daily budget and advisory lock.
+      const results: OutreachResult[] = [];
+      for (const followupStep of [3, 2] as const) {
+        results.push(await runDailyOutreach({ followupStep }));
+      }
+      followups = { status: "completed", results };
+    }
     phase = "summary";
     const [summary, dailySummary] = await Promise.all([
       getImportStatus(),
@@ -201,11 +215,12 @@ export async function runDailyCycle(
     ]);
     const status = (outreach.status === "completed" && outreach.result.failed > 0)
       || enrichment.failed > 0 || (replies.status === "completed" && replies.failed > 0)
+      || (followups.status === "completed" && followups.results.some((item) => item.failed > 0))
       ? "completed_with_errors" : "completed";
     logEvent("info", "Replies and their status updates remain handled by Gmail Pub/Sub");
     logEvent(status === "completed" ? "success" : "warning",
       status === "completed" ? "Daily cycle completed" : "Daily cycle completed with errors");
-    return { status, import: imported, insertion, enrichment, drafts, outreach, replies, summary, dailySummary };
+    return { status, import: imported, insertion, enrichment, drafts, outreach, followups, replies, summary, dailySummary };
   } catch {
     // Never publish raw provider errors or report success after a failed phase.
     logEvent("error", `Daily cycle failed during ${phase}`);

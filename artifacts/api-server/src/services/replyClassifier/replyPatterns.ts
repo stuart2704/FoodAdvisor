@@ -35,6 +35,7 @@ export const REPLY_PATTERN_GROUPS: readonly ReplyPatternGroup[] = [
     recommendedAction: "suppress",
     patterns: [
       { name: "unsubscribe", expression: /\b(?:please\s+)?unsubscribe(?:\s+(?:me|us))?\b/i, confidence: "high" },
+      { name: "remove_recipient", expression: /\bremove\s+(?:me|us)\b/i, confidence: "high" },
       { name: "stop_emailing", expression: /\bstop\s+emailing(?:\s+(?:me|us))?\b/i, confidence: "high" },
       { name: "remove_from_list", expression: /\b(?:remove|take)\s+(?:me|us)\s+(?:off|from)\s+(?:your\s+)?(?:list|mailing list|emails?)\b/i, confidence: "high" },
       { name: "stop_contact", expression: /\b(?:do not|don't|stop)\s+(?:emailing|contacting|sending(?:\s+(?:me|us))?\s+emails?\s+to)\s+(?:me|us)\b/i, confidence: "high" },
@@ -67,6 +68,7 @@ export const REPLY_PATTERN_GROUPS: readonly ReplyPatternGroup[] = [
     recommendedAction: "suppress",
     patterns: [
       { name: "not_interested", expression: /\b(?:not|no longer)\s+interested\b/i, confidence: "high" },
+      { name: "standalone_no", expression: /^no[.! ]*$/i, confidence: "medium" },
       { name: "no_thank_you", expression: /\bno\s+thank\s+you\b/i, confidence: "high" },
       { name: "decline_for_now", expression: /\b(?:not\s+right\s+now|maybe\s+later)\b/i, confidence: "medium" },
       { name: "no_need", expression: /\b(?:don't|do\s+not)\s+need\b/i, confidence: "medium" },
@@ -94,6 +96,7 @@ export const REPLY_PATTERN_GROUPS: readonly ReplyPatternGroup[] = [
       { name: "standalone_interest", expression: /^(?:yes[,.! ]+)?interested[.! ]*$/i, confidence: "medium" },
       { name: "affirmative_reply", expression: /^yes(?:[,.! ]|$)/i, confidence: "medium" },
       { name: "positive_proceed", expression: /\b(?:sounds\s+good|let's\s+do\s+it|go\s+ahead|please\s+proceed|sign\s+us\s+up)\b/i, confidence: "medium" },
+      { name: "love_to_be_listed", expression: /\blove\s+to\s+be\s+listed\b/i, confidence: "medium" },
       { name: "keen_to_proceed", expression: /^(?:(?:i'm|i\s+am|we're|we\s+are)\s+)?keen[.! ]*$/i, confidence: "medium" },
       { name: "sounds_interesting", expression: /\b(?:this|that|it)\s+sounds\s+(?:very\s+)?interesting\b/i, confidence: "medium" },
       { name: "tell_me_more", expression: /\b(?:tell|send)\s+(?:me|us)\s+more\b/i, confidence: "medium" },

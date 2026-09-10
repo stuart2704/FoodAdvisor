@@ -1,0 +1,91 @@
+// src/replies/replyService.ts
+
+import { logEvent, logError } from "../dashboard/eventsFeed";
+import { classifyScraperError } from "../errors/errorService";
+import { updateStatus } from "../status/statusService";
+import { classifyReplyIntent } from "./replyClassifier";
+
+/**
+ * Fetch new replies from your email provider.
+ * Later you will plug in:
+ * - Instantly API
+ * - Gmail API
+ * - IMAP
+ * - SendGrid inbound parse
+ */
+export async function getNewReplies() {
+  logEvent("Fetching new replies");
+
+  try {
+    // Placeholder mock replies
+    const mockReplies = [
+      {
+        restaurantId: 1,
+        restaurantName: "Example Restaurant",
+        from: "info@example.com",
+        body: "Thanks for reaching out — yes, we'd love to be listed!",
+        receivedAt: new Date().toISOString()
+      },
+      {
+        restaurantId: 2,
+        restaurantName: "Sample Bistro",
+        from: "hello@samplebistro.com",
+        body: "Not interested at the moment, thanks.",
+        receivedAt: new Date().toISOString()
+      }
+    ];
+
+    logEvent(`Fetched ${mockReplies.length} replies`);
+    return mockReplies;
+
+  } catch (err) {
+    const category = classifyScraperError(err);
+    logError("Failed to fetch replies", category);
+    return [];
+  }
+}
+
+/**
+ * Process a single reply
+ */
+export async function handleReply(reply: any) {
+  logEvent(`Processing reply from: ${reply.restaurantName}`);
+
+  try {
+    // 1. Classify intent
+    const intent = classifyReplyIntent(reply.body);
+
+    // 2. Update status based on intent
+    const newStatus = mapIntentToStatus(intent);
+
+    await updateStatus(reply.restaurantId, newStatus);
+
+    logEvent(
+      `Reply processed: ${reply.restaurantName} → intent=${intent} → status=${newStatus}`
+    );
+
+    return { intent, newStatus };
+
+  } catch (err) {
+    const category = classifyScraperError(err);
+    logError(`Failed to process reply from ${reply.restaurantName}`, category);
+    return null;
+  }
+}
+
+/**
+ * Map reply intent → status
+ */
+function mapIntentToStatus(intent: string) {
+  switch (intent) {
+    case "positive":
+      return "engaged";
+    case "negative":
+      return "closed";
+    case "followup":
+      return "awaiting_followup";
+    case "unclear":
+    default:
+      return "unknown_reply";
+  }
+}
