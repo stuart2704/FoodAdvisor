@@ -8,11 +8,10 @@ import {
   pool,
 } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { RenewGmailWatchResponse } from "@workspace/api-zod";
+import { activateGmailWatch as activateManagedGmailWatch } from "../services/gmailWatch";
 import { assertPublicHttpsUrl } from "../lib/public-url";
 import {
   activateGmailWatch,
-  getGmailProfile,
   GmailHttpError,
   listGmailHistory,
   validHistoryId,
@@ -42,14 +41,6 @@ function validAutomationToken(header: string | undefined): boolean {
   const expectedHash = createHash("sha256").update(expected).digest();
   const suppliedHash = createHash("sha256").update(supplied).digest();
   return timingSafeEqual(expectedHash, suppliedHash);
-}
-
-function configuredTopic(): string {
-  const topic = process.env.GMAIL_PUBSUB_TOPIC;
-  if (!topic || !/^projects\/[^/]+\/topics\/[^/]+$/.test(topic)) {
-    throw new Error("Gmail Pub/Sub topic is not configured.");
-  }
-  return topic;
 }
 
 interface PushPayload {
@@ -145,36 +136,7 @@ export function createGmailWatchHandler(adminEnvelope = false): RequestHandler {
     return;
   }
   try {
-    const topicName = configuredTopic();
-    const profile = await getGmailProfile();
-    const existing = await db.select().from(gmailWatchStateTable).limit(2);
-    if (existing.some((row) => row.accountEmail !== profile.emailAddress)) {
-      throw new Error("The managed Gmail account does not match watch state.");
-    }
-    const watch = await activateGmailWatch(topicName);
-    const current = existing.find((row) => row.accountEmail === profile.emailAddress);
-    await db
-      .insert(gmailWatchStateTable)
-      .values({
-        accountEmail: profile.emailAddress,
-        lastHistoryId: current?.lastHistoryId ?? watch.historyId,
-        watchExpiration: watch.expiration,
-        topicName,
-        updatedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: gmailWatchStateTable.accountEmail,
-        set: {
-          watchExpiration: watch.expiration,
-          topicName,
-          updatedAt: new Date(),
-        },
-      });
-    const result = RenewGmailWatchResponse.parse({
-        historyId: current?.lastHistoryId ?? watch.historyId,
-        expiration: watch.expiration,
-        topic: topicName,
-      });
+    const result = await activateManagedGmailWatch();
     res.json(adminEnvelope ? { ok: true, result } : result);
   } catch {
     req.log.warn("Gmail watch activation failed.");
