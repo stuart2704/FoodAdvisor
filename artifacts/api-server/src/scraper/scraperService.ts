@@ -4,7 +4,7 @@ import {
   type RestaurantEnrichmentResult,
 } from "../services/enrichment/enrichRestaurant";
 import { logEvent } from "../utils/eventLog";
-import { validateRestaurant } from "../pipeline/validator";
+import { validateRestaurant } from "./validator";
 import { classifyScraperError } from "../errors/errorService";
 import { getScalingLimits, limitRestaurants } from "../scaling/scalingService";
 

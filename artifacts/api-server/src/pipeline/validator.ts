@@ -35,7 +35,7 @@ export function parseRestaurant(input: unknown): QueuedRestaurant {
     googleMapsUrl: value.googleMapsUrl ?? value.mapsUrl,
   });
   if (!parsed.success) {
-    logEvent("error", "Restaurant validation failed; nothing queued or inserted");
+    logEvent("error", "Restaurant validation failed", "validation_error");
     throw new Error("Invalid restaurant: Google Place ID, name, address, city, and Maps URL are required; check field formats.");
   }
   // Validate this optional field, but do not write a nonexistent DB column.
