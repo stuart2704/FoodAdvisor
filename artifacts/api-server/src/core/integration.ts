@@ -12,8 +12,11 @@ import { generateOutreachFor } from "../outreach/messageGenerator";
 import { getNewReplies, handleReply } from "../replies/replyService";
 import { enrichRestaurant } from "../services/enrichment/enrichRestaurant";
 import { generateDailySummary } from "../dashboard/metricsService";
+import { applyScalingLimits, getScalingLimits, limitOutreach, limitReplies, type ScalingTier } from "../scaling/scalingService";
 
 export interface DailyCycleOptions {
+  // Internal, trusted caller only; this does not establish a paid entitlement.
+  userTier?: ScalingTier;
   restaurantImport?: {
     cities: string[];
     perCityLimit?: number;
@@ -65,6 +68,7 @@ export async function runDailyCycle(
 ): Promise<DailyCycleResult> {
   if (running) throw new Error("A daily cycle is already running in this process.");
   const importOptions = options.restaurantImport;
+  const limits = getScalingLimits(options.userTier);
   const budget = importOptions?.monthlyBudgetCents ?? 2500;
   if (importOptions && (!Number.isInteger(budget) || budget <= 0 || budget > 2500)) {
     throw new Error("Monthly import budget must be between 1 and 2500 pence.");
@@ -81,9 +85,13 @@ export async function runDailyCycle(
     let imported: DailyCycleResult["import"] = { status: "skipped" };
     if (importOptions) {
       phase = "restaurant import";
+      const requestedPerCity = importOptions.perCityLimit ?? 10;
+      if (!Number.isInteger(requestedPerCity) || requestedPerCity < 1) {
+        throw new Error("Per-city limit must be a positive integer.");
+      }
       const input = {
-        cities: importOptions.cities,
-        perCityLimit: importOptions.perCityLimit,
+        cities: applyScalingLimits(importOptions.cities, options.userTier),
+        perCityLimit: Math.min(requestedPerCity, limits.MAX_RESTAURANTS_PER_CITY),
         monthlyBudgetCents: budget,
       };
       if (importOptions.confirm === true) {
@@ -135,9 +143,9 @@ export async function runDailyCycle(
         eq(restaurantsTable.outreachStatus, "pending"),
         or(isNull(restaurantsTable.nextOutreachAfter),
           lte(restaurantsTable.nextOutreachAfter, new Date())),
-      )).orderBy(restaurantsTable.importedAt).limit(20);
+      )).orderBy(restaurantsTable.importedAt).limit(limits.MAX_OUTREACH_PER_DAY);
       const messages = [];
-      for (const restaurant of candidates) {
+      for (const restaurant of limitOutreach(candidates)) {
         messages.push(await generateOutreachFor({
           placeId: restaurant.placeId,
           name: restaurant.name,
@@ -172,7 +180,7 @@ export async function runDailyCycle(
     let replies: DailyCycleResult["replies"] = { status: "handled_by_pubsub" };
     if (options.processStagedReplies === true) {
       phase = "staged reply processing";
-      const pending = await getNewReplies();
+      const pending = limitReplies(await getNewReplies());
       replies = { status: "completed", processed: 0, skipped: 0, failed: 0 };
       for (const reply of pending) {
         try {
