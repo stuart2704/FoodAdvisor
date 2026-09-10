@@ -1,4 +1,4 @@
-import { scrapeMapsResults, type MapsRestaurant, type MapsScanOptions } from "./mapsScraper";
+import { scrapeMapsForCity, type MapsRestaurant, type MapsScanOptions } from "./mapsScraper";
 import {
   enrichRestaurant,
   type RestaurantEnrichmentResult,
@@ -34,7 +34,7 @@ export async function scrapeCity(
   logEvent("info", "City scraper started");
   try {
     // Limit the paid request itself, not just its already-persisted results.
-    const mapsResults = await scrapeMapsResults(city, {
+    const mapsResults = await scrapeMapsForCity(city, {
       ...options,
       perCityLimit: Math.min(requestedLimit, getScalingLimits().MAX_RESTAURANTS_PER_CITY),
     });

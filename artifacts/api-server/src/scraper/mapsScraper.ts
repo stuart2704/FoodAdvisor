@@ -20,11 +20,12 @@ export interface MapsScanOptions {
  * Uses the existing official Places importer, including its persistence and
  * spending checks. Returned listings are already saved; do not insert again.
  */
-export async function scrapeMapsResults(
+export async function scrapeMapsForCity(
   city: string,
   options: MapsScanOptions = { confirm: false },
 ): Promise<MapsRestaurant[]> {
   if (options.confirm !== true) throw new Error("City scan confirmation is required.");
+  if (typeof city !== "string" || !city.trim()) throw new Error("A city name is required.");
   const canonicalCity = SUPPORTED_CITIES.find(
     (supported) => supported.toLowerCase() === city.trim().toLowerCase(),
   );
@@ -58,3 +59,6 @@ export async function scrapeMapsResults(
     throw new Error("Maps scan failed or was blocked by the budget. Check import status before retrying; some listings may already be saved.");
   }
 }
+
+// Preserve compatibility for callers using the original adapter name.
+export const scrapeMapsResults = scrapeMapsForCity;
