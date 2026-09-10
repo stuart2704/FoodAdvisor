@@ -1,0 +1,130 @@
+// src/outreach/messageTemplates.ts
+
+/**
+ * Build an outreach message using a template + dynamic fields.
+ * This keeps your emails consistent and professional.
+ */
+
+interface TemplateInput {
+  name: string;
+  city: string;
+  cuisine?: string;
+  website?: string;
+  brandingQuality?: string;
+  tone: "friendly" | "professional" | "premium" | "casual";
+}
+
+export function buildTemplate(input: TemplateInput) {
+  const { name, city, cuisine, website, brandingQuality, tone } = input;
+
+  // SUBJECT LINE
+  const subject = generateSubjectLine(name, city, tone);
+
+  // BODY
+  const body = generateBody({
+    name,
+    city,
+    cuisine,
+    website,
+    brandingQuality,
+    tone
+  });
+
+  return { subject, body };
+}
+
+/**
+ * SUBJECT LINE GENERATOR
+ */
+function generateSubjectLine(name: string, city: string, tone: string) {
+  switch (tone) {
+    case "premium":
+      return `A quick idea for ${name} in ${city}`;
+    case "professional":
+      return `Opportunity for ${name} (${city})`;
+    case "friendly":
+      return `Loved what you're doing at ${name}`;
+    case "casual":
+      return `Quick question about ${name}`;
+    default:
+      return `Hello from The Food Advisor`;
+  }
+}
+
+/**
+ * BODY GENERATOR
+ */
+function generateBody({
+  name,
+  city,
+  cuisine,
+  website,
+  brandingQuality,
+  tone
+}: any) {
+  const intro = getIntroLine(name, city, tone);
+  const observation = getObservationLine(cuisine, brandingQuality);
+  const offer = getOfferLine();
+  const cta = getCTA();
+
+  return `
+Hi ${name} team,
+
+${intro}
+
+${observation}
+
+${offer}
+
+${cta}
+
+Best wishes,  
+Stuart  
+The Food Advisor  
+${website || ""}
+  `.trim();
+}
+
+/**
+ * INTRO LINES BASED ON TONE
+ */
+function getIntroLine(name: string, city: string, tone: string) {
+  const lines: any = {
+    friendly: `I came across ${name} while exploring places in ${city}. Really loved the vibe.`,
+    professional: `I’m reaching out after reviewing ${name} in ${city}.`,
+    premium: `Your presence in ${city} stood out immediately — ${name} looks exceptional.`,
+    casual: `Saw ${name} in ${city} and wanted to drop a quick message.`
+  };
+
+  return lines[tone] || lines.professional;
+}
+
+/**
+ * OBSERVATION BASED ON SCRAPED DATA
+ */
+function getObservationLine(cuisine?: string, brandingQuality?: string) {
+  const cuisinePart = cuisine ? `Your ${cuisine} offering looks great.` : "";
+  const brandingPart = brandingQuality
+    ? `Your branding feels ${brandingQuality}.`
+    : "";
+
+  if (!cuisinePart && !brandingPart) {
+    return `I think you’re doing something really interesting.`;
+  }
+
+  return `${cuisinePart} ${brandingPart}`.trim();
+}
+
+/**
+ * OFFER LINE
+ */
+function getOfferLine() {
+  return `I run The Food Advisor — a curated directory helping diners discover great restaurants. I’d love to feature you completely free.`;
+}
+
+/**
+ * CALL TO ACTION
+ */
+function getCTA() {
+  return `If you're open to it, I can get your listing live today.`;
+}
