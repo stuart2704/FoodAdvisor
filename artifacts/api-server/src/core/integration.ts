@@ -5,6 +5,12 @@ import {
 } from "../lib/restaurant-import";
 import { runDailyOutreach } from "../lib/outreach";
 import { logEvent } from "../utils/eventLog";
+import { db, restaurantsTable } from "@workspace/db";
+import { and, eq, isNull, lte, or } from "drizzle-orm";
+import { insertQueuedRestaurants } from "../pipeline/insertService";
+import { generateOutreachFor } from "../outreach/messageGenerator";
+import { getNewReplies, handleReply } from "../replies/replyService";
+import { enrichRestaurant } from "../services/enrichment/enrichRestaurant";
 
 export interface DailyCycleOptions {
   restaurantImport?: {
@@ -16,6 +22,9 @@ export interface DailyCycleOptions {
   };
   // The existing OUTREACH_ENABLED guard must also allow sending.
   sendOutreach?: boolean;
+  drainInsertionQueue?: boolean;
+  generateDrafts?: boolean;
+  processStagedReplies?: boolean;
 }
 
 type ImportPlan = Awaited<ReturnType<typeof createImportPlan>>;
@@ -32,7 +41,12 @@ export interface DailyCycleResult {
       };
   outreach: { status: "skipped"; reason: string }
     | { status: "completed"; result: OutreachResult };
-  replies: { status: "handled_by_pubsub" };
+  insertion: { status: "skipped" } | { status: "completed"; inserted: number };
+  drafts: { status: "skipped" }
+    | { status: "completed"; messages: Awaited<ReturnType<typeof generateOutreachFor>>[] };
+  enrichment: { succeeded: number; failed: number; skipped: number };
+  replies: { status: "handled_by_pubsub" }
+    | { status: "completed"; processed: number; skipped: number; failed: number };
   summary: Awaited<ReturnType<typeof getImportStatus>>;
 }
 
@@ -61,6 +75,7 @@ export async function runDailyCycle(
   let phase = "initialisation";
   logEvent("info", "Daily cycle started");
   try {
+    const enrichment = { succeeded: 0, failed: 0, skipped: 0 };
     let imported: DailyCycleResult["import"] = { status: "skipped" };
     if (importOptions) {
       phase = "restaurant import";
@@ -76,12 +91,63 @@ export async function runDailyCycle(
         const { restaurants: _restaurants, ...counts } = result;
         imported = { status: "completed", result: counts };
         logEvent("success", `Restaurant import completed: ${result.imported} inserted`);
+        phase = "website enrichment";
+        for (const restaurant of result.restaurants) {
+          if (!restaurant.website) {
+            enrichment.skipped += 1;
+            continue;
+          }
+          try {
+            const enriched = await enrichRestaurant(restaurant.id);
+            if (enriched.ok) enrichment.succeeded += 1;
+            else enrichment.failed += 1;
+          } catch {
+            enrichment.failed += 1;
+          }
+        }
+        logEvent(enrichment.failed ? "warning" : "info",
+          `Website enrichment finished: ${enrichment.succeeded} succeeded, ${enrichment.failed} failed`);
       } else {
         imported = { status: "preview", plan: await createImportPlan(input) };
         logEvent("info", "Import preview generated; no paid requests made");
       }
     } else {
       logEvent("info", "Restaurant import skipped: no cities requested");
+    }
+
+    let insertion: DailyCycleResult["insertion"] = { status: "skipped" };
+    if (options.drainInsertionQueue === true) {
+      phase = "queued insertion";
+      const inserted = await insertQueuedRestaurants();
+      insertion = { status: "completed", inserted: inserted.length };
+      // Inserts already receive pending status. Never reset existing records.
+    }
+
+    let drafts: DailyCycleResult["drafts"] = { status: "skipped" };
+    if (options.generateDrafts === true) {
+      phase = "outreach draft generation";
+      const candidates = await db.select().from(restaurantsTable).where(and(
+        isNull(restaurantsTable.suppressedAt),
+        isNull(restaurantsTable.claimedAt),
+        eq(restaurantsTable.outreachCount, 0),
+        eq(restaurantsTable.outreachStatus, "pending"),
+        or(isNull(restaurantsTable.nextOutreachAfter),
+          lte(restaurantsTable.nextOutreachAfter, new Date())),
+      )).orderBy(restaurantsTable.importedAt).limit(20);
+      const messages = [];
+      for (const restaurant of candidates) {
+        messages.push(await generateOutreachFor({
+          placeId: restaurant.placeId,
+          name: restaurant.name,
+          city: restaurant.city,
+          cuisine: restaurant.cuisineTags[0],
+          website: restaurant.website,
+          rating: restaurant.rating,
+        }));
+      }
+      // Preview drafts only; the guarded sender owns final dispatch content.
+      drafts = { status: "completed", messages };
+      logEvent("info", `Outreach drafts generated: ${messages.length}`);
     }
 
     let outreach: DailyCycleResult["outreach"] = {
@@ -101,14 +167,32 @@ export async function runDailyCycle(
       logEvent("info", "Outreach sending skipped: not explicitly requested");
     }
 
+    let replies: DailyCycleResult["replies"] = { status: "handled_by_pubsub" };
+    if (options.processStagedReplies === true) {
+      phase = "staged reply processing";
+      const pending = await getNewReplies();
+      replies = { status: "completed", processed: 0, skipped: 0, failed: 0 };
+      for (const reply of pending) {
+        try {
+          const result = await handleReply(reply);
+          if (result.status === "processed") replies.processed += 1;
+          else replies.skipped += 1;
+        } catch {
+          replies.failed += 1;
+        }
+      }
+      logEvent(replies.failed ? "warning" : "info",
+        `Staged reply processing finished: ${replies.processed} processed, ${replies.failed} failed`);
+    }
     phase = "summary";
     const summary = await getImportStatus();
-    const status = outreach.status === "completed" && outreach.result.failed > 0
+    const status = (outreach.status === "completed" && outreach.result.failed > 0)
+      || enrichment.failed > 0 || (replies.status === "completed" && replies.failed > 0)
       ? "completed_with_errors" : "completed";
     logEvent("info", "Replies and their status updates remain handled by Gmail Pub/Sub");
     logEvent(status === "completed" ? "success" : "warning",
-      status === "completed" ? "Daily cycle completed" : "Daily cycle completed with outreach errors");
-    return { status, import: imported, outreach, replies: { status: "handled_by_pubsub" }, summary };
+      status === "completed" ? "Daily cycle completed" : "Daily cycle completed with errors");
+    return { status, import: imported, insertion, enrichment, drafts, outreach, replies, summary };
   } catch {
     // Never publish raw provider errors or report success after a failed phase.
     logEvent("error", `Daily cycle failed during ${phase}`);

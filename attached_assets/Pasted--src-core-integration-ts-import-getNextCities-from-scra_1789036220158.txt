@@ -1,0 +1,148 @@
+// src/core/integration.ts
+
+import { getNextCities } from "../scraper/cityPicker";
+import { scrapeCity } from "../scraper/scraperService";
+import { queueForInsertion, getPendingInsertions, insertQueuedRestaurants } from "../pipeline/insertService";
+import { generateOutreachFor } from "../outreach/messageGenerator";
+import { sendEmail1 } from "../outreach/sendingService";
+import { getNewReplies, handleReply } from "../replies/replyService";
+import { updateStatus } from "../status/statusService";
+import { generateDailySummary } from "../dashboard/metricsService";
+import { logEvent, logError } from "../dashboard/eventsFeed";
+import { applyScalingLimits } from "../scaling/scalingService";
+
+/**
+ * MAIN DAILY CYCLE
+ */
+export async function runDailyCycle() {
+  logEvent("Daily cycle started");
+
+  try {
+    await runCityScanPhase();
+    await runInsertionPhase();
+    await runOutreachGenerationPhase();
+    await runSendingPhase();
+    await runReplyProcessingPhase();
+    await runStatusSyncPhase();
+    await runDailySummary();
+  } catch (err) {
+    logError("Critical error in daily cycle", err);
+  }
+
+  logEvent("Daily cycle finished");
+}
+
+/**
+ * 1️⃣ SCRAPE CITIES
+ */
+async function runCityScanPhase() {
+  logEvent("City scan phase started");
+
+  const cities = applyScalingLimits(getNextCities());
+
+  for (const city of cities) {
+    logEvent(`Scraping city: ${city}`);
+
+    const restaurants = await scrapeCity(city);
+
+    for (const r of restaurants) {
+      queueForInsertion(r);
+      logEvent(`Queued restaurant for insertion: ${r.name}`);
+    }
+  }
+
+  logEvent("City scan phase finished");
+}
+
+/**
+ * 2️⃣ INSERT RESTAURANTS
+ */
+async function runInsertionPhase() {
+  logEvent("Insertion phase started");
+
+  const inserted = await insertQueuedRestaurants();
+
+  for (const restaurant of inserted) {
+    await updateStatus(restaurant.id, "not_contacted");
+    logEvent(`Inserted restaurant: ${restaurant.id}`);
+  }
+
+  logEvent("Insertion phase finished");
+}
+
+/**
+ * 3️⃣ GENERATE OUTREACH
+ */
+async function runOutreachGenerationPhase() {
+  logEvent("Outreach generation phase started");
+
+  // In real implementation: fetch restaurants from DB
+  const restaurants = []; // placeholder
+
+  for (const r of restaurants) {
+    const outreach = await generateOutreachFor(r);
+    r.outreach = outreach;
+    logEvent(`Generated outreach for: ${r.name}`);
+  }
+
+  logEvent("Outreach generation phase finished");
+}
+
+/**
+ * 4️⃣ SEND OUTREACH EMAILS
+ */
+async function runSendingPhase() {
+  logEvent("Sending phase started");
+
+  const restaurants = []; // placeholder
+
+  for (const r of restaurants) {
+    await sendEmail1(r);
+    await updateStatus(r.id, "contacted");
+    logEvent(`Email sent to: ${r.name}`);
+  }
+
+  logEvent("Sending phase finished");
+}
+
+/**
+ * 5️⃣ PROCESS REPLIES
+ */
+async function runReplyProcessingPhase() {
+  logEvent("Reply processing phase started");
+
+  const replies = await getNewReplies();
+
+  for (const reply of replies) {
+    await handleReply(reply);
+    logEvent(`Processed reply from: ${reply.restaurantName}`);
+  }
+
+  logEvent("Reply processing phase finished");
+}
+
+/**
+ * 6️⃣ SYNC STATUS FROM EMAIL PROVIDER
+ */
+async function runStatusSyncPhase() {
+  logEvent("Status sync phase started");
+
+  // Engagement events from Instantly/Gmail API
+  const engagementEvents = []; // placeholder
+
+  for (const event of engagementEvents) {
+    await updateStatus(event.restaurantId, event.newStatus);
+    logEvent(`Status updated: ${event.restaurantId} → ${event.newStatus}`);
+  }
+
+  logEvent("Status sync phase finished");
+}
+
+/**
+ * 7️⃣ DAILY SUMMARY
+ */
+async function runDailySummary() {
+  const summary = await generateDailySummary();
+  logEvent("Daily summary generated");
+  console.log(summary);
+}
