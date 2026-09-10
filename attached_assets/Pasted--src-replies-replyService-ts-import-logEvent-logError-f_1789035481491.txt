@@ -1,0 +1,79 @@
+// src/replies/replyService.ts
+
+import { logEvent, logError } from "../dashboard/eventsFeed";
+import { classifyReply } from "./classifier";
+import { generateReplyMessage } from "./replyGenerator";
+import { updateStatus } from "../status/statusService";
+
+/**
+ * Fetch new replies from your email provider.
+ * For now, this is a safe mock so your backend runs end-to-end.
+ */
+export async function getNewReplies() {
+  logEvent("Checking for new replies");
+
+  // Placeholder: replace with Instantly/Gmail API later
+  const mockReplies = [
+    {
+      restaurantId: 1,
+      restaurantName: "Example Restaurant",
+      email: "info@example.com",
+      body: "Thanks for reaching out — yes, we’re interested!",
+      receivedAt: new Date().toISOString()
+    }
+  ];
+
+  logEvent(`Found ${mockReplies.length} new replies`);
+  return mockReplies;
+}
+
+/**
+ * Handle a single reply:
+ * - classify intent
+ * - generate AI response
+ * - update status
+ * - log events
+ */
+export async function handleReply(reply: any) {
+  try {
+    logEvent(`Processing reply from: ${reply.restaurantName}`);
+
+    // 1. Classify reply intent (interested, not interested, questions, etc.)
+    const intent = classifyReply(reply.body);
+
+    // 2. Generate AI response based on intent
+    const aiResponse = generateReplyMessage(intent, reply);
+
+    // 3. Update status based on intent
+    const newStatus = mapIntentToStatus(intent);
+    await updateStatus(reply.restaurantId, newStatus);
+
+    logEvent(`Reply processed for: ${reply.restaurantName}`);
+
+    return {
+      intent,
+      aiResponse,
+      newStatus
+    };
+
+  } catch (err) {
+    logError(`Reply processing failed for ${reply.restaurantName}`, err);
+    return null;
+  }
+}
+
+/**
+ * Map reply intent → status
+ */
+function mapIntentToStatus(intent: string) {
+  switch (intent) {
+    case "interested":
+      return "engaged";
+    case "not_interested":
+      return "closed";
+    case "questions":
+      return "awaiting_followup";
+    default:
+      return "unknown_reply";
+  }
+}
