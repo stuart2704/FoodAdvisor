@@ -1,13 +1,13 @@
 import { db, restaurantsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logEvent } from "../utils/eventLog";
-import { validateRestaurant } from "./validator";
+import { parseRestaurant } from "./validator";
 
 export type InsertedRestaurant = typeof restaurantsTable.$inferSelect;
 
 // Reuse the shared Neon connection and TLS settings; never create another pool.
 export async function dbInsertRestaurant(input: unknown): Promise<InsertedRestaurant | null> {
-  const restaurant = validateRestaurant(input);
+  const restaurant = parseRestaurant(input);
   try {
     const [inserted] = await db.insert(restaurantsTable)
       .values(restaurant)

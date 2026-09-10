@@ -11,15 +11,20 @@ const restaurantSchema = z.object({
   name: z.string().trim().min(1).max(500),
   address: z.string().trim().min(1).max(2000),
   city: z.string().trim().min(1).max(200),
-  rating: z.number().finite().min(0).max(5).nullable().optional(),
+  rating: z.preprocess(parseNumericString, z.number().finite().min(0).max(5).nullable().optional()),
+  reviewsCount: z.preprocess(parseNumericString, z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).optional()),
   website: publicUrl.nullable().optional(),
   googleMapsUrl: publicUrl,
   types: z.array(z.string().trim().min(1).max(100)).max(100).default([]),
 });
 
-export type QueuedRestaurant = z.infer<typeof restaurantSchema>;
+export type QueuedRestaurant = Omit<z.infer<typeof restaurantSchema>, "reviewsCount">;
 
-export function validateRestaurant(input: unknown): QueuedRestaurant {
+function parseNumericString(value: unknown): unknown {
+  return typeof value === "string" && value.trim() !== "" ? Number(value) : value;
+}
+
+export function parseRestaurant(input: unknown): QueuedRestaurant {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     throw new Error("Invalid restaurant: expected an object.");
   }
@@ -33,5 +38,16 @@ export function validateRestaurant(input: unknown): QueuedRestaurant {
     logEvent("error", "Restaurant validation failed; nothing queued or inserted");
     throw new Error("Invalid restaurant: Google Place ID, name, address, city, and Maps URL are required; check field formats.");
   }
-  return parsed.data;
+  // Validate this optional field, but do not write a nonexistent DB column.
+  const { reviewsCount: _reviewsCount, ...restaurant } = parsed.data;
+  return restaurant;
+}
+
+export function validateRestaurant(input: unknown): boolean {
+  try {
+    parseRestaurant(input);
+    return true;
+  } catch {
+    return false;
+  }
 }

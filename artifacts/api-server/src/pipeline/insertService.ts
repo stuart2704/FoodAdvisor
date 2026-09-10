@@ -1,5 +1,5 @@
 import { logEvent } from "../utils/eventLog";
-import { validateRestaurant, type QueuedRestaurant } from "./validator";
+import { parseRestaurant, type QueuedRestaurant } from "./validator";
 import { dbInsertRestaurant, type InsertedRestaurant } from "./neonClient";
 export type { QueuedRestaurant } from "./validator";
 export type { InsertedRestaurant } from "./neonClient";
@@ -10,7 +10,7 @@ const MAX_PENDING = 1000;
 let draining = false;
 
 export function queueForInsertion(input: unknown): void {
-  const restaurant = validateRestaurant(input);
+  const restaurant = parseRestaurant(input);
   if (insertionQueue.has(restaurant.placeId)) {
     logEvent("info", "Restaurant already queued; duplicate ignored");
     return;
