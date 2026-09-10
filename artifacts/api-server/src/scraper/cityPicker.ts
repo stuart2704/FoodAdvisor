@@ -36,3 +36,6 @@ export function resetCityRotation(): void {
 export function getAllCities(): string[] {
   return [...ALL_CITIES];
 }
+
+// Same rotation state and validation; selecting cities does not start scans.
+export const pickCitiesForToday = getNextCities;
