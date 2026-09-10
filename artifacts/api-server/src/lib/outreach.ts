@@ -11,6 +11,7 @@ import { and, eq, gte, isNull, lte, ne, or, sql } from "drizzle-orm";
 import { enrichRestaurant } from "../services/enrichment/enrichRestaurant";
 import { validateEmail } from "../services/enrichment/validateEmail";
 import { assertPublicHttpsUrl } from "./public-url";
+import { generateOutreachFor } from "../outreach/messageGenerator";
 
 const DAILY_MAXIMUM = 20;
 const COOLDOWN_DAYS = 90;
@@ -60,9 +61,12 @@ function buildRawEmail(input: {
   to: string;
   restaurantName: string;
   unsubscribeUrl: string;
+  message?: { subject: string; body: string };
 }): string {
-  const subject = `A listing opportunity for ${input.restaurantName}`;
-  const body = [
+  const subject = input.message?.subject ?? `A listing opportunity for ${input.restaurantName}`;
+  const body = input.message
+    ? `${input.message.body}\r\n\r\nUnsubscribe: ${input.unsubscribeUrl}`
+    : [
     `Hello ${input.restaurantName} team,`,
     "",
     "The Food Advisor helps diners discover independent restaurants across the UK.",
@@ -124,7 +128,10 @@ function nextCooldown(): Date {
   return new Date(Date.now() + COOLDOWN_DAYS * 24 * 60 * 60 * 1_000);
 }
 
-export async function runDailyOutreach(): Promise<{
+export async function runDailyOutreach(options: {
+  placeId?: string;
+  initialOnly?: boolean;
+} = {}): Promise<{
   discovered: number;
   sent: number;
   skipped: number;
@@ -168,6 +175,17 @@ export async function runDailyOutreach(): Promise<{
     if (!remaining) {
       return { discovered: 0, sent: 0, skipped: 0, failed: 0, dailyMaximum: 20 };
     }
+    if (options.initialOnly && options.placeId) {
+      const [attempt] = await db.select({ id: outreachAuditTable.id })
+        .from(outreachAuditTable)
+        .where(and(
+          eq(outreachAuditTable.placeId, options.placeId),
+          eq(outreachAuditTable.event, "send_attempt"),
+        )).limit(1);
+      if (attempt) {
+        return { discovered: 0, sent: 0, skipped: 1, failed: 0, dailyMaximum: 20 };
+      }
+    }
 
     const candidates = await db
       .select()
@@ -176,6 +194,8 @@ export async function runDailyOutreach(): Promise<{
         and(
           isNull(restaurantsTable.suppressedAt),
           isNull(restaurantsTable.claimedAt),
+          options.placeId ? eq(restaurantsTable.placeId, options.placeId) : undefined,
+          options.initialOnly ? eq(restaurantsTable.outreachCount, 0) : undefined,
           ne(restaurantsTable.outreachStatus, "sending"),
           or(
             isNull(restaurantsTable.nextOutreachAfter),
@@ -203,6 +223,16 @@ export async function runDailyOutreach(): Promise<{
         skipped += 1;
         continue;
       }
+      // Targeted initial outreach uses a fresh draft from trusted DB fields.
+      // Caller-provided recipients, bodies, and statuses cannot bypass safeguards.
+      const message = options.initialOnly ? await generateOutreachFor({
+        placeId: candidate.placeId,
+        name: candidate.name,
+        city: candidate.city,
+        rating: candidate.rating,
+        website: candidate.website,
+        cuisine: candidate.cuisineTags[0],
+      }) : undefined;
 
       const token = randomBytes(32).toString("base64url");
       const [claimed] = await db
@@ -247,6 +277,7 @@ export async function runDailyOutreach(): Promise<{
             to: email,
             restaurantName: candidate.name,
             unsubscribeUrl,
+            message,
           }),
         );
         await db.transaction(async (tx) => {
