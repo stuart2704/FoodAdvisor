@@ -18,11 +18,13 @@ export async function activateGmailWatch() {
     throw new Error("The managed Gmail account does not match watch state.");
   }
   const watch = await requestGmailWatch(topicName);
+  const lastRenewedAt = new Date();
   const current = existing.find((row) => row.accountEmail === profile.emailAddress);
   await db.insert(gmailWatchStateTable).values({
     accountEmail: profile.emailAddress,
     lastHistoryId: current?.lastHistoryId ?? watch.historyId,
     watchExpiration: watch.expiration,
+    lastRenewedAt,
     topicName,
     updatedAt: new Date(),
   }).onConflictDoUpdate({
@@ -30,6 +32,7 @@ export async function activateGmailWatch() {
     // A renewal must not skip replies by replacing the durable history cursor.
     set: {
       watchExpiration: watch.expiration,
+      lastRenewedAt,
       topicName,
       updatedAt: new Date(),
     },

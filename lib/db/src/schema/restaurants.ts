@@ -122,6 +122,7 @@ export const gmailWatchStateTable = pgTable("gmail_watch_state", {
   accountEmail: text("account_email").primaryKey(),
   lastHistoryId: text("last_history_id").notNull(),
   watchExpiration: timestamp("watch_expiration", { withTimezone: true }).notNull(),
+  lastRenewedAt: timestamp("last_renewed_at", { withTimezone: true }),
   topicName: text("topic_name").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()

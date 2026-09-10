@@ -250,6 +250,7 @@ router.post("/gmail/push", verifyGoogleOidc, pubsubRateLimit, async (req, res): 
         const recoveryState = completedRecoveryState({
             lastHistoryId: watch.historyId,
             watchExpiration: watch.expiration,
+            lastRenewedAt: new Date(),
             updatedAt: new Date(),
           });
         await tx
