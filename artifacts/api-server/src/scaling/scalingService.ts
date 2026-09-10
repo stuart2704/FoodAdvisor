@@ -3,7 +3,7 @@ import { logEvent } from "../dashboard/eventsFeed";
 export type ScalingTier = "standard" | "premium";
 
 // These legacy names describe batch ceilings, not durable daily counters.
-// The Gmail sender separately enforces its database-backed 20-attempt daily cap.
+// The outreach delivery service separately enforces its database-backed 20-attempt daily cap.
 // Import confirmation and the £25 monthly budget remain enforced upstream.
 const LIMITS = Object.freeze({
   MAX_CITIES_PER_DAY: 5,

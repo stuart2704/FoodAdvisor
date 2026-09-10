@@ -397,7 +397,7 @@ paths:
     post:
       operationId: runOutreachAutomation
       tags: [outreach]
-      summary: Run one protected, daily outreach batch (maximum 20 sends)
+      summary: Run one protected, daily outreach batch (maximum 20 delivery attempts)
       security:
         - automationBearer: []
       responses:
@@ -454,6 +454,33 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Restaurant not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /automation/instantly/replies:
+    post:
+      operationId: pollInstantlyReplies
+      tags: [replies]
+      summary: Reconcile a bounded Instantly received-email inbox pass
+      description: Requires explicit Instantly reply polling enablement, resumes a durable cursor, and accepts only durably mapped campaigns.
+      security:
+        - automationBearer: []
+      responses:
+        "200":
+          description: Polling result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstantlyReplyPollResult"
+        "401":
+          description: Invalid automation credential
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Polling disabled, unavailable, or unsafe
           content:
             application/json:
               schema:
@@ -1002,6 +1029,16 @@ components:
           multipleOf: 1
           minimum: 0
           maximum: 20
+        reconciled:
+          type: number
+          multipleOf: 1
+          minimum: 0
+          description: Provider-confirmed historic delivery events reconciled during this run.
+        queued:
+          type: number
+          multipleOf: 1
+          minimum: 0
+          maximum: 20
         skipped:
           type: number
           multipleOf: 1
@@ -1013,7 +1050,27 @@ components:
         dailyMaximum:
           type: integer
           const: 20
-      required: [discovered, sent, skipped, failed, dailyMaximum]
+      required: [discovered, sent, reconciled, queued, skipped, failed, dailyMaximum]
+    InstantlyReplyPollResult:
+      type: object
+      additionalProperties: false
+      properties:
+        processed:
+          type: number
+          multipleOf: 1
+          minimum: 0
+          maximum: 2000
+        skipped:
+          type: number
+          multipleOf: 1
+          minimum: 0
+          maximum: 2000
+        failed:
+          type: number
+          multipleOf: 1
+          minimum: 0
+          maximum: 2000
+      required: [processed, skipped, failed]
     RestaurantImportRunResult:
       type: object
       properties:

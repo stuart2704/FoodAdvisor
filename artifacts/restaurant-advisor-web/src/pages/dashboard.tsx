@@ -551,7 +551,7 @@ export default function Dashboard() {
         <Card className="panel shadow-sm border-card-border" aria-labelledby="live-events-title">
           <CardHeader>
             <CardTitle id="live-events-title" className="text-xl">Live Events</CardTitle>
-            <CardDescription>Recent Gmail push and watch-renewal activity.</CardDescription>
+            <CardDescription>Recent reply and delivery activity.</CardDescription>
           </CardHeader>
           <CardContent>
             <LiveEvents />

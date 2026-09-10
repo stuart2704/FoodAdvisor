@@ -2,9 +2,9 @@ import { runDailyOutreach } from "../lib/outreach";
 import { logEvent } from "../utils/eventLog";
 
 /**
- * Send initial outreach to one existing restaurant through the shared,
- * capped Gmail pipeline. Recipient and draft come from stored restaurant data.
- * No new scheduler, direct Gmail bypass, or fake success is introduced.
+ * Queue initial outreach through the shared, capped Instantly pipeline.
+ * Recipient and draft come from stored restaurant data. A queued campaign is
+ * not reported as sent because Instantly delivery is asynchronous.
  */
 export async function sendEmail1(restaurant: unknown) {
   return sendSequenceEmail(restaurant, 1);
@@ -38,6 +38,14 @@ async function sendSequenceEmail(restaurant: unknown, step: 1 | 2 | 3) {
     if (result.failed > 0) {
       throw new Error("Initial outreach could not be confirmed.");
     }
+    if (result.queued > 0) {
+      logEvent("info", `Email ${step} queued in Instantly; delivery is not yet confirmed`);
+      return {
+        success: false as const,
+        status: "queued" as const,
+        reason: "Instantly accepted a single-lead campaign, but delivery is asynchronous and has not been confirmed.",
+      };
+    }
     if (result.sent === 0) {
       logEvent("warning", `Email ${step} not sent: eligibility, timing, previous attempt, recipient, or daily-limit check prevented sending`);
       return {
@@ -46,12 +54,12 @@ async function sendSequenceEmail(restaurant: unknown, step: 1 | 2 | 3) {
         reason: "Not due or eligible, no valid recipient, previous unconfirmed attempt, or daily limit reached.",
       };
     }
-    logEvent("success", `Email ${step} accepted by Gmail and recorded`);
+    logEvent("success", `Email ${step} delivery was confirmed and recorded`);
     return {
       success: true as const,
       status: step === 1 ? "sent" as const
         : step === 2 ? "followup_sent" as const : "final_followup_sent" as const,
-      provider: "gmail" as const,
+      provider: "instantly" as const,
       restaurantId: placeId.trim(),
       timestamp: new Date().toISOString(),
     };

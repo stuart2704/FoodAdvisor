@@ -374,7 +374,7 @@ export const UnsubscribeRestaurantOutreachResponse = zod.object({
 
 
 /**
- * @summary Run one protected, daily outreach batch (maximum 20 sends)
+ * @summary Run one protected, daily outreach batch (maximum 20 delivery attempts)
  */
 export const runOutreachAutomationResponseDiscoveredMin = 0;
 export const runOutreachAutomationResponseDiscoveredMultipleOf = 1;
@@ -382,6 +382,13 @@ export const runOutreachAutomationResponseDiscoveredMultipleOf = 1;
 export const runOutreachAutomationResponseSentMin = 0;
 export const runOutreachAutomationResponseSentMax = 20;
 export const runOutreachAutomationResponseSentMultipleOf = 1;
+
+export const runOutreachAutomationResponseReconciledMin = 0;
+export const runOutreachAutomationResponseReconciledMultipleOf = 1;
+
+export const runOutreachAutomationResponseQueuedMin = 0;
+export const runOutreachAutomationResponseQueuedMax = 20;
+export const runOutreachAutomationResponseQueuedMultipleOf = 1;
 
 export const runOutreachAutomationResponseSkippedMin = 0;
 export const runOutreachAutomationResponseSkippedMultipleOf = 1;
@@ -394,6 +401,8 @@ export const runOutreachAutomationResponseFailedMultipleOf = 1;
 export const RunOutreachAutomationResponse = zod.object({
   "discovered": zod.number().min(runOutreachAutomationResponseDiscoveredMin).multipleOf(runOutreachAutomationResponseDiscoveredMultipleOf),
   "sent": zod.number().min(runOutreachAutomationResponseSentMin).max(runOutreachAutomationResponseSentMax).multipleOf(runOutreachAutomationResponseSentMultipleOf),
+  "reconciled": zod.number().min(runOutreachAutomationResponseReconciledMin).multipleOf(runOutreachAutomationResponseReconciledMultipleOf).describe('Provider-confirmed historic delivery events reconciled during this run.'),
+  "queued": zod.number().min(runOutreachAutomationResponseQueuedMin).max(runOutreachAutomationResponseQueuedMax).multipleOf(runOutreachAutomationResponseQueuedMultipleOf),
   "skipped": zod.number().min(runOutreachAutomationResponseSkippedMin).multipleOf(runOutreachAutomationResponseSkippedMultipleOf),
   "failed": zod.number().min(runOutreachAutomationResponseFailedMin).multipleOf(runOutreachAutomationResponseFailedMultipleOf),
   "dailyMaximum": zod.literal(20)
@@ -425,6 +434,31 @@ export const ClassifyIncomingReplyResponse = zod.object({
   "confidence": zod.enum(['low', 'medium', 'high']),
   "matchedPattern": zod.string().nullable(),
   "recommendedAction": zod.enum(['suppress', 'pause', 'sales_follow_up', 'answer_question', 'manual_review'])
+})
+
+
+/**
+ * Requires explicit Instantly reply polling enablement, resumes a durable cursor, and accepts only durably mapped campaigns.
+ * @summary Reconcile a bounded Instantly received-email inbox pass
+ */
+export const pollInstantlyRepliesResponseProcessedMin = 0;
+export const pollInstantlyRepliesResponseProcessedMax = 2000;
+export const pollInstantlyRepliesResponseProcessedMultipleOf = 1;
+
+export const pollInstantlyRepliesResponseSkippedMin = 0;
+export const pollInstantlyRepliesResponseSkippedMax = 2000;
+export const pollInstantlyRepliesResponseSkippedMultipleOf = 1;
+
+export const pollInstantlyRepliesResponseFailedMin = 0;
+export const pollInstantlyRepliesResponseFailedMax = 2000;
+export const pollInstantlyRepliesResponseFailedMultipleOf = 1;
+
+
+
+export const PollInstantlyRepliesResponse = zod.object({
+  "processed": zod.number().min(pollInstantlyRepliesResponseProcessedMin).max(pollInstantlyRepliesResponseProcessedMax).multipleOf(pollInstantlyRepliesResponseProcessedMultipleOf),
+  "skipped": zod.number().min(pollInstantlyRepliesResponseSkippedMin).max(pollInstantlyRepliesResponseSkippedMax).multipleOf(pollInstantlyRepliesResponseSkippedMultipleOf),
+  "failed": zod.number().min(pollInstantlyRepliesResponseFailedMin).max(pollInstantlyRepliesResponseFailedMax).multipleOf(pollInstantlyRepliesResponseFailedMultipleOf)
 })
 
 

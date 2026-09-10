@@ -1,0 +1,83 @@
+// src/outreach/instantlyWebhook.ts
+
+import express from "express";
+import { logEvent, logError } from "../dashboard/eventsFeed";
+import { classifyReplyIntent } from "../replies/replyClassifier";
+import { updateStatus } from "../status/statusService";
+
+export const instantlyWebhookRouter = express.Router();
+
+/**
+ * Instantly sends POST requests to this endpoint
+ * whenever a reply is received.
+ *
+ * You will configure this URL inside Instantly:
+ * https://yourserver.com/webhooks/instantly
+ */
+
+instantlyWebhookRouter.post("/instantly", async (req, res) => {
+  try {
+    const payload = req.body;
+
+    logEvent("Instantly webhook received");
+
+    // Extract reply data
+    const replyBody = payload.body || "";
+    const subject = payload.subject || "";
+    const variables = payload.variables || {};
+
+    // Extract restaurant ID
+    const restaurantId =
+      variables.restaurant_id ||
+      extractRestaurantIdFromSubject(subject) ||
+      null;
+
+    if (!restaurantId) {
+      logError("Instantly webhook: Could not map reply to restaurant", "mapping_error");
+      return res.status(200).send("ok");
+    }
+
+    // Classify intent
+    const intent = classifyReplyIntent(replyBody);
+
+    // Map intent → status
+    const newStatus = mapIntentToStatus(intent);
+
+    // Update status
+    await updateStatus(restaurantId, newStatus);
+
+    logEvent(
+      `Instantly webhook processed → restaurant=${restaurantId} intent=${intent} status=${newStatus}`
+    );
+
+    res.status(200).send("ok");
+
+  } catch (err) {
+    logError("Instantly webhook failed", "webhook_error");
+    res.status(500).send("error");
+  }
+});
+
+/**
+ * Extract restaurant ID from subject fallback
+ */
+function extractRestaurantIdFromSubject(subject: string) {
+  const match = subject.match(/ID:(\d+)/);
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * Map reply intent → status
+ */
+function mapIntentToStatus(intent: string) {
+  switch (intent) {
+    case "positive":
+      return "engaged";
+    case "negative":
+      return "closed";
+    case "followup":
+      return "awaiting_followup";
+    default:
+      return "unknown_reply";
+  }
+}

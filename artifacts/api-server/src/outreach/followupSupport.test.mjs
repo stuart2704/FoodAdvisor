@@ -15,7 +15,8 @@ const policySource = path.join(apiRoot, "src/outreach/followupPolicy.ts");
  * The bundled module is deliberately given a small in-memory database rather
  * than a test database. This keeps this test hermetic while still executing
  * the production outreach.ts module, including its ORM predicates and
- * reservation/update flow.
+ * reservation/update flow. Instantly itself is mocked; the production module
+ * still owns all eligibility, cap, and state transitions.
  */
 const dbMock = String.raw`
 const table = (name, columns) => Object.assign({ __table: name }, Object.fromEntries(
@@ -213,8 +214,10 @@ function sqlSetValue(value, row) {
   if (!value?.__kind) return value;
   if (value.__kind !== "sql") return value;
   if (value.text.includes("case when")) {
-    const nextStatus = value.values.find((candidate) =>
-      ["sent", "followup_sent", "final_followup_sent"].includes(candidate));
+    const nextStatus = value.text.includes("'instantly_queued'")
+      ? "instantly_queued"
+      : value.values.find((candidate) =>
+        ["sent", "followup_sent", "final_followup_sent"].includes(candidate));
     return row.outreachStatus === "sending" &&
       row.suppressedAt == null && row.claimedAt == null
       ? nextStatus
@@ -304,7 +307,24 @@ export const db = {
     return new InsertQuery(table);
   },
   async transaction(callback) {
-    return callback(this);
+    const currentState = state();
+    const snapshot = structuredClone({
+      restaurants: currentState.restaurants,
+      threads: currentState.threads,
+      historyMessages: currentState.historyMessages,
+      audits: currentState.audits,
+      nextAuditId: currentState.nextAuditId,
+    });
+    try {
+      return await callback(this);
+    } catch (error) {
+      currentState.restaurants = snapshot.restaurants;
+      currentState.threads = snapshot.threads;
+      currentState.historyMessages = snapshot.historyMessages;
+      currentState.audits = snapshot.audits;
+      currentState.nextAuditId = snapshot.nextAuditId;
+      throw error;
+    }
   },
 };
 
@@ -325,20 +345,40 @@ const ormMock = String.raw`
 export { and, eq, gte, isNull, lte, or, sql } from "@workspace/db";
 `;
 
-const connectorMock = String.raw`
-export class ReplitConnectors {
-  async proxy(service, endpoint, options) {
-    const currentState = globalThis.__outreachMockState;
-    currentState.connectorCalls.push({ service, endpoint, options });
-    const index = currentState.connectorCalls.length;
-    return {
-      ok: true,
-      status: 200,
-      async json() {
-        return { id: "gmail-message-" + index, threadId: "gmail-thread-" + index };
-      },
-    };
+const instantlyMock = String.raw`
+export function assertInstantlyCampaignConfiguration() {}
+export async function withInstantlyRestaurantLock(_placeId, operation) { return operation(); }
+export async function requestInstantlyCampaignCancellation() {
+  globalThis.__outreachMockState.cancellationRequests += 1;
+}
+export async function drainInstantlyCampaignCancellations() {
+  globalThis.__outreachMockState.cancellationDrains += 1;
+}
+export async function reconcileInstantlyInboxFully() {
+  const state = globalThis.__outreachMockState;
+  state.reconcileCalls += 1;
+  if (state.beforeReconciliation) {
+    const hook = state.beforeReconciliation;
+    state.beforeReconciliation = null;
+    hook();
   }
+  return { processed: 0, skipped: 0, failed: 0 };
+}
+export async function reconcileInstantlySentMessages() { return 0; }
+export async function sendInstantlyEmail(draft, email, sequenceId) {
+  const state = globalThis.__outreachMockState;
+  state.connectorCalls.push({ service: "instantly", draft, email, sequenceId });
+  const suffix = String(state.connectorCalls.length).padStart(12, "0");
+  return { campaignId: "00000000-0000-4000-8000-" + suffix, leadId: "00000000-0000-4000-8001-" + suffix, activated: true };
+}
+`;
+
+const cancellationIntentsMock = String.raw`
+export async function enqueueAllInstantlyCancellationIntents() {
+  if (globalThis.__outreachMockState.failCancellationIntent) {
+    throw new Error("cancellation intent insert failed");
+  }
+  globalThis.__outreachMockState.cancellationRequests += 1;
 }
 `;
 
@@ -371,7 +411,8 @@ export async function generateOutreachFor() {
 const mockSources = new Map([
   ["@workspace/db", dbMock],
   ["drizzle-orm", ormMock],
-  ["@replit/connectors-sdk", connectorMock],
+  ["instantly-service", instantlyMock],
+  ["cancellation-intents", cancellationIntentsMock],
   ["public-url", publicUrlMock],
   ["enrichment", enrichmentMock],
   ["message-generator", generatorMock],
@@ -383,6 +424,8 @@ async function bundleOutreach() {
   const publicUrlSource = path.join(apiRoot, "src/lib/public-url.ts");
   const enrichmentSource = path.join(apiRoot, "src/services/enrichment/enrichRestaurant.ts");
   const generatorSource = path.join(apiRoot, "src/outreach/messageGenerator.ts");
+  const instantlyServiceSource = path.join(apiRoot, "src/outreach/instantlyService.ts");
+  const cancellationIntentsSource = path.join(apiRoot, "src/services/instantly/cancellationIntents.ts");
   await build({
     entryPoints: [outreachSource],
     outfile: output,
@@ -397,6 +440,12 @@ async function bundleOutreach() {
           if (mockSources.has(args.path)) {
             return { path: args.path, namespace: "outreach-mock" };
           }
+          if (args.path.includes("instantlyService")) {
+            return { path: "instantly-service", namespace: "outreach-mock" };
+          }
+          if (args.path.includes("cancellationIntents")) {
+            return { path: "cancellation-intents", namespace: "outreach-mock" };
+          }
           const resolved = path.resolve(path.dirname(args.importer), args.path);
           if (resolved === publicUrlSource) {
             return { path: "public-url", namespace: "outreach-mock" };
@@ -406,6 +455,12 @@ async function bundleOutreach() {
           }
           if (resolved === generatorSource) {
             return { path: "message-generator", namespace: "outreach-mock" };
+          }
+          if (resolved === instantlyServiceSource) {
+            return { path: "instantly-service", namespace: "outreach-mock" };
+          }
+          if (resolved === cancellationIntentsSource) {
+            return { path: "cancellation-intents", namespace: "outreach-mock" };
           }
           return undefined;
         });
@@ -438,6 +493,11 @@ function newState() {
     enrichmentCalls: [],
     enrichmentEmail: null,
     beforeReservation: null,
+    beforeReconciliation: null,
+    reconcileCalls: 0,
+    cancellationRequests: 0,
+    cancellationDrains: 0,
+    failCancellationIntent: false,
   };
 }
 
@@ -476,6 +536,7 @@ function sha256(value) {
 function setState(value) {
   globalThis.__outreachMockState = value;
   process.env.OUTREACH_ENABLED = "true";
+  process.env.INSTANTLY_CAMPAIGN_CREATION_ENABLED = "true";
   process.env.PUBLIC_APP_URL = "https://thefoodadvisor.co.uk";
   process.env.OUTREACH_DAILY_LIMIT = "20";
 }
@@ -516,7 +577,7 @@ test("followup policy requires a full one-day gap after email 2", () => {
   assert.equal(policy.isFollowupDue(3, history, new Date("2026-01-08T13:00:00.000Z")), true);
 });
 
-test("real runDailyOutreach sends followup step 2 and records followup_sent", async () => {
+test("real runDailyOutreach queues followup step 2 through Instantly", async () => {
   const current = newState();
   current.restaurants.push(restaurant("step-two"));
   current.audits.push(
@@ -526,14 +587,16 @@ test("real runDailyOutreach sends followup step 2 and records followup_sent", as
   setState(current);
 
   const result = await outreach.runDailyOutreach({ placeId: "step-two", followupStep: 2 });
-  assert.deepEqual(result, { discovered: 0, sent: 1, skipped: 0, failed: 0, dailyMaximum: 20 });
-  assert.equal(current.restaurants[0].outreachStatus, "followup_sent");
-  assert.equal(current.restaurants[0].outreachCount, 2);
-  assert.equal(current.audits.filter((item) => item.event === "sent").at(-1).detail.includes('"emailNumber":2'), true);
+  assert.deepEqual(result, { discovered: 0, sent: 0, reconciled: 0, queued: 1, skipped: 0, failed: 0, dailyMaximum: 20 });
+  assert.equal(current.restaurants[0].outreachStatus, "instantly_queued");
+  assert.equal(current.restaurants[0].outreachCount, 1);
+  assert.equal(current.audits.at(-1).event, "instantly_activated");
   assert.equal(current.connectorCalls.length, 1);
+  assert.equal(current.connectorCalls[0].sequenceId, 2);
+  assert.equal(current.cancellationDrains, 1);
 });
 
-test("real runDailyOutreach sends followup step 3 and records final_followup_sent", async () => {
+test("real runDailyOutreach queues followup step 3 through Instantly", async () => {
   const current = newState();
   current.restaurants.push(restaurant("step-three", {
     outreachCount: 2,
@@ -548,10 +611,11 @@ test("real runDailyOutreach sends followup step 3 and records final_followup_sen
   setState(current);
 
   const result = await outreach.runDailyOutreach({ placeId: "step-three", followupStep: 3 });
-  assert.deepEqual(result, { discovered: 0, sent: 1, skipped: 0, failed: 0, dailyMaximum: 20 });
-  assert.equal(current.restaurants[0].outreachStatus, "final_followup_sent");
-  assert.equal(current.restaurants[0].outreachCount, 3);
+  assert.deepEqual(result, { discovered: 0, sent: 0, reconciled: 0, queued: 1, skipped: 0, failed: 0, dailyMaximum: 20 });
+  assert.equal(current.restaurants[0].outreachStatus, "instantly_queued");
+  assert.equal(current.restaurants[0].outreachCount, 2);
   assert.equal(current.connectorCalls.length, 1);
+  assert.equal(current.connectorCalls[0].sequenceId, 3);
 });
 
 test("daily attempt limit reserves no followup slot after today's attempt", async () => {
@@ -566,7 +630,7 @@ test("daily attempt limit reserves no followup slot after today's attempt", asyn
   process.env.OUTREACH_DAILY_LIMIT = "1";
 
   const result = await outreach.runDailyOutreach({ placeId: "daily-limit", followupStep: 2 });
-  assert.deepEqual(result, { discovered: 0, sent: 0, skipped: 0, failed: 0, dailyMaximum: 20 });
+  assert.deepEqual(result, { discovered: 0, sent: 0, reconciled: 0, queued: 0, skipped: 0, failed: 0, dailyMaximum: 20 });
   assert.equal(current.connectorCalls.length, 0);
 });
 
@@ -577,7 +641,7 @@ test("previous unconfirmed attempt is skipped and never retried", async () => {
   setState(current);
 
   const result = await outreach.runDailyOutreach({ placeId: "unconfirmed", followupStep: 2 });
-  assert.equal(result.sent, 0);
+  assert.equal(result.queued, 0);
   assert.equal(result.skipped, 1);
   assert.equal(current.connectorCalls.length, 0);
 });
@@ -610,7 +674,7 @@ test("selection excludes suppressed, claimed, claim-status, claim-attempt, and s
   setState(current);
 
   const result = await outreach.runDailyOutreach({ followupStep: 2 });
-  assert.equal(result.sent, 1);
+  assert.equal(result.queued, 1);
   assert.equal(current.connectorCalls.length, 1);
   for (const placeId of ["suppressed", "claimed", "claim-status", "claim-attempt", "unreadable-reply"]) {
     assert.equal(current.restaurants.find((row) => row.placeId === placeId).outreachCount, 1);
@@ -630,7 +694,7 @@ test("reservation rechecks suppression and staged replies before provider send",
   setState(current);
 
   const result = await outreach.runDailyOutreach({ placeId: "reservation-race", followupStep: 2 });
-  assert.equal(result.sent, 0);
+  assert.equal(result.queued, 0);
   assert.equal(result.skipped, 1);
   assert.equal(current.connectorCalls.length, 0);
   assert.equal(current.audits.some((item) => item.event === "send_attempt" && item.placeId === "reservation-race" && item.createdAt > daysAgo(1)), false);
@@ -657,8 +721,25 @@ test("reservation blocks an unreadable inbound reply that arrives after selectio
   setState(current);
 
   const result = await outreach.runDailyOutreach({ placeId: "staged-race", followupStep: 2 });
-  assert.equal(result.sent, 0);
+  assert.equal(result.queued, 0);
   assert.equal(result.skipped, 1);
+  assert.equal(current.connectorCalls.length, 0);
+});
+
+test("a reconciled Instantly reply blocks a new campaign before reservation", async () => {
+  const current = newState();
+  current.restaurants.push(restaurant("instantly-reply-race", {
+    outreachCount: 0,
+    outreachStatus: "pending",
+  }));
+  current.beforeReconciliation = () => {
+    current.restaurants[0].outreachStatus = "replied";
+  };
+  setState(current);
+
+  const result = await outreach.runDailyOutreach({ placeId: "instantly-reply-race", initialOnly: true });
+  assert.equal(current.reconcileCalls, 1);
+  assert.equal(result.queued, 0);
   assert.equal(current.connectorCalls.length, 0);
 });
 
@@ -674,7 +755,7 @@ test("followup preserves an earlier unsubscribe token and suppresses with it", a
   setState(current);
 
   const result = await outreach.runDailyOutreach({ placeId: "old-token", followupStep: 2 });
-  assert.equal(result.sent, 1);
+  assert.equal(result.queued, 1);
   assert.equal(current.audits.some((item) =>
     item.event === "unsubscribe_token" && item.detail === oldHash), true);
   assert.notEqual(current.restaurants[0].unsubscribeTokenHash, oldHash);
@@ -684,6 +765,22 @@ test("followup preserves an earlier unsubscribe token and suppresses with it", a
   assert.equal(current.restaurants[0].outreachStatus, "suppressed");
   assert.equal(current.restaurants[0].publicBusinessEmail, null);
   assert.equal(current.audits.at(-1).event, "unsubscribed");
+  assert.equal(current.cancellationRequests, 1);
+});
+
+test("unsubscribe state rolls back when its cancellation intent cannot be recorded", async () => {
+  const current = newState();
+  const token = "atomic-unsubscribe-token-which-is-at-least-32-characters";
+  current.restaurants.push(restaurant("atomic-unsubscribe", {
+    unsubscribeTokenHash: sha256(token),
+  }));
+  current.failCancellationIntent = true;
+  setState(current);
+
+  await assert.rejects(() => outreach.suppressByToken(token), /cancellation intent insert failed/);
+  assert.equal(current.restaurants[0].outreachStatus, "sent");
+  assert.equal(current.restaurants[0].suppressedAt, null);
+  assert.equal(current.audits.length, 0);
 });
 
 test("source retains SQL barriers in both selection and reservation", async () => {

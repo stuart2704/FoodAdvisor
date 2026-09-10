@@ -12,6 +12,10 @@ import { db, restaurantsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { eq } from "drizzle-orm";
 import { createMonthlyCheckout } from "../lib/stripe-checkout";
+import {
+  withInstantlyRestaurantLock,
+} from "../outreach/instantlyService";
+import { enqueueAllInstantlyCancellationIntents } from "../services/instantly/cancellationIntents";
 import { randomUUID } from "node:crypto";
 
 const router: IRouter = Router();
@@ -63,15 +67,21 @@ router.post("/restaurants/:placeId/claim", async (req, res): Promise<void> => {
     return;
   }
   const attemptId = randomUUID();
-  const [restaurant] = await db
-    .update(restaurantsTable)
-    .set({
-      claimEmail: body.data.email.trim().toLowerCase(),
-      claimStatus: "pending_checkout",
-      claimAttemptId: attemptId,
-    })
-    .where(sql`${restaurantsTable.placeId} = ${params.data.placeId} AND COALESCE(${restaurantsTable.claimStatus}, '') <> 'active'`)
-    .returning({ placeId: restaurantsTable.placeId });
+  const restaurant = await withInstantlyRestaurantLock(params.data.placeId, async () => {
+    return db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(restaurantsTable)
+        .set({
+          claimEmail: body.data.email.trim().toLowerCase(),
+          claimStatus: "pending_checkout",
+          claimAttemptId: attemptId,
+        })
+        .where(sql`${restaurantsTable.placeId} = ${params.data.placeId} AND COALESCE(${restaurantsTable.claimStatus}, '') <> 'active'`)
+        .returning({ placeId: restaurantsTable.placeId });
+      if (updated) await enqueueAllInstantlyCancellationIntents(tx, updated.placeId);
+      return updated;
+    });
+  });
   if (!restaurant) {
     res.status(404).json({ error: "Restaurant not found." });
     return;

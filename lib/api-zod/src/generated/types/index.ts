@@ -28,6 +28,7 @@ export * from './getGmailWatchStatus200';
 export * from './gmailWatch';
 export * from './healthStatus';
 export * from './incomingReplyInput';
+export * from './instantlyReplyPollResult';
 export * from './listRestaurantsParams';
 export * from './outreachRunResult';
 export * from './pubSubPushEnvelope';

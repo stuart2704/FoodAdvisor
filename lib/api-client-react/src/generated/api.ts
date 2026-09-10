@@ -33,6 +33,7 @@ import type {
   GmailWatch,
   HealthStatus,
   IncomingReplyInput,
+  InstantlyReplyPollResult,
   ListRestaurantsParams,
   OutreachRunResult,
   PubSubPushEnvelope,
@@ -1222,7 +1223,7 @@ export const getRunOutreachAutomationUrl = () => {
 }
 
 /**
- * @summary Run one protected, daily outreach batch (maximum 20 sends)
+ * @summary Run one protected, daily outreach batch (maximum 20 delivery attempts)
  */
 export const runOutreachAutomation = async ( options?: Parameters<typeof customFetch>[1]): Promise<OutreachRunResult> => {
 
@@ -1271,7 +1272,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type RunOutreachAutomationMutationError = ErrorType<ErrorResponse>
 
     /**
- * @summary Run one protected, daily outreach batch (maximum 20 sends)
+ * @summary Run one protected, daily outreach batch (maximum 20 delivery attempts)
  */
 export const useRunOutreachAutomation = <TError = ErrorType<ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runOutreachAutomation>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -1354,6 +1355,78 @@ export const useClassifyIncomingReply = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getClassifyIncomingReplyMutationOptions(options));
+    }
+
+export const getPollInstantlyRepliesUrl = () => {
+
+
+
+
+  return `/api/automation/instantly/replies`
+}
+
+/**
+ * Requires explicit Instantly reply polling enablement, resumes a durable cursor, and accepts only durably mapped campaigns.
+ * @summary Reconcile a bounded Instantly received-email inbox pass
+ */
+export const pollInstantlyReplies = async ( options?: Parameters<typeof customFetch>[1]): Promise<InstantlyReplyPollResult> => {
+
+  return customFetch<InstantlyReplyPollResult>(getPollInstantlyRepliesUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getPollInstantlyRepliesMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pollInstantlyReplies>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof pollInstantlyReplies>>, TError,void, TContext> => {
+
+const mutationKey = ['pollInstantlyReplies'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof pollInstantlyReplies>>, void> = () => {
+
+
+          return  pollInstantlyReplies(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PollInstantlyRepliesMutationResult = NonNullable<Awaited<ReturnType<typeof pollInstantlyReplies>>>
+
+    export type PollInstantlyRepliesMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Reconcile a bounded Instantly received-email inbox pass
+ */
+export const usePollInstantlyReplies = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pollInstantlyReplies>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof pollInstantlyReplies>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getPollInstantlyRepliesMutationOptions(options));
     }
 
 export const getAdminRenewGmailWatchUrl = () => {

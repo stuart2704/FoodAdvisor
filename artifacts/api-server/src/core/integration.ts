@@ -11,6 +11,7 @@ import { insertQueuedRestaurants } from "../pipeline/insertService";
 import { generateOutreachFor } from "../outreach/messageGenerator";
 import { getNewReplies, handleReply } from "../replies/replyService";
 import { enrichRestaurant } from "../services/enrichment/enrichRestaurant";
+import { pollInstantlyReplies } from "../services/instantly/instantlyService";
 import { generateDailySummary } from "../dashboard/metricsService";
 import { applyScalingLimits, getScalingLimits, limitOutreach, limitReplies, type ScalingTier } from "../scaling/scalingService";
 
@@ -64,7 +65,8 @@ let running = false;
  * Explicitly invoked orchestration only; importing this module starts no work.
  * A no-argument call reads a summary, but does not import or send email.
  * Existing services own insertion, enrichment, templates, deduplication, and
- * status transitions. Gmail replies continue through the durable push receiver.
+ * status transitions. Gmail replies continue through the durable push receiver;
+ * Instantly polling is separately enabled and uses durable campaign mappings.
  */
 export async function runDailyCycle(
   options: DailyCycleOptions = {},
@@ -194,6 +196,12 @@ export async function runDailyCycle(
           replies.failed += 1;
         }
       }
+      if (process.env.INSTANTLY_REPLY_POLLING_ENABLED === "true") {
+        const instantly = await pollInstantlyReplies();
+        replies.processed += instantly.processed;
+        replies.skipped += instantly.skipped;
+        replies.failed += instantly.failed;
+      }
       logEvent(replies.failed ? "warning" : "info",
         `Staged reply processing finished: ${replies.processed} processed, ${replies.failed} failed`);
     }
@@ -217,7 +225,7 @@ export async function runDailyCycle(
       || enrichment.failed > 0 || (replies.status === "completed" && replies.failed > 0)
       || (followups.status === "completed" && followups.results.some((item) => item.failed > 0))
       ? "completed_with_errors" : "completed";
-    logEvent("info", "Replies and their status updates remain handled by Gmail Pub/Sub");
+    logEvent("info", "Replies are handled by Gmail history and enabled Instantly polling");
     logEvent(status === "completed" ? "success" : "warning",
       status === "completed" ? "Daily cycle completed" : "Daily cycle completed with errors");
     return { status, import: imported, insertion, enrichment, drafts, outreach, followups, replies, summary, dailySummary };

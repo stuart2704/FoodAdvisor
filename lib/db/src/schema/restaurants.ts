@@ -116,6 +116,146 @@ export const processedGmailMessagesTable = pgTable(
   },
 );
 
+// Instantly identifiers are stored only after this service has created the
+// campaign. They are the sole provider-to-restaurant association; subjects,
+// custom variables, and lead-provided fields are never used as ownership keys.
+// Each campaign contains one lead and one initial-email step so that activating
+// it cannot exceed the application's shared daily delivery reservation.
+export const instantlyOutreachCampaignsTable = pgTable(
+  "instantly_outreach_campaigns",
+  {
+    campaignId: text("campaign_id").primaryKey(),
+    placeId: text("place_id")
+      .notNull()
+      .unique()
+      .references(() => restaurantsTable.placeId),
+    recipientEmail: text("recipient_email").notNull(),
+    eaccount: text("eaccount").notNull(),
+    leadId: text("lead_id").unique(),
+    state: text("state").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    queuedAt: timestamp("queued_at", { withTimezone: true }),
+    activatedAt: timestamp("activated_at", { withTimezone: true }),
+  },
+);
+
+// An immutable provider email id makes polling idempotent. A row is inserted
+// before classification so an inbound message remains a reply barrier even
+// when its body cannot safely be read.
+export const processedInstantlyMessagesTable = pgTable(
+  "processed_instantly_messages",
+  {
+    messageId: text("message_id").primaryKey(),
+    campaignId: text("campaign_id")
+      .notNull()
+      .references(() => instantlyOutreachCampaignsTable.campaignId),
+    placeId: text("place_id")
+      .notNull()
+      .references(() => restaurantsTable.placeId),
+    processedAt: timestamp("processed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+);
+
+// The original campaign table has a one-campaign-per-place constraint. Keep it
+// as the immutable initial-send mapping and use this append-only table for
+// independently capped follow-up campaigns.
+export const instantlyFollowupCampaignsTable = pgTable(
+  "instantly_followup_campaigns",
+  {
+    campaignId: text("campaign_id").primaryKey(),
+    placeId: text("place_id")
+      .notNull()
+      .references(() => restaurantsTable.placeId),
+    emailNumber: integer("email_number").notNull(),
+    recipientEmail: text("recipient_email").notNull(),
+    eaccount: text("eaccount").notNull(),
+    leadId: text("lead_id").unique(),
+    state: text("state").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    queuedAt: timestamp("queued_at", { withTimezone: true }),
+    activatedAt: timestamp("activated_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("instantly_followup_campaign_place_step_unique").on(
+      table.placeId,
+      table.emailNumber,
+    ),
+  ],
+);
+
+export const processedInstantlyFollowupMessagesTable = pgTable(
+  "processed_instantly_followup_messages",
+  {
+    messageId: text("message_id").primaryKey(),
+    campaignId: text("campaign_id")
+      .notNull()
+      .references(() => instantlyFollowupCampaignsTable.campaignId),
+    placeId: text("place_id")
+      .notNull()
+      .references(() => restaurantsTable.placeId),
+    processedAt: timestamp("processed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+);
+
+// A provider email is accepted as sent only once and records the provider's
+// actual send timestamp. This supports safe reconciliation and due-date logic
+// without trusting subject lines or campaign variables.
+export const instantlySentMessagesTable = pgTable(
+  "instantly_sent_messages",
+  {
+    messageId: text("message_id").primaryKey(),
+    campaignId: text("campaign_id").notNull().unique(),
+    placeId: text("place_id")
+      .notNull()
+      .references(() => restaurantsTable.placeId),
+    emailNumber: integer("email_number").notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }).notNull(),
+    recordedAt: timestamp("recorded_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+);
+
+// Resumable cursor for one managed Instantly inbox. Sending refuses to proceed
+// unless a complete pagination pass succeeds immediately beforehand.
+export const instantlyInboxStateTable = pgTable("instantly_inbox_state", {
+  eaccount: text("eaccount").primaryKey(),
+  nextStartingAfter: text("next_starting_after"),
+  lastFullyReconciledAt: timestamp("last_fully_reconciled_at", {
+    withTimezone: true,
+  }),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// Local durable intent to pause a campaign when a claim, opt-out, or negative
+// reply wins. Remote cancellation is necessarily non-atomic and is retried by
+// the guarded delivery cycle.
+export const instantlyCampaignCancellationTable = pgTable(
+  "instantly_campaign_cancellations",
+  {
+    campaignId: text("campaign_id").primaryKey(),
+    placeId: text("place_id")
+      .notNull()
+      .references(() => restaurantsTable.placeId),
+    requestedAt: timestamp("requested_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+  },
+);
+
 // One row per managed Gmail connector account. Gmail history IDs are opaque
 // unsigned 64-bit decimal values and therefore must never be stored as numbers.
 export const gmailWatchStateTable = pgTable("gmail_watch_state", {

@@ -1,5 +1,4 @@
 import { createHash, randomBytes } from "node:crypto";
-import { ReplitConnectors } from "@replit/connectors-sdk";
 import {
   db,
   gmailOutreachThreadsTable,
@@ -13,7 +12,20 @@ import { enrichRestaurant } from "../services/enrichment/enrichRestaurant";
 import { validateEmail } from "../services/enrichment/validateEmail";
 import { assertPublicHttpsUrl } from "./public-url";
 import { generateOutreachFor } from "../outreach/messageGenerator";
-import { isFollowupDue, buildFollowupMessage, type FollowupStep } from "../outreach/followupPolicy";
+import {
+  buildFollowupMessage,
+  isFollowupDue,
+  type FollowupStep,
+} from "../outreach/followupPolicy";
+import {
+  assertInstantlyCampaignConfiguration,
+  drainInstantlyCampaignCancellations,
+  reconcileInstantlyInboxFully,
+  reconcileInstantlySentMessages,
+  sendInstantlyEmail,
+  withInstantlyRestaurantLock,
+} from "../outreach/instantlyService";
+import { enqueueAllInstantlyCancellationIntents } from "../services/instantly/cancellationIntents";
 
 const DAILY_MAXIMUM = 20;
 const COOLDOWN_DAYS = 90;
@@ -49,7 +61,9 @@ export async function discoverPublicBusinessEmail(
     await db
       .update(restaurantsTable)
       .set({
-        outreachStatus: email ? "ready" : "no_business_email",
+        // Keep an eligible record in the initial-send state. "ready" records
+        // from older runs are also selected below for backwards compatibility.
+        outreachStatus: email ? "pending" : "no_business_email",
         outreachFailure: email ? null : "No allowlisted role mailbox was published.",
       })
       .where(eq(restaurantsTable.placeId, placeId));
@@ -71,73 +85,6 @@ export async function discoverPublicBusinessEmail(
   return null;
 }
 
-function buildRawEmail(input: {
-  to: string;
-  restaurantName: string;
-  unsubscribeUrl: string;
-  message?: { subject: string; body: string };
-}): string {
-  const subject = input.message?.subject ?? `A listing opportunity for ${input.restaurantName}`;
-  const body = input.message
-    ? `${input.message.body}\r\n\r\nUnsubscribe: ${input.unsubscribeUrl}`
-    : [
-    `Hello ${input.restaurantName} team,`,
-    "",
-    "The Food Advisor helps diners discover independent restaurants across the UK.",
-    "A basic listing is free. Verification is optional and costs £99 GBP per month; you do not need to subscribe to have a basic listing.",
-    "",
-    "Learn more: https://thefoodadvisor.co.uk",
-    `Unsubscribe: ${input.unsubscribeUrl}`,
-  ].join("\r\n");
-  return [
-    `To: ${input.to}`,
-    "From: The Food Advisor",
-    `Subject: ${subject.replace(/[^\x20-\x7E]/g, "")}`,
-    "Content-Type: text/plain; charset=UTF-8",
-    `List-Unsubscribe: <${input.unsubscribeUrl}>`,
-    "List-Unsubscribe-Post: List-Unsubscribe=One-Click",
-    "",
-    body,
-  ].join("\r\n");
-}
-
-interface GmailSendResult {
-  id: string;
-  threadId: string;
-}
-
-export async function sendGmail(rawMessage: string): Promise<GmailSendResult> {
-  const connectors = new ReplitConnectors();
-  const response = await connectors.proxy(
-    "google-mail",
-    "/gmail/v1/users/me/messages/send",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        raw: Buffer.from(rawMessage).toString("base64url"),
-      }),
-    },
-  );
-  if (!response.ok) {
-    throw new Error(`Gmail connector returned HTTP ${response.status}.`);
-  }
-  const value: unknown = await response.json();
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    typeof (value as { id?: unknown }).id !== "string" ||
-    typeof (value as { threadId?: unknown }).threadId !== "string"
-  ) {
-    throw new Error("Gmail connector returned an invalid send acknowledgement.");
-  }
-  const { id, threadId } = value as { id: string; threadId: string };
-  if (!id || id.length > 255 || !threadId || threadId.length > 255) {
-    throw new Error("Gmail connector returned invalid message identifiers.");
-  }
-  return { id, threadId };
-}
-
 function nextCooldown(): Date {
   return new Date(Date.now() + COOLDOWN_DAYS * 24 * 60 * 60 * 1_000);
 }
@@ -149,6 +96,8 @@ export async function runDailyOutreach(options: {
 } = {}): Promise<{
   discovered: number;
   sent: number;
+  reconciled: number;
+  queued: number;
   skipped: number;
   failed: number;
   dailyMaximum: 20;
@@ -159,6 +108,9 @@ export async function runDailyOutreach(options: {
   if (process.env.OUTREACH_ENABLED !== "true") {
     throw new Error("Outreach sending is disabled. Set OUTREACH_ENABLED=true explicitly.");
   }
+  // Fail before reserving a shared daily slot or changing a restaurant record
+  // when the new provider has not been explicitly configured.
+  assertInstantlyCampaignConfiguration();
   const publicUrl = await assertPublicHttpsUrl(process.env.PUBLIC_APP_URL, {
     canonical: true,
   });
@@ -177,6 +129,12 @@ export async function runDailyOutreach(options: {
     );
     locked = lockResult.rows[0]?.locked === true;
     if (!locked) throw new Error("Another outreach run is already active.");
+    // A complete, resumable inbox pass runs inside the delivery lock before
+    // every initial or follow-up reservation. If it cannot complete, sending
+    // fails closed and no campaign is created.
+    await reconcileInstantlyInboxFully();
+    await drainInstantlyCampaignCancellations();
+    const reconciled = await reconcileInstantlySentMessages();
 
     const dayStart = new Date();
     dayStart.setUTCHours(0, 0, 0, 0);
@@ -191,7 +149,7 @@ export async function runDailyOutreach(options: {
       );
     const remaining = Math.max(0, configuredLimit - Number(sentToday ?? 0));
     if (!remaining) {
-      return { discovered: 0, sent: 0, skipped: 0, failed: 0, dailyMaximum: 20 };
+      return { discovered: 0, sent: 0, reconciled, queued: 0, skipped: 0, failed: 0, dailyMaximum: 20 };
     }
     if (options.initialOnly && options.placeId) {
       const [attempt] = await db.select({ id: outreachAuditTable.id })
@@ -201,7 +159,7 @@ export async function runDailyOutreach(options: {
           eq(outreachAuditTable.event, "send_attempt"),
         )).limit(1);
       if (attempt) {
-        return { discovered: 0, sent: 0, skipped: 1, failed: 0, dailyMaximum: 20 };
+        return { discovered: 0, sent: 0, reconciled, queued: 0, skipped: 1, failed: 0, dailyMaximum: 20 };
       }
     }
 
@@ -217,8 +175,12 @@ export async function runDailyOutreach(options: {
           noStagedReplies(),
           options.placeId ? eq(restaurantsTable.placeId, options.placeId) : undefined,
           eq(restaurantsTable.outreachCount, options.followupStep ? options.followupStep - 1 : 0),
-          eq(restaurantsTable.outreachStatus, options.followupStep === 2 ? "sent"
-            : options.followupStep === 3 ? "followup_sent" : "pending"),
+          options.followupStep
+            ? eq(restaurantsTable.outreachStatus, options.followupStep === 2 ? "sent" : "followup_sent")
+            : or(
+                eq(restaurantsTable.outreachStatus, "pending"),
+                eq(restaurantsTable.outreachStatus, "ready"),
+              ),
           options.followupStep ? undefined : or(
             isNull(restaurantsTable.nextOutreachAfter),
             lte(restaurantsTable.nextOutreachAfter, new Date()),
@@ -230,6 +192,7 @@ export async function runDailyOutreach(options: {
 
     let discovered = 0;
     let sent = 0;
+    let queued = 0;
     let skipped = 0;
     let failed = 0;
     let attempts = 0;
@@ -268,13 +231,13 @@ export async function runDailyOutreach(options: {
       const message = options.followupStep
         ? buildFollowupMessage(options.followupStep, candidate.name)
         : await generateOutreachFor({
-        placeId: candidate.placeId,
-        name: candidate.name,
-        city: candidate.city,
-        rating: candidate.rating,
-        website: candidate.website,
-        cuisine: candidate.cuisineTags[0],
-      });
+            placeId: candidate.placeId,
+            name: candidate.name,
+            city: candidate.city,
+            rating: candidate.rating,
+            website: candidate.website,
+            cuisine: candidate.cuisineTags[0],
+          });
 
       const token = randomBytes(32).toString("base64url");
       // Keep all earlier unsubscribe links valid when issuing a follow-up.
@@ -328,48 +291,36 @@ export async function runDailyOutreach(options: {
           detail: JSON.stringify({ emailNumber: options.followupStep ?? 1 }),
         });
         attempts += 1;
-        const gmailMessage = await sendGmail(
-          buildRawEmail({
-            to: email,
-            restaurantName: candidate.name,
-            unsubscribeUrl,
-            message,
-          }),
-        );
+        const providerQueue = await sendInstantlyEmail({
+          placeId: candidate.placeId,
+          name: candidate.name,
+          subject: message.subject,
+          body: `${message.body}\r\n\r\nUnsubscribe: ${unsubscribeUrl}`,
+        }, email, options.followupStep ?? 1);
         await db.transaction(async (tx) => {
-          await tx.insert(gmailOutreachThreadsTable).values({
-            threadId: gmailMessage.threadId,
-            sentMessageId: gmailMessage.id,
-            placeId: candidate.placeId,
-          });
           await tx
             .update(restaurantsTable)
             .set({
-              // A reply, claim, or opt-out arriving during Gmail's request wins.
+              // A reply, claim, or opt-out arriving during Instantly's request
+              // wins. A campaign/lead acknowledgement is not delivery, so this
+              // must never be recorded as "sent".
               outreachStatus: sql`case when ${restaurantsTable.outreachStatus} = 'sending'
                 and ${restaurantsTable.suppressedAt} is null and ${restaurantsTable.claimedAt} is null
-                then ${options.followupStep === 2 ? "followup_sent"
-                  : options.followupStep === 3 ? "final_followup_sent" : "sent"}
+                then 'instantly_queued'
                 else ${restaurantsTable.outreachStatus} end`,
-              lastOutreachAt: new Date(),
               nextOutreachAfter: nextCooldown(),
-              outreachCount: sql`${restaurantsTable.outreachCount} + 1`,
             })
             .where(eq(restaurantsTable.placeId, candidate.placeId));
           await tx.insert(outreachAuditTable).values({
             placeId: candidate.placeId,
-            event: "sent",
+            event: providerQueue.activated ? "instantly_activated" : "instantly_queued",
             recipientDomain: email.split("@")[1],
-            detail: JSON.stringify({
-              gmailMessageId: gmailMessage.id,
-              gmailThreadId: gmailMessage.threadId,
-              emailNumber: options.followupStep ?? 1,
-            }),
+            detail: JSON.stringify({ campaignId: providerQueue.campaignId }),
           });
         });
-        sent += 1;
+        queued += 1;
       } catch (error) {
-        const detail = error instanceof Error ? error.message.slice(0, 500) : "Send failed.";
+        const detail = error instanceof Error ? error.message.slice(0, 500) : "Instantly request failed.";
         await db
           .update(restaurantsTable)
           .set({
@@ -389,7 +340,7 @@ export async function runDailyOutreach(options: {
         failed += 1;
       }
     }
-    return { discovered, sent, skipped, failed, dailyMaximum: 20 };
+    return { discovered, sent, reconciled, queued, skipped, failed, dailyMaximum: 20 };
   } finally {
     if (locked) await lockClient.query("select pg_advisory_unlock($1)", [lockKey]);
     lockClient.release();
@@ -398,26 +349,46 @@ export async function runDailyOutreach(options: {
 
 export async function suppressByToken(token: string): Promise<boolean> {
   if (token.length < 32 || token.length > 128) return false;
-  const [row] = await db
-    .update(restaurantsTable)
-    .set({
-      suppressedAt: new Date(),
-      suppressionReason: "unsubscribe",
-      outreachStatus: "suppressed",
-      publicBusinessEmail: null,
-    })
+  const hash = tokenHash(token);
+  const [candidate] = await db.select({ placeId: restaurantsTable.placeId })
+    .from(restaurantsTable)
     .where(or(
-      eq(restaurantsTable.unsubscribeTokenHash, tokenHash(token)),
+      eq(restaurantsTable.unsubscribeTokenHash, hash),
       sql`exists (select 1 from ${outreachAuditTable}
         where ${outreachAuditTable.placeId} = ${restaurantsTable.placeId}
         and ${outreachAuditTable.event} = 'unsubscribe_token'
-        and ${outreachAuditTable.detail} = ${tokenHash(token)})`,
+        and ${outreachAuditTable.detail} = ${hash})`,
     ))
-    .returning({ placeId: restaurantsTable.placeId });
-  if (!row) return false;
-  await db.insert(outreachAuditTable).values({
-    placeId: row.placeId,
-    event: "unsubscribed",
+    .limit(1);
+  if (!candidate) return false;
+  return withInstantlyRestaurantLock(candidate.placeId, async () => {
+    return db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(restaurantsTable)
+        .set({
+          suppressedAt: new Date(),
+          suppressionReason: "unsubscribe",
+          outreachStatus: "suppressed",
+          publicBusinessEmail: null,
+        })
+        .where(and(
+          eq(restaurantsTable.placeId, candidate.placeId),
+          or(
+            eq(restaurantsTable.unsubscribeTokenHash, hash),
+            sql`exists (select 1 from ${outreachAuditTable}
+              where ${outreachAuditTable.placeId} = ${restaurantsTable.placeId}
+              and ${outreachAuditTable.event} = 'unsubscribe_token'
+              and ${outreachAuditTable.detail} = ${hash})`,
+          ),
+        ))
+        .returning({ placeId: restaurantsTable.placeId });
+      if (!row) return false;
+      await tx.insert(outreachAuditTable).values({
+        placeId: row.placeId,
+        event: "unsubscribed",
+      });
+      await enqueueAllInstantlyCancellationIntents(tx, row.placeId);
+      return true;
+    });
   });
-  return true;
 }

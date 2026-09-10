@@ -14,6 +14,16 @@ export interface OutreachRunResult {
      * @maximum 20
      */
   sent: number;
+  /**
+     * Provider-confirmed historic delivery events reconciled during this run.
+     * @minimum 0
+     */
+  reconciled: number;
+  /**
+     * @minimum 0
+     * @maximum 20
+     */
+  queued: number;
   /** @minimum 0 */
   skipped: number;
   /** @minimum 0 */

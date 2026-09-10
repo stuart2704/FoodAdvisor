@@ -339,11 +339,39 @@ export interface OutreachRunResult {
      * @maximum 20
      */
   sent: number;
+  /**
+     * Provider-confirmed historic delivery events reconciled during this run.
+     * @minimum 0
+     */
+  reconciled: number;
+  /**
+     * @minimum 0
+     * @maximum 20
+     */
+  queued: number;
   /** @minimum 0 */
   skipped: number;
   /** @minimum 0 */
   failed: number;
   dailyMaximum: 20;
+}
+
+export interface InstantlyReplyPollResult {
+  /**
+     * @minimum 0
+     * @maximum 2000
+     */
+  processed: number;
+  /**
+     * @minimum 0
+     * @maximum 2000
+     */
+  skipped: number;
+  /**
+     * @minimum 0
+     * @maximum 2000
+     */
+  failed: number;
 }
 
 export interface RestaurantImportRunResult {

@@ -2,10 +2,13 @@ import {
   db,
   outreachAuditTable,
   processedGmailMessagesTable,
+  processedInstantlyFollowupMessagesTable,
+  processedInstantlyMessagesTable,
   restaurantsTable,
 } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { logEvent } from "../../utils/eventLog";
+import { enqueueAllInstantlyCancellationIntents } from "../instantly/cancellationIntents";
 import { classifyReply, type ReplyClassification } from "./classifyReply";
 
 function senderDomain(from: string | undefined): string | undefined {
@@ -25,6 +28,12 @@ interface GmailIncomingReply extends IncomingReply {
   gmailThreadId: string;
 }
 
+interface InstantlyIncomingReply extends IncomingReply {
+  instantlyMessageId: string;
+  instantlyCampaignId: string;
+  instantlyFollowup: boolean;
+}
+
 type ProcessResult =
   | { status: "processed"; classification: ReplyClassification }
   | { status: "duplicate" }
@@ -35,6 +44,10 @@ async function applyReply(
   input: IncomingReply,
   classification: ReplyClassification,
 ): Promise<boolean> {
+  // Matches the session-level restaurant lock held during Instantly
+  // eligibility/activation, so a local stop-state and pause intents commit
+  // together without an in-process send interleaving.
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${input.placeId}, 0))`);
   const suppress =
     classification.category === "unsubscribe" ||
     classification.category === "wrong_contact" ||
@@ -65,6 +78,9 @@ async function applyReply(
       confidence: classification.confidence,
     }),
   });
+  if (suppress) {
+    await enqueueAllInstantlyCancellationIntents(tx, restaurant.placeId);
+  }
   return true;
 }
 
@@ -102,5 +118,39 @@ export async function processGmailIncomingReply(
   });
   // Record success only after the transaction has committed.
   if (result.status === "processed") logEvent("success", "Reply processed");
+  return result;
+}
+
+/**
+ * The campaign mapping and recipient/eaccount checks happen before this
+ * function is called. The immutable Instantly message id is still reserved
+ * transactionally to make polling safe to retry.
+ */
+export async function processInstantlyIncomingReply(
+  input: InstantlyIncomingReply,
+): Promise<ProcessResult> {
+  const classification = classifyReply(input.body);
+  const result = await db.transaction<ProcessResult>(async (tx) => {
+    const [reserved] = input.instantlyFollowup
+      ? await tx.insert(processedInstantlyFollowupMessagesTable).values({
+          messageId: input.instantlyMessageId,
+          campaignId: input.instantlyCampaignId,
+          placeId: input.placeId,
+        }).onConflictDoNothing()
+          .returning({ messageId: processedInstantlyFollowupMessagesTable.messageId })
+      : await tx.insert(processedInstantlyMessagesTable).values({
+          messageId: input.instantlyMessageId,
+          campaignId: input.instantlyCampaignId,
+          placeId: input.placeId,
+        }).onConflictDoNothing()
+          .returning({ messageId: processedInstantlyMessagesTable.messageId });
+    if (!reserved) return { status: "duplicate" };
+    const found = await applyReply(tx, input, classification);
+    if (!found) {
+      throw new Error("Mapped restaurant was not found.");
+    }
+    return { status: "processed", classification };
+  });
+  if (result.status === "processed") logEvent("success", "Instantly reply processed");
   return result;
 }

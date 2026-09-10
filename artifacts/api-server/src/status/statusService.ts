@@ -79,8 +79,8 @@ export async function updateStatus(restaurantId: string, newStatus: string) {
         case StatusMap.CONTACTED:
         case StatusMap.FOLLOWUP_SENT:
         case StatusMap.FINAL_FOLLOWUP_SENT:
-          // Only the Gmail sending transaction can establish sent status.
-          throw new Error("Contacted status must be recorded by the Gmail sender.");
+          // Only a provider delivery service can establish outbound milestones.
+          throw new Error("Contacted status must be recorded by the outreach delivery service.");
         case StatusMap.ENGAGED:
         case StatusMap.AWAITING_FOLLOWUP:
         case StatusMap.UNKNOWN_REPLY:

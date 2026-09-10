@@ -3,8 +3,10 @@ import { Router, type IRouter } from "express";
 import {
   ClassifyIncomingReplyBody,
   ClassifyIncomingReplyResponse,
+  PollInstantlyRepliesResponse,
 } from "@workspace/api-zod";
 import { processIncomingReply } from "../services/replyClassifier/processIncomingReply";
+import { pollInstantlyReplies } from "../services/instantly/instantlyService";
 
 const router: IRouter = Router();
 
@@ -38,6 +40,22 @@ router.post("/replies/incoming", async (req, res): Promise<void> => {
     return;
   }
   res.json(ClassifyIncomingReplyResponse.parse(result.classification));
+});
+
+// Pulling is explicit and separately feature-flagged. Incoming records are
+// matched only through locally stored Instantly campaign ownership records.
+router.post("/automation/instantly/replies", async (req, res): Promise<void> => {
+  if (!validAutomationToken(req.header("authorization"))) {
+    res.status(401).json({ error: "Invalid automation credential." });
+    return;
+  }
+  try {
+    res.json(PollInstantlyRepliesResponse.parse(await pollInstantlyReplies()));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Instantly reply polling failed.";
+    req.log.warn("Instantly reply polling did not run");
+    res.status(503).json({ error: message });
+  }
 });
 
 export default router;
