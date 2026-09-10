@@ -1,0 +1,88 @@
+// src/status/statusService.ts
+
+import { logEvent, logError } from "../dashboard/eventsFeed";
+import { classifyScraperError } from "../errors/errorService";
+import { StatusMap, isValidStatus } from "./statusMap";
+import { Pool } from "pg";
+
+// Neon connection
+const connectionString = process.env.DATABASE_URL;
+
+const pool = new Pool({
+  connectionString,
+  ssl: { rejectUnauthorized: false }
+});
+
+/**
+ * Update a restaurant's status in Neon
+ */
+export async function updateStatus(restaurantId: number, newStatus: string) {
+  try {
+    // 1. Validate status
+    if (!isValidStatus(newStatus)) {
+      logError(`Invalid status attempted: ${newStatus}`, "hard");
+      return null;
+    }
+
+    // 2. Update in Neon
+    const query = `
+      UPDATE restaurants
+      SET status = $1
+      WHERE id = $2
+      RETURNING id, status;
+    `;
+
+    const values = [newStatus, restaurantId];
+
+    const result = await pool.query(query, values);
+
+    if (result.rows.length === 0) {
+      logError(`Status update failed — restaurant not found (ID: ${restaurantId})`, "hard");
+      return null;
+    }
+
+    // 3. Log status change
+    logEvent(`Status updated: ID ${restaurantId} → ${newStatus}`);
+
+    return result.rows[0];
+
+  } catch (err) {
+    const category = classifyScraperError(err);
+    logError(`Status update error for restaurant ID ${restaurantId}`, category);
+    return null;
+  }
+}
+
+/**
+ * Get the current status of a restaurant
+ */
+export async function getStatus(restaurantId: number) {
+  try {
+    const query = `
+      SELECT status
+      FROM restaurants
+      WHERE id = $1;
+    `;
+
+    const result = await pool.query(query, [restaurantId]);
+
+    if (result.rows.length === 0) {
+      logError(`Status fetch failed — restaurant not found (ID: ${restaurantId})`, "hard");
+      return null;
+    }
+
+    return result.rows[0].status;
+
+  } catch (err) {
+    const category = classifyScraperError(err);
+    logError(`Status fetch error for restaurant ID ${restaurantId}`, category);
+    return null;
+  }
+}
+
+/**
+ * Set initial status after insertion
+ */
+export async function setInitialStatus(restaurantId: number) {
+  return updateStatus(restaurantId, StatusMap.NOT_CONTACTED);
+}
