@@ -5,6 +5,7 @@ import {
 } from "../services/enrichment/enrichRestaurant";
 import { logEvent } from "../utils/eventLog";
 import { validateRestaurant } from "./validator";
+import { dedupeRestaurants } from "./dedupeService";
 import { classifyScraperError } from "../errors/errorService";
 import { getScalingLimits, limitRestaurants } from "../scaling/scalingService";
 
@@ -39,24 +40,20 @@ export async function scrapeCity(
       perCityLimit: Math.min(requestedLimit, getScalingLimits().MAX_RESTAURANTS_PER_CITY),
     });
     const limited = limitRestaurants(mapsResults);
-    const seen = new Set<string>();
     const enrichedRestaurants: ScrapedRestaurant[] = [];
     let invalid = 0;
-    let duplicates = 0;
     let enrichmentFailures = 0;
-    for (const restaurant of limited) {
+    const validated = limited.filter((restaurant) => {
       if (!validateRestaurant(restaurant)) {
         invalid += 1;
         logEvent("warning", "Invalid restaurant omitted from scrape output; imported data may already be stored");
-        continue;
+        return false;
       }
-      // Check only this batch. Looking up duplicates in Neon here would reject
-      // every result, because the Maps importer already inserted these records.
-      if (seen.has(restaurant.id)) {
-        duplicates += 1;
-        continue;
-      }
-      seen.add(restaurant.id);
+      return true;
+    });
+    const unique = dedupeRestaurants(validated);
+    const duplicates = validated.length - unique.length;
+    for (const restaurant of unique) {
       let enrichment: ScrapedRestaurant["enrichment"] = {
         skipped: true,
         reason: "website_missing",
