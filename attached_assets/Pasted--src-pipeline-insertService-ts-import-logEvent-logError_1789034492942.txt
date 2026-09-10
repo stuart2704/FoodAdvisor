@@ -1,0 +1,77 @@
+// src/pipeline/insertService.ts
+
+import { logEvent, logError } from "../dashboard/eventsFeed";
+import { classifyScraperError } from "../errors/errorService";
+import { validateRestaurant } from "./validator";
+import { isDuplicate } from "./dedupe";
+import { dbInsertRestaurant } from "./neonClient";
+
+// Temporary in-memory queue (later replaced with Neon or Redis)
+const insertionQueue: any[] = [];
+
+/**
+ * Add a restaurant to the insertion queue
+ */
+export function queueForInsertion(restaurant: any) {
+  insertionQueue.push(restaurant);
+  logEvent(`Queued for insertion: ${restaurant.name}`);
+}
+
+/**
+ * Get all pending insertions
+ */
+export function getPendingInsertions() {
+  return [...insertionQueue];
+}
+
+/**
+ * Insert a single restaurant into Neon
+ */
+export async function insertRestaurant(restaurant: any) {
+  try {
+    // 1. Validate
+    const valid = validateRestaurant(restaurant);
+    if (!valid) {
+      logError(`Invalid restaurant skipped: ${restaurant.name}`, "hard");
+      return null;
+    }
+
+    // 2. Deduplicate
+    const duplicate = await isDuplicate(restaurant);
+    if (duplicate) {
+      logEvent(`Duplicate skipped: ${restaurant.name}`);
+      return null;
+    }
+
+    // 3. Insert into Neon
+    const inserted = await dbInsertRestaurant(restaurant);
+
+    logEvent(`Inserted into Neon: ${restaurant.name}`);
+    return inserted;
+
+  } catch (err) {
+    const category = classifyScraperError(err);
+    logError(`Insertion failed for: ${restaurant.name}`, category);
+    return null;
+  }
+}
+
+/**
+ * Insert all queued restaurants
+ */
+export async function insertQueuedRestaurants() {
+  logEvent("Insertion batch started");
+
+  const results = [];
+
+  for (const restaurant of insertionQueue) {
+    const inserted = await insertRestaurant(restaurant);
+    if (inserted) results.push(inserted);
+  }
+
+  // Clear queue after processing
+  insertionQueue.length = 0;
+
+  logEvent(`Insertion batch finished (${results.length} inserted)`);
+  return results;
+}
