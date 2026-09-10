@@ -12,6 +12,7 @@ import statusRoutes from "./routes/status";
 import { dashboardRouter } from "./dashboard/dashboardAPI";
 import { logger } from "./lib/logger";
 import { StripeWebhookHandlers } from "./lib/stripe-webhook-handlers";
+import { instantlyWebhookRouter } from "./outreach/instantlyWebhook";
 
 const app: Express = express();
 
@@ -59,6 +60,11 @@ app.post(
     }
   },
 );
+// Instantly webhook authentication/body limits are owned by this router and
+// must run before the global JSON parser. Keep both documented aliases on the
+// same handler; neither path registers a provider webhook or sends mail.
+app.use("/api/webhooks", instantlyWebhookRouter);
+app.use("/webhooks", instantlyWebhookRouter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
