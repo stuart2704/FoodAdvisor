@@ -408,6 +408,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: More than 50 authenticated pushes in 10 seconds per identity and server process; retry after the window
+          content:
+            text/plain:
+              schema:
+                type: string
         "503":
           description: Temporary or incomplete processing failure
           content:

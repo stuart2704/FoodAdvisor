@@ -1,6 +1,15 @@
-import { OAuth2Client } from "google-auth-library";
+import { OAuth2Client, type TokenPayload } from "google-auth-library";
 import type { RequestHandler } from "express";
 import { assertPublicHttpsUrl } from "../lib/public-url";
+import { logOidcPayload } from "../utils/logOidc";
+
+declare global {
+  namespace Express {
+    interface Request {
+      googleOidc?: TokenPayload;
+    }
+  }
+}
 
 const client = new OAuth2Client();
 
@@ -27,6 +36,8 @@ export const verifyGoogleOidc: RequestHandler = async (req, res, next) => {
     ) {
       throw new Error("Invalid Pub/Sub identity.");
     }
+    logOidcPayload(payload);
+    req.googleOidc = payload;
   } catch {
     res.status(401).json({ error: "Invalid Pub/Sub identity." });
     return;

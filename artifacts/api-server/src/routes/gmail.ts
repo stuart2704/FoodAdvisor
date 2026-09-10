@@ -9,6 +9,7 @@ import {
 import { eq } from "drizzle-orm";
 import { activateGmailWatch as activateManagedGmailWatch, renewGmailWatch } from "../services/gmailWatch";
 import { verifyGoogleOidc } from "../middlewares/verifyGoogleOidc";
+import { pubsubRateLimit } from "../middlewares/rateLimit";
 import {
   activateGmailWatch,
   GmailHttpError,
@@ -121,7 +122,7 @@ export function createGmailWatchHandler(adminEnvelope = false, renew = false): R
 
 router.post("/gmail/watch", createGmailWatchHandler());
 
-router.post("/gmail/push", verifyGoogleOidc, async (req, res): Promise<void> => {
+router.post("/gmail/push", verifyGoogleOidc, pubsubRateLimit, async (req, res): Promise<void> => {
 
   let notification: { emailAddress: string; historyId: string };
   try {

@@ -1127,7 +1127,7 @@ export const receiveGmailPush = async (pubSubPushEnvelope: PubSubPushEnvelope, o
 
 
 
-export const getReceiveGmailPushMutationOptions = <TError = ErrorType<ErrorResponse>,
+export const getReceiveGmailPushMutationOptions = <TError = ErrorType<ErrorResponse | string>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof receiveGmailPush>>, TError,{data: BodyType<PubSubPushEnvelope>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof receiveGmailPush>>, TError,{data: BodyType<PubSubPushEnvelope>}, TContext> => {
 
@@ -1156,12 +1156,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type ReceiveGmailPushMutationResult = NonNullable<Awaited<ReturnType<typeof receiveGmailPush>>>
     export type ReceiveGmailPushMutationBody = BodyType<PubSubPushEnvelope>
-    export type ReceiveGmailPushMutationError = ErrorType<ErrorResponse>
+    export type ReceiveGmailPushMutationError = ErrorType<ErrorResponse | string>
 
     /**
  * @summary Receive an authenticated Google Cloud Pub/Sub Gmail notification
  */
-export const useReceiveGmailPush = <TError = ErrorType<ErrorResponse>,
+export const useReceiveGmailPush = <TError = ErrorType<ErrorResponse | string>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof receiveGmailPush>>, TError,{data: BodyType<PubSubPushEnvelope>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof receiveGmailPush>>,
