@@ -1,5 +1,4 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { OAuth2Client } from "google-auth-library";
 import { Router, type IRouter, type RequestHandler } from "express";
 import {
   db,
@@ -9,7 +8,7 @@ import {
 } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { activateGmailWatch as activateManagedGmailWatch, renewGmailWatch } from "../services/gmailWatch";
-import { assertPublicHttpsUrl } from "../lib/public-url";
+import { verifyGoogleOidc } from "../middlewares/verifyGoogleOidc";
 import {
   activateGmailWatch,
   GmailHttpError,
@@ -28,8 +27,6 @@ import {
 } from "../services/gmail/gmailContracts";
 
 const router: IRouter = Router();
-const oidcClient = new OAuth2Client();
-const PUSH_PATH = "/api/gmail/push";
 const MAX_ENVELOPE_BYTES = 32_000;
 const MAX_DATA_CHARS = 8_192;
 const PUSH_LOCK_KEY = 1_904_202_501;
@@ -106,29 +103,6 @@ function decodeNotification(data: string): { emailAddress: string; historyId: st
   return { emailAddress: item.emailAddress.toLowerCase(), historyId: item.historyId };
 }
 
-async function verifyPushIdentity(header: string | undefined): Promise<void> {
-  const token = header?.match(/^Bearer ([A-Za-z0-9_.-]+)$/)?.[1];
-  const expectedEmail = process.env.GMAIL_PUBSUB_PUSH_SERVICE_ACCOUNT;
-  if (!token || token.length > 10_000 || !expectedEmail) {
-    throw new Error("Invalid Pub/Sub identity.");
-  }
-  const origin = await assertPublicHttpsUrl(process.env.PUBLIC_APP_URL, { canonical: true });
-  const ticket = await oidcClient.verifyIdToken({
-    idToken: token,
-    audience: `${origin.origin}${PUSH_PATH}`,
-  });
-  const payload = ticket.getPayload();
-  if (
-    !payload ||
-    (payload.iss !== "accounts.google.com" &&
-      payload.iss !== "https://accounts.google.com") ||
-    payload.email_verified !== true ||
-    payload.email !== expectedEmail
-  ) {
-    throw new Error("Invalid Pub/Sub identity.");
-  }
-}
-
 export function createGmailWatchHandler(adminEnvelope = false, renew = false): RequestHandler {
   return async (req, res): Promise<void> => {
   if (!validAutomationToken(req.header("authorization"))) {
@@ -147,13 +121,7 @@ export function createGmailWatchHandler(adminEnvelope = false, renew = false): R
 
 router.post("/gmail/watch", createGmailWatchHandler());
 
-router.post("/gmail/push", async (req, res): Promise<void> => {
-  try {
-    await verifyPushIdentity(req.header("authorization"));
-  } catch {
-    res.status(401).json({ error: "Invalid Pub/Sub identity." });
-    return;
-  }
+router.post("/gmail/push", verifyGoogleOidc, async (req, res): Promise<void> => {
 
   let notification: { emailAddress: string; historyId: string };
   try {
