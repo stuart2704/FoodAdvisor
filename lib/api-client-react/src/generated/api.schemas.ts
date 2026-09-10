@@ -294,6 +294,17 @@ export interface RestaurantImportRunResult {
   restaurants: Restaurant[];
 }
 
+export type GetGmailWatchStatus200 = {
+  active: boolean;
+  expiresAt?: string;
+  /** Hours until expiration, rounded to one decimal place */
+  hoursRemaining?: string;
+  /** @nullable */
+  lastRenewedAt?: string | null;
+  /** Precision-safe Gmail processing history cursor */
+  historyId?: string;
+};
+
 export type ListRestaurantsParams = {
 city?: string;
 };

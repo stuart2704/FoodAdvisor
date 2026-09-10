@@ -9,6 +9,18 @@ import * as zod from 'zod';
 
 
 /**
+ * @summary Read saved Gmail Watch status without activating or renewing
+ */
+export const GetGmailWatchStatusResponse = zod.object({
+  "active": zod.boolean(),
+  "expiresAt": zod.coerce.date().optional(),
+  "hoursRemaining": zod.string().optional().describe('Hours until expiration, rounded to one decimal place'),
+  "lastRenewedAt": zod.coerce.date().nullish(),
+  "historyId": zod.string().optional().describe('Precision-safe Gmail processing history cursor')
+})
+
+
+/**
  * Returns server health status
  * @summary Health check
  */

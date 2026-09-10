@@ -21,6 +21,42 @@ tags:
   - name: gmail
     description: Gmail watch renewal and authenticated Pub/Sub push
 paths:
+  /status/gmail-watch-status:
+    servers:
+      - url: /
+    get:
+      operationId: getGmailWatchStatus
+      tags: [gmail]
+      summary: Read saved Gmail Watch status without activating or renewing
+      security:
+        - automationBearer: []
+      responses:
+        "200":
+          description: Saved watch status; active only means expiration is in the future
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [active]
+                properties:
+                  active:
+                    type: boolean
+                  expiresAt:
+                    type: string
+                    format: date-time
+                  hoursRemaining:
+                    type: string
+                    description: Hours until expiration, rounded to one decimal place
+                  lastRenewedAt:
+                    type: [string, "null"]
+                    format: date-time
+                  historyId:
+                    type: string
+                    description: Precision-safe Gmail processing history cursor
+        "401":
+          description: Invalid automation credential
+        "503":
+          description: Watch status could not be read
   /healthz:
     get:
       operationId: healthCheck

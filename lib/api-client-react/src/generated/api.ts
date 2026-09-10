@@ -24,6 +24,7 @@ import type {
   AdminRenewGmailWatch200,
   CheckoutCompletion,
   ErrorResponse,
+  GetGmailWatchStatus200,
   GmailWatch,
   HealthStatus,
   IncomingReplyInput,
@@ -71,6 +72,83 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetGmailWatchStatusUrl = () => {
+
+
+
+
+  return `/api/status/gmail-watch-status`
+}
+
+/**
+ * @summary Read saved Gmail Watch status without activating or renewing
+ */
+export const getGmailWatchStatus = async ( options?: Parameters<typeof customFetch>[1]): Promise<GetGmailWatchStatus200> => {
+
+  return customFetch<GetGmailWatchStatus200>(getGetGmailWatchStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetGmailWatchStatusQueryKey = () => {
+    return [
+    `/api/status/gmail-watch-status`
+    ] as const;
+    }
+
+
+export const getGetGmailWatchStatusQueryOptions = <TData = Awaited<ReturnType<typeof getGmailWatchStatus>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGmailWatchStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetGmailWatchStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGmailWatchStatus>>> = ({ signal }) => getGmailWatchStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getGmailWatchStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetGmailWatchStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getGmailWatchStatus>>>
+export type GetGmailWatchStatusQueryError = ErrorType<void>
+
+
+/**
+ * @summary Read saved Gmail Watch status without activating or renewing
+ */
+
+export function useGetGmailWatchStatus<TData = Awaited<ReturnType<typeof getGmailWatchStatus>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGmailWatchStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetGmailWatchStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getHealthCheckUrl = () => {
 

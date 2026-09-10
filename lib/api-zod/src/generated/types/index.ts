@@ -12,6 +12,7 @@ export * from './checkoutCompletion';
 export * from './checkoutCompletionClaimStatus';
 export * from './checkoutCompletionPaymentStatus';
 export * from './errorResponse';
+export * from './getGmailWatchStatus200';
 export * from './gmailWatch';
 export * from './healthStatus';
 export * from './incomingReplyInput';

@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { validAutomationToken } from "../lib/automation-auth";
 import { Router, type IRouter, type RequestHandler } from "express";
 import {
   db,
@@ -31,15 +31,6 @@ const router: IRouter = Router();
 const MAX_ENVELOPE_BYTES = 32_000;
 const MAX_DATA_CHARS = 8_192;
 const PUSH_LOCK_KEY = 1_904_202_501;
-
-function validAutomationToken(header: string | undefined): boolean {
-  const expected = process.env.AUTOMATION_TOKEN;
-  const supplied = header?.match(/^Bearer (.+)$/i)?.[1];
-  if (!expected || expected.length < 32 || !supplied) return false;
-  const expectedHash = createHash("sha256").update(expected).digest();
-  const suppliedHash = createHash("sha256").update(supplied).digest();
-  return timingSafeEqual(expectedHash, suppliedHash);
-}
 
 interface PushPayload {
   subscription: string;
