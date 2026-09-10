@@ -14,7 +14,8 @@ import * as zod from 'zod';
 export const GetDashboardEventsResponseItem = zod.object({
   "time": zod.coerce.date(),
   "type": zod.string(),
-  "message": zod.string()
+  "message": zod.string(),
+  "category": zod.string().optional().describe('Optional error category')
 })
 export const GetDashboardEventsResponse = zod.array(GetDashboardEventsResponseItem).max(200)
 

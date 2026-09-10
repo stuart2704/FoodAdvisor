@@ -49,6 +49,9 @@ paths:
                       type: string
                     message:
                       type: string
+                    category:
+                      type: string
+                      description: Optional error category
         "401":
           description: Invalid automation credential
   /status/gmail-watch-status:

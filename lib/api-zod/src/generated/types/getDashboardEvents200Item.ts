@@ -10,4 +10,6 @@ export type GetDashboardEvents200Item = {
   time: Date;
   type: string;
   message: string;
+  /** Optional error category */
+  category?: string;
 };

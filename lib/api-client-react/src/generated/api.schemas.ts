@@ -298,6 +298,8 @@ export type GetDashboardEvents200Item = {
   time: string;
   type: string;
   message: string;
+  /** Optional error category */
+  category?: string;
 };
 
 export type GetGmailWatchStatus200 = {
