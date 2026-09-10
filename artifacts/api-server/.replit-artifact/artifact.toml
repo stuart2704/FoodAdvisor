@@ -7,7 +7,7 @@ id = "3B4_FFSkEVBkAeYMFRJ2e"
 [[services]]
 localPort = 8080
 name = "API Server"
-paths = ["/api", "/admin/activate-gmail-watch"]
+paths = ["/api", "/admin/activate-gmail-watch", "/admin/renew-gmail-watch"]
 
 [services.development]
 run = "pnpm --filter @workspace/api-server run dev"

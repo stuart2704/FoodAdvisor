@@ -323,6 +323,23 @@ export const ClassifyIncomingReplyResponse = zod.object({
 
 
 /**
+ * @summary Renew Gmail Watch through the protected admin route
+ */
+export const adminRenewGmailWatchResponseResultHistoryIdRegExp = new RegExp('^[1-9][0-9]{0,19}$');
+export const adminRenewGmailWatchResponseResultTopicRegExp = new RegExp('^projects/[^/]+/topics/[^/]+$');
+
+
+export const AdminRenewGmailWatchResponse = zod.object({
+  "ok": zod.literal(true),
+  "result": zod.object({
+  "historyId": zod.string().regex(adminRenewGmailWatchResponseResultHistoryIdRegExp),
+  "expiration": zod.coerce.date(),
+  "topic": zod.string().regex(adminRenewGmailWatchResponseResultTopicRegExp)
+})
+})
+
+
+/**
  * @summary Activate Gmail Watch through the protected admin route
  */
 export const adminActivateGmailWatchResponseResultHistoryIdRegExp = new RegExp('^[1-9][0-9]{0,19}$');

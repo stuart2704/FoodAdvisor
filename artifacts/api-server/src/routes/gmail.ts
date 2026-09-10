@@ -8,7 +8,7 @@ import {
   pool,
 } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { activateGmailWatch as activateManagedGmailWatch } from "../services/gmailWatch";
+import { activateGmailWatch as activateManagedGmailWatch, renewGmailWatch } from "../services/gmailWatch";
 import { assertPublicHttpsUrl } from "../lib/public-url";
 import {
   activateGmailWatch,
@@ -129,14 +129,14 @@ async function verifyPushIdentity(header: string | undefined): Promise<void> {
   }
 }
 
-export function createGmailWatchHandler(adminEnvelope = false): RequestHandler {
+export function createGmailWatchHandler(adminEnvelope = false, renew = false): RequestHandler {
   return async (req, res): Promise<void> => {
   if (!validAutomationToken(req.header("authorization"))) {
     res.status(401).json({ ...(adminEnvelope ? { ok: false } : {}), error: "Invalid automation credential." });
     return;
   }
   try {
-    const result = await activateManagedGmailWatch();
+    const result = await (renew ? renewGmailWatch() : activateManagedGmailWatch());
     res.json(adminEnvelope ? { ok: true, result } : result);
   } catch {
     req.log.warn("Gmail watch activation failed.");

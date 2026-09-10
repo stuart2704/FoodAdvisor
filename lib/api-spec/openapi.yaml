@@ -306,6 +306,33 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /admin/renew-gmail-watch:
+    servers:
+      - url: /
+    post:
+      operationId: adminRenewGmailWatch
+      tags: [gmail]
+      summary: Renew Gmail Watch through the protected admin route
+      security:
+        - automationBearer: []
+      responses:
+        "200":
+          description: Watch renewed without resetting the history cursor
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, result]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  result:
+                    $ref: "#/components/schemas/GmailWatch"
+        "401":
+          description: Invalid automation credential
+        "503":
+          description: Gmail watch could not be renewed; retry later
   /admin/activate-gmail-watch:
     servers:
       - url: /

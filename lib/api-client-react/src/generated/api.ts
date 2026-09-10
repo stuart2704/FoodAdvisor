@@ -21,6 +21,7 @@ import type {
 
 import type {
   AdminActivateGmailWatch200,
+  AdminRenewGmailWatch200,
   CheckoutCompletion,
   ErrorResponse,
   GmailWatch,
@@ -885,6 +886,77 @@ export const useClassifyIncomingReply = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getClassifyIncomingReplyMutationOptions(options));
+    }
+
+export const getAdminRenewGmailWatchUrl = () => {
+
+
+
+
+  return `/api/admin/renew-gmail-watch`
+}
+
+/**
+ * @summary Renew Gmail Watch through the protected admin route
+ */
+export const adminRenewGmailWatch = async ( options?: Parameters<typeof customFetch>[1]): Promise<AdminRenewGmailWatch200> => {
+
+  return customFetch<AdminRenewGmailWatch200>(getAdminRenewGmailWatchUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getAdminRenewGmailWatchMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof adminRenewGmailWatch>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof adminRenewGmailWatch>>, TError,void, TContext> => {
+
+const mutationKey = ['adminRenewGmailWatch'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof adminRenewGmailWatch>>, void> = () => {
+
+
+          return  adminRenewGmailWatch(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AdminRenewGmailWatchMutationResult = NonNullable<Awaited<ReturnType<typeof adminRenewGmailWatch>>>
+
+    export type AdminRenewGmailWatchMutationError = ErrorType<void>
+
+    /**
+ * @summary Renew Gmail Watch through the protected admin route
+ */
+export const useAdminRenewGmailWatch = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof adminRenewGmailWatch>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof adminRenewGmailWatch>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getAdminRenewGmailWatchMutationOptions(options));
     }
 
 export const getAdminActivateGmailWatchUrl = () => {

@@ -298,6 +298,11 @@ export type ListRestaurantsParams = {
 city?: string;
 };
 
+export type AdminRenewGmailWatch200 = {
+  ok: true;
+  result: GmailWatch;
+};
+
 export type AdminActivateGmailWatch200 = {
   ok: true;
   result: GmailWatch;

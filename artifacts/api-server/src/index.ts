@@ -10,6 +10,7 @@ import {
   reconcileExistingStripeRows,
 } from "./lib/stripe-reconciliation";
 import { assertPublicHttpsUrl } from "./lib/public-url";
+import { startWatchRenewal } from "./cron/watchRenewal";
 
 async function initStripe(): Promise<void> {
   const databaseUrl = getStripeDatabaseUrl();
@@ -67,4 +68,5 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+  startWatchRenewal();
 });

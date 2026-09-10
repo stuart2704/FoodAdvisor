@@ -7,6 +7,7 @@
  */
 
 export * from './adminActivateGmailWatch200';
+export * from './adminRenewGmailWatch200';
 export * from './checkoutCompletion';
 export * from './checkoutCompletionClaimStatus';
 export * from './checkoutCompletionPaymentStatus';
