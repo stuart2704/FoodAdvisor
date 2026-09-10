@@ -1,0 +1,120 @@
+// src/replies/replyGenerator.ts
+
+/**
+ * Generate an AI response email based on the reply intent.
+ *
+ * Intents:
+ * - interested
+ * - questions
+ * - not_interested
+ * - unclear
+ */
+
+export function generateReplyMessage(intent: string, reply: any) {
+  switch (intent) {
+    case "interested":
+      return buildInterestedReply(reply);
+
+    case "questions":
+      return buildQuestionsReply(reply);
+
+    case "not_interested":
+      return buildNotInterestedReply(reply);
+
+    default:
+      return buildUnclearReply(reply);
+  }
+}
+
+/**
+ * 1. Interested → onboarding message
+ */
+function buildInterestedReply(reply: any) {
+  return {
+    subject: `Great to hear from you — next steps`,
+    body: `
+Hi ${reply.restaurantName} team,
+
+Thanks so much for getting back to me — that’s great to hear.
+
+I can get your listing live today. All I need is:
+• Your preferred contact email  
+• A short description (optional — I can write one for you)  
+• Any photos you'd like included (optional)
+
+Once it's live, I’ll send you the link so you can check everything looks perfect.
+
+Looking forward to featuring you.
+
+Best wishes,  
+Stuart  
+The Food Advisor
+    `.trim()
+  };
+}
+
+/**
+ * 2. Questions → explanation message
+ */
+function buildQuestionsReply(reply: any) {
+  return {
+    subject: `Happy to explain how it works`,
+    body: `
+Hi ${reply.restaurantName} team,
+
+Thanks for your message — happy to explain.
+
+The Food Advisor is a curated restaurant directory. We feature great places at no cost, and help diners discover independent restaurants with personality.
+
+There’s no contract, no fees, and no obligation.  
+If you’d like, I can create your listing for you and send it over for approval.
+
+Let me know what questions you have — I’m here to help.
+
+Best wishes,  
+Stuart  
+The Food Advisor
+    `.trim()
+  };
+}
+
+/**
+ * 3. Not interested → polite closure
+ */
+function buildNotInterestedReply(reply: any) {
+  return {
+    subject: `Thanks for letting me know`,
+    body: `
+Hi ${reply.restaurantName} team,
+
+Thanks for getting back to me — I appreciate you letting me know.
+
+If things change in the future, I’d be very happy to feature you.  
+Wishing you all the best with everything you're doing.
+
+Warm regards,  
+Stuart  
+The Food Advisor
+    `.trim()
+  };
+}
+
+/**
+ * 4. Unclear → ask for clarification
+ */
+function buildUnclearReply(reply: any) {
+  return {
+    subject: `Quick clarification`,
+    body: `
+Hi ${reply.restaurantName} team,
+
+Thanks for your message — could you clarify what you’d like to do?
+
+Happy to help with anything you need.
+
+Best wishes,  
+Stuart  
+The Food Advisor
+    `.trim()
+  };
+}

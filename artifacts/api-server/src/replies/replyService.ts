@@ -1,6 +1,7 @@
 import {
   db, gmailHistoryMessagesTable, gmailOutreachThreadsTable,
   gmailWatchStateTable,
+  restaurantsTable,
 } from "@workspace/db";
 import { and, eq, isNull, lte, or } from "drizzle-orm";
 import {
@@ -9,6 +10,7 @@ import {
 import { processGmailIncomingReply } from "../services/replyClassifier/processIncomingReply";
 import { logEvent } from "../utils/eventLog";
 import { mapReplyIntent } from "./classifier";
+import { generateReplyMessage } from "./replyGenerator";
 
 async function getWatchAccount(): Promise<string | null> {
   const states = await db.select().from(gmailWatchStateTable).limit(2);
@@ -78,6 +80,9 @@ export async function handleReply(reply: unknown) {
     }
     const body = decodeBoundedPlainText(message);
     if (!body) return { status: "skipped" as const };
+    const [restaurant] = await db.select({ name: restaurantsTable.name })
+      .from(restaurantsTable).where(eq(restaurantsTable.placeId, mapping.placeId)).limit(1);
+    if (!restaurant) throw new Error("Restaurant mapping is missing.");
     const result = await processGmailIncomingReply({
       placeId: mapping.placeId,
       body,
@@ -96,12 +101,21 @@ export async function handleReply(reply: unknown) {
     const intent = result.classification.category;
     const newStatus = ["unsubscribe", "wrong_contact", "not_interested"].includes(intent)
       ? "suppressed" : intent === "unknown" ? "replied" : intent;
+    const draft = newStatus === "suppressed" || intent === "out_of_office"
+      ? null
+      : generateReplyMessage(mapReplyIntent(result.classification), {
+          restaurantName: restaurant.name,
+        });
     return {
       status: "processed" as const,
       intent: mapReplyIntent(result.classification),
       classification: result.classification,
       newStatus,
-      aiResponse: null,
+      responseDraft: draft,
+      // Compatibility name only; the response is template-based, not AI-generated.
+      aiResponse: draft,
+      responseGeneration: "template" as const,
+      requiresReview: draft !== null,
     };
   } catch {
     logEvent("error", "Reply processing failed; staged message remains available for retry");
