@@ -1,0 +1,82 @@
+// src/outreach/sendingService.ts
+
+import { logEvent, logError } from "../dashboard/eventsFeed";
+import { classifyScraperError } from "../errors/errorService";
+import { updateStatus } from "../status/statusService";
+
+/**
+ * Placeholder email sender.
+ * Later you will plug in:
+ * - Instantly API
+ * - Gmail API
+ * - SMTP provider
+ * - SendGrid / Mailgun
+ */
+
+export async function sendEmail1(restaurant: any) {
+  logEvent(`Sending Email 1 to: ${restaurant.name}`);
+
+  try {
+    // Placeholder sending logic
+    await fakeSend(restaurant);
+
+    // Update status
+    await updateStatus(restaurant.id, "contacted");
+
+    logEvent(`Email 1 sent to: ${restaurant.name}`);
+
+    return true;
+
+  } catch (err) {
+    const category = classifyScraperError(err);
+    logError(`Failed to send Email 1 to ${restaurant.name}`, category);
+    return false;
+  }
+}
+
+/**
+ * Placeholder for Email 2 (follow‑up)
+ */
+export async function sendEmail2(restaurant: any) {
+  logEvent(`Sending Email 2 to: ${restaurant.name}`);
+
+  try {
+    await fakeSend(restaurant);
+    await updateStatus(restaurant.id, "followup_sent");
+
+    logEvent(`Email 2 sent to: ${restaurant.name}`);
+    return true;
+
+  } catch (err) {
+    const category = classifyScraperError(err);
+    logError(`Failed to send Email 2 to ${restaurant.name}`, category);
+    return false;
+  }
+}
+
+/**
+ * Placeholder for Email 3 (final follow‑up)
+ */
+export async function sendEmail3(restaurant: any) {
+  logEvent(`Sending Email 3 to: ${restaurant.name}`);
+
+  try {
+    await fakeSend(restaurant);
+    await updateStatus(restaurant.id, "final_followup_sent");
+
+    logEvent(`Email 3 sent to: ${restaurant.name}`);
+    return true;
+
+  } catch (err) {
+    const category = classifyScraperError(err);
+    logError(`Failed to send Email 3 to ${restaurant.name}`, category);
+    return false;
+  }
+}
+
+/**
+ * Fake sending function — replace with real API later.
+ */
+async function fakeSend(restaurant: any) {
+  return new Promise((resolve) => setTimeout(resolve, 200));
+}
