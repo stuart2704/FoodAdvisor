@@ -294,6 +294,12 @@ export interface RestaurantImportRunResult {
   restaurants: Restaurant[];
 }
 
+export type GetDashboardEvents200Item = {
+  time: string;
+  type: string;
+  message: string;
+};
+
 export type GetGmailWatchStatus200 = {
   active: boolean;
   expiresAt?: string;

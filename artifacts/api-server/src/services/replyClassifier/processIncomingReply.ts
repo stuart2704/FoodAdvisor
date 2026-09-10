@@ -5,6 +5,7 @@ import {
   restaurantsTable,
 } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { logEvent } from "../../utils/eventLog";
 import { classifyReply, type ReplyClassification } from "./classifyReply";
 
 function senderDomain(from: string | undefined): string | undefined {
@@ -81,7 +82,7 @@ export async function processGmailIncomingReply(
   input: GmailIncomingReply,
 ): Promise<ProcessResult> {
   const classification = classifyReply(input.body);
-  return db.transaction(async (tx) => {
+  const result = await db.transaction<ProcessResult>(async (tx) => {
     const [reserved] = await tx
       .insert(processedGmailMessagesTable)
       .values({
@@ -99,4 +100,7 @@ export async function processGmailIncomingReply(
     }
     return { status: "processed", classification };
   });
+  // Record success only after the transaction has committed.
+  if (result.status === "processed") logEvent("success", "Reply processed");
+  return result;
 }

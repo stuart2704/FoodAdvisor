@@ -9,6 +9,17 @@ import * as zod from 'zod';
 
 
 /**
+ * @summary Latest 200 process-local operational events, oldest first
+ */
+export const GetDashboardEventsResponseItem = zod.object({
+  "time": zod.coerce.date(),
+  "type": zod.string(),
+  "message": zod.string()
+})
+export const GetDashboardEventsResponse = zod.array(GetDashboardEventsResponseItem).max(200)
+
+
+/**
  * @summary Read saved Gmail Watch status without activating or renewing
  */
 export const GetGmailWatchStatusResponse = zod.object({

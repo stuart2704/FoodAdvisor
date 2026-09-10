@@ -1,6 +1,7 @@
 import { db, gmailWatchStateTable } from "@workspace/db";
 import { RenewGmailWatchResponse } from "@workspace/api-zod";
 import { logger } from "../lib/logger";
+import { logEvent } from "../utils/eventLog";
 import {
   activateGmailWatch as requestGmailWatch,
   getGmailProfile,
@@ -50,9 +51,11 @@ export async function renewGmailWatch() {
   try {
     const result = await activateGmailWatch();
     logger.info("Gmail watch renewed.");
+    logEvent("success", "Renewal completed");
     return result;
   } catch (error) {
     logger.warn("Gmail watch renewal failed.");
+    logEvent("error", "Renewal failed");
     throw error;
   }
 }

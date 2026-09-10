@@ -10,6 +10,7 @@ import { eq } from "drizzle-orm";
 import { activateGmailWatch as activateManagedGmailWatch, renewGmailWatch } from "../services/gmailWatch";
 import { verifyGoogleOidc } from "../middlewares/verifyGoogleOidc";
 import { pubsubRateLimit } from "../middlewares/rateLimit";
+import { logEvent } from "../utils/eventLog";
 import {
   activateGmailWatch,
   GmailHttpError,
@@ -119,6 +120,7 @@ router.post("/gmail/push", verifyGoogleOidc, pubsubRateLimit, async (req, res): 
   try {
     const envelope = parseEnvelope(req.body);
     notification = decodeNotification(envelope.message.data);
+    logEvent("info", `Incoming Gmail push (historyId=${notification.historyId})`);
   } catch {
     res.status(gmailPushStatus({ authenticated: true, poison: true })).end();
     return;
@@ -258,6 +260,7 @@ router.post("/gmail/push", verifyGoogleOidc, pubsubRateLimit, async (req, res): 
     res.status(204).end();
   } catch {
     res.status(503).json({ error: "Gmail push processing failed." });
+    logEvent("error", "Gmail push processing failed; delivery can be retried");
   } finally {
     let destroy = false;
     try {

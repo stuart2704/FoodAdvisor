@@ -2,6 +2,7 @@ import { OAuth2Client, type TokenPayload } from "google-auth-library";
 import type { RequestHandler } from "express";
 import { assertPublicHttpsUrl } from "../lib/public-url";
 import { logOidcPayload } from "../utils/logOidc";
+import { logEvent } from "../utils/eventLog";
 
 declare global {
   namespace Express {
@@ -38,6 +39,7 @@ export const verifyGoogleOidc: RequestHandler = async (req, res, next) => {
     }
     logOidcPayload(payload);
     req.googleOidc = payload;
+    logEvent("success", "OIDC verified");
   } catch {
     res.status(401).json({ error: "Invalid Pub/Sub identity." });
     return;

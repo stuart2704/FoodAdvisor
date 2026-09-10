@@ -1,0 +1,52 @@
+.events-box {
+  background: #111;
+  color: #eee;
+  padding: 10px;
+  height: 300px;
+  overflow-y: scroll;
+  font-family: monospace;
+  border-radius: 6px;
+}
+
+.event-success { color: #4caf50; }
+.event-info { color: #2196f3; }
+.event-warning { color: #ff9800; }
+.event-error { color: #f44336; }
+
+body.dark {
+  --background: 0 0% 5.1%;
+  --foreground: 0 0% 90.2%;
+  --card: 0 0% 10.2%;
+  --card-foreground: 0 0% 90.2%;
+  background: #0d0d0d;
+  color: #e6e6e6;
+}
+
+.panel {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #e6e6e6;
+}
+
+.dark-toggle {
+  position: fixed;
+  top: 15px;
+  right: 15px;
+  z-index: 30;
+  background: #222;
+  color: #eee;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid #444;
+  font-size: 14px;
+}
+
+.dark-toggle:hover {
+  background: #333;
+}
+
+.dark-toggle:focus-visible {
+  outline: 2px solid #eee;
+  outline-offset: 3px;
+}

@@ -1,4 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
+import './live-events.css';
+import { LiveEvents } from '@/components/live-events';
+import { DarkModeToggle } from '@/components/dark-mode-toggle';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   useGetRestaurantImportStatus,
@@ -168,12 +171,13 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/20 selection:text-primary">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-border px-6 py-4 md:px-12 flex items-center justify-between">
+      <DarkModeToggle />
+      <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-border pl-6 pr-32 py-4 md:pl-12 md:pr-36 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="bg-primary text-primary-foreground p-2 rounded-lg shadow-sm">
             <UtensilsCrossed className="h-5 w-5" />
           </div>
-          <h1 className="font-serif text-2xl md:text-3xl font-semibold tracking-tight">The Food Advisor</h1>
+          <h1 className="font-serif text-xl md:text-3xl font-semibold tracking-tight">The Food Advisor</h1>
         </div>
         <div className="hidden md:flex items-center gap-2 text-sm font-medium text-muted-foreground">
           <LayoutDashboard className="h-4 w-4" />
@@ -537,6 +541,15 @@ export default function Dashboard() {
 
           </section>
         </div>
+        <Card className="panel mt-8 shadow-sm border-card-border" aria-labelledby="live-events-title">
+          <CardHeader>
+            <CardTitle id="live-events-title" className="text-xl">Live Events</CardTitle>
+            <CardDescription>Recent Gmail push and watch-renewal activity.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <LiveEvents />
+          </CardContent>
+        </Card>
       </main>
     </div>
   );

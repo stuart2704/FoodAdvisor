@@ -3,11 +3,13 @@ import { db, gmailWatchStateTable } from "@workspace/db";
 import { renewGmailWatch } from "../services/gmailWatch";
 import { sendAlert } from "../utils/alert";
 import { logger } from "../lib/logger";
+import { logEvent } from "../utils/eventLog";
 
 let task: ReturnType<typeof cron.schedule> | undefined;
 
 export async function checkWatchHealth(): Promise<void> {
   logger.info("Running Gmail watch health check.");
+  logEvent("info", "Renewal check triggered");
   try {
     const rows = await db.select().from(gmailWatchStateTable).limit(2);
     if (rows.length > 1) {
@@ -19,6 +21,12 @@ export async function checkWatchHealth(): Promise<void> {
       ? (status.watchExpiration.getTime() - Date.now()) / 3_600_000
       : null;
     if (hoursLeft === null || !Number.isFinite(hoursLeft) || hoursLeft < 24) {
+      logEvent(
+        "warning",
+        hoursLeft === null
+          ? "No Gmail watch found; activation required"
+          : "Renewal window approaching",
+      );
       logger.info(
         { hoursLeft },
         "Gmail watch is missing or nearing expiration; renewing.",
@@ -26,6 +34,13 @@ export async function checkWatchHealth(): Promise<void> {
       await renewGmailWatch();
     }
   } catch {
+    const nextRun = task?.getNextRun();
+    logEvent(
+      "error",
+      nextRun
+        ? `Gmail watch health check or renewal failed; next check scheduled for ${nextRun.toISOString()}`
+        : "Gmail watch health check or renewal failed; manual intervention required",
+    );
     await sendAlert(
       "Gmail watch renewal failed — manual intervention required.",
     );

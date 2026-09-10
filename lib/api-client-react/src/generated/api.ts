@@ -24,6 +24,7 @@ import type {
   AdminRenewGmailWatch200,
   CheckoutCompletion,
   ErrorResponse,
+  GetDashboardEvents200Item,
   GetGmailWatchStatus200,
   GmailWatch,
   HealthStatus,
@@ -72,6 +73,83 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetDashboardEventsUrl = () => {
+
+
+
+
+  return `/api/dashboard/events`
+}
+
+/**
+ * @summary Latest 200 process-local operational events, oldest first
+ */
+export const getDashboardEvents = async ( options?: Parameters<typeof customFetch>[1]): Promise<GetDashboardEvents200Item[]> => {
+
+  return customFetch<GetDashboardEvents200Item[]>(getGetDashboardEventsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDashboardEventsQueryKey = () => {
+    return [
+    `/api/dashboard/events`
+    ] as const;
+    }
+
+
+export const getGetDashboardEventsQueryOptions = <TData = Awaited<ReturnType<typeof getDashboardEvents>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDashboardEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDashboardEventsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDashboardEvents>>> = ({ signal }) => getDashboardEvents({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDashboardEvents>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDashboardEventsQueryResult = NonNullable<Awaited<ReturnType<typeof getDashboardEvents>>>
+export type GetDashboardEventsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Latest 200 process-local operational events, oldest first
+ */
+
+export function useGetDashboardEvents<TData = Awaited<ReturnType<typeof getDashboardEvents>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDashboardEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDashboardEventsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetGmailWatchStatusUrl = () => {
 

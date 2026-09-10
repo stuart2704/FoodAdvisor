@@ -21,6 +21,36 @@ tags:
   - name: gmail
     description: Gmail watch renewal and authenticated Pub/Sub push
 paths:
+  /dashboard/events:
+    servers:
+      - url: /
+    get:
+      operationId: getDashboardEvents
+      tags: [gmail]
+      summary: Latest 200 process-local operational events, oldest first
+      security:
+        - automationBearer: []
+      responses:
+        "200":
+          description: Events reset on server restart and are not shared between instances
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 200
+                items:
+                  type: object
+                  required: [time, type, message]
+                  properties:
+                    time:
+                      type: string
+                      format: date-time
+                    type:
+                      type: string
+                    message:
+                      type: string
+        "401":
+          description: Invalid automation credential
   /status/gmail-watch-status:
     servers:
       - url: /
