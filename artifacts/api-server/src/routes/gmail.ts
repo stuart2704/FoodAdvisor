@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { OAuth2Client } from "google-auth-library";
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type RequestHandler } from "express";
 import {
   db,
   gmailHistoryMessagesTable,
@@ -138,9 +138,10 @@ async function verifyPushIdentity(header: string | undefined): Promise<void> {
   }
 }
 
-router.post("/gmail/watch", async (req, res): Promise<void> => {
+export function createGmailWatchHandler(adminEnvelope = false): RequestHandler {
+  return async (req, res): Promise<void> => {
   if (!validAutomationToken(req.header("authorization"))) {
-    res.status(401).json({ error: "Invalid automation credential." });
+    res.status(401).json({ ...(adminEnvelope ? { ok: false } : {}), error: "Invalid automation credential." });
     return;
   }
   try {
@@ -169,17 +170,20 @@ router.post("/gmail/watch", async (req, res): Promise<void> => {
           updatedAt: new Date(),
         },
       });
-    res.json(
-      RenewGmailWatchResponse.parse({
+    const result = RenewGmailWatchResponse.parse({
         historyId: current?.lastHistoryId ?? watch.historyId,
         expiration: watch.expiration,
         topic: topicName,
-      }),
-    );
+      });
+    res.json(adminEnvelope ? { ok: true, result } : result);
   } catch {
-    res.status(503).json({ error: "Gmail watch could not be activated." });
+    req.log.warn("Gmail watch activation failed.");
+    res.status(503).json({ ...(adminEnvelope ? { ok: false } : {}), error: "Gmail watch could not be activated." });
   }
-});
+  };
+}
+
+router.post("/gmail/watch", createGmailWatchHandler());
 
 router.post("/gmail/push", async (req, res): Promise<void> => {
   try {

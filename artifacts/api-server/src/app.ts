@@ -7,6 +7,7 @@ import express, {
 import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
+import adminRoutes from "./routes/admin";
 import { logger } from "./lib/logger";
 import { StripeWebhookHandlers } from "./lib/stripe-webhook-handlers";
 
@@ -60,6 +61,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
+app.use("/admin", adminRoutes);
 
 app.use(
   (

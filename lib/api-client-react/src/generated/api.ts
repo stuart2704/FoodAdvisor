@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AdminActivateGmailWatch200,
   CheckoutCompletion,
   ErrorResponse,
   GmailWatch,
@@ -884,6 +885,77 @@ export const useClassifyIncomingReply = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getClassifyIncomingReplyMutationOptions(options));
+    }
+
+export const getAdminActivateGmailWatchUrl = () => {
+
+
+
+
+  return `/api/admin/activate-gmail-watch`
+}
+
+/**
+ * @summary Activate Gmail Watch through the protected admin route
+ */
+export const adminActivateGmailWatch = async ( options?: Parameters<typeof customFetch>[1]): Promise<AdminActivateGmailWatch200> => {
+
+  return customFetch<AdminActivateGmailWatch200>(getAdminActivateGmailWatchUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getAdminActivateGmailWatchMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof adminActivateGmailWatch>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof adminActivateGmailWatch>>, TError,void, TContext> => {
+
+const mutationKey = ['adminActivateGmailWatch'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof adminActivateGmailWatch>>, void> = () => {
+
+
+          return  adminActivateGmailWatch(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AdminActivateGmailWatchMutationResult = NonNullable<Awaited<ReturnType<typeof adminActivateGmailWatch>>>
+
+    export type AdminActivateGmailWatchMutationError = ErrorType<void>
+
+    /**
+ * @summary Activate Gmail Watch through the protected admin route
+ */
+export const useAdminActivateGmailWatch = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof adminActivateGmailWatch>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof adminActivateGmailWatch>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getAdminActivateGmailWatchMutationOptions(options));
     }
 
 export const getRenewGmailWatchUrl = () => {
