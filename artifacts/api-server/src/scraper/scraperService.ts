@@ -4,6 +4,9 @@ import {
   type RestaurantEnrichmentResult,
 } from "../services/enrichment/enrichRestaurant";
 import { logEvent } from "../utils/eventLog";
+import { validateRestaurant } from "../pipeline/validator";
+import { classifyScraperError } from "../errors/errorService";
+import { getScalingLimits, limitRestaurants } from "../scaling/scalingService";
 
 export type ScrapeCityOptions = MapsScanOptions;
 
@@ -24,10 +27,36 @@ export async function scrapeCity(
   city: string,
   options: ScrapeCityOptions = { confirm: false },
 ): Promise<ScrapedRestaurant[]> {
-  const mapsResults = await scrapeMapsResults(city, options);
+  const requestedLimit = options.perCityLimit ?? 10;
+  if (!Number.isSafeInteger(requestedLimit) || requestedLimit < 1) {
+    throw new Error("City scan limit must be a positive safe integer.");
+  }
+  logEvent("info", "City scraper started");
   try {
+    // Limit the paid request itself, not just its already-persisted results.
+    const mapsResults = await scrapeMapsResults(city, {
+      ...options,
+      perCityLimit: Math.min(requestedLimit, getScalingLimits().MAX_RESTAURANTS_PER_CITY),
+    });
+    const limited = limitRestaurants(mapsResults);
+    const seen = new Set<string>();
     const enrichedRestaurants: ScrapedRestaurant[] = [];
-    for (const restaurant of mapsResults) {
+    let invalid = 0;
+    let duplicates = 0;
+    let enrichmentFailures = 0;
+    for (const restaurant of limited) {
+      if (!validateRestaurant(restaurant)) {
+        invalid += 1;
+        logEvent("warning", "Invalid restaurant omitted from scrape output; imported data may already be stored");
+        continue;
+      }
+      // Check only this batch. Looking up duplicates in Neon here would reject
+      // every result, because the Maps importer already inserted these records.
+      if (seen.has(restaurant.id)) {
+        duplicates += 1;
+        continue;
+      }
+      seen.add(restaurant.id);
       let enrichment: ScrapedRestaurant["enrichment"] = {
         skipped: true,
         reason: "website_missing",
@@ -48,6 +77,7 @@ export async function scrapeCity(
           };
           logEvent("error", "Website enrichment failed; listing retained");
         }
+        if ("ok" in enrichment && !enrichment.ok) enrichmentFailures += 1;
       }
       // Keep canonical Maps fields separate from untrusted website data.
       enrichedRestaurants.push({
@@ -56,10 +86,14 @@ export async function scrapeCity(
         scrapedAt: new Date().toISOString(),
       });
     }
-    logEvent("success", "City scan and enrichment finished");
+    if (limited.length > 0 && enrichedRestaurants.length === 0) {
+      throw new Error("No valid restaurant results.");
+    }
+    logEvent(invalid || enrichmentFailures ? "warning" : "success",
+      `City scan finished: ${enrichedRestaurants.length} unique results, ${duplicates} duplicates, ${invalid} invalid, ${enrichmentFailures} enrichment failures`);
     return enrichedRestaurants;
-  } catch {
-    logEvent("error", "City enrichment phase failed");
+  } catch (error) {
+    logEvent("error", "City scan or enrichment phase failed", classifyScraperError(error));
     throw new Error("City scan failed; some listings may already have been saved. Check import status before retrying.");
   }
 }
