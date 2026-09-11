@@ -24,3 +24,17 @@ export function getSeasonalContext(restaurant) {
     localEvent: detectLocalEvent(region)
   };
 }
+
+function detectHoliday() {
+  const today = new Date();
+  const month = today.getMonth();
+  const date = today.getDate();
+
+  if (month === 11 && date >= 1) return "christmas";
+  if (month === 0 && date <= 7) return "new_year";
+  if (month === 1 && date === 14) return "valentines";
+  if (month === 3 && date === 1) return "easter";
+  if (month === 9 && date === 31) return "halloween";
+
+  return null;
+}
