@@ -1,0 +1,19 @@
+export function generateStaffPost(staff, restaurant) {
+  const post = {
+    caption: "",
+    story: "",
+    visuals: "",
+    branding: restaurant.branding,
+    personality: restaurant.personality,
+    culture: restaurant.culture,
+    language: restaurant.language
+  };
+
+  post.caption = `Meet ${staff.name} — ${staff.role} at ${restaurant.name}.`;
+
+  post.story = `${staff.name} has been part of our team for ${staff.years} years. Their favourite dish is ${staff.favouriteDish}, and they bring passion to everything they do.`;
+
+  post.visuals = generateStaffVisuals(staff);
+
+  return post;
+}
