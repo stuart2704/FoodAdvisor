@@ -1,0 +1,6 @@
+export const UK_EVENTS = [
+  "Cardiff Food Festival",
+  "Bank Holiday Weekend",
+  "Six Nations Rugby",
+  "Christmas Markets"
+];
