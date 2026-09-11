@@ -10,8 +10,28 @@ import {
 import { processGmailIncomingReply } from "../services/replyClassifier/processIncomingReply";
 import { logEvent } from "../utils/eventLog";
 import { mapReplyIntent } from "./classifier";
-import { classifyReplyIntent } from "./replyClassifier";
+import { classifyReplyIntent, type ReplyIntentLabel } from "./replyClassifier";
 import { generateReplyMessage } from "./replyGenerator";
+
+/**
+ * Internal draft preparation only. restaurantId is a canonical Google Place ID
+ * from the verified message mapping, never a caller-supplied numeric ID.
+ * Nothing is sent or persisted; the caller returns the draft for review.
+ */
+export async function triggerFollowUp(intent: ReplyIntentLabel, restaurantId: string) {
+  if (!restaurantId?.trim()) throw new Error("A Google Place ID is required.");
+  if (intent === "negative") return null;
+  const [restaurant] = await db.select({
+    name: restaurantsTable.name,
+    suppressedAt: restaurantsTable.suppressedAt,
+    outreachStatus: restaurantsTable.outreachStatus,
+  }).from(restaurantsTable).where(eq(restaurantsTable.placeId, restaurantId)).limit(1);
+  if (!restaurant) throw new Error("Restaurant mapping is missing.");
+  if (restaurant.suppressedAt || ["suppressed", "out_of_office"].includes(restaurant.outreachStatus ?? "")) {
+    return null;
+  }
+  return generateReplyMessage(intent, { restaurantName: restaurant.name });
+}
 
 async function getWatchAccount(): Promise<string | null> {
   const states = await db.select().from(gmailWatchStateTable).limit(2);
@@ -105,9 +125,7 @@ export async function handleReply(reply: unknown) {
     const intentLabel = classifyReplyIntent(body);
     const draft = newStatus === "suppressed" || intent === "out_of_office"
       ? null
-      : generateReplyMessage(intentLabel, {
-          restaurantName: restaurant.name,
-        });
+      : await triggerFollowUp(intentLabel, mapping.placeId);
     return {
       status: "processed" as const,
       intent: mapReplyIntent(result.classification),
