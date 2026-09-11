@@ -1,7 +1,7 @@
 "use client";
 
 // Inactive draft in this Vite app; does not replace the existing dashboard.
-// AnalyticsCard, StatusTimeline, and the analytics endpoint are not implemented.
+// Draft components are available; the analytics endpoint is not implemented.
 import { useEffect, useState } from "react";
 import AnalyticsCard from "@/components/AnalyticsCard";
 import StatusTimeline from "@/components/StatusTimeline";
