@@ -1,0 +1,20 @@
+import express from "express";
+import { updateStatus } from "../status/statusService.js";
+import { logEvent } from "../dashboard/eventsFeed.js";
+
+const router = express.Router();
+
+router.post("/", async (req, res) => {
+  const { placeId, name, email } = req.body;
+
+  logEvent(`Onboarding started → ${placeId}`);
+
+  // Draft mode: do NOT publish anything yet
+  await updateStatus(placeId, "onboarding_started");
+
+  return res.json({
+    message: "Onboarding saved (draft mode). Will activate once Stripe unlocks."
+  });
+});
+
+export default router;
