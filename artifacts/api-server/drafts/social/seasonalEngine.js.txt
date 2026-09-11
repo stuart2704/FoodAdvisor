@@ -25,6 +25,14 @@ export function getSeasonalContext(restaurant) {
   };
 }
 
+function detectLocalEvent(region) {
+  if (region === "Cardiff") {
+    return "rugby_match_day";
+  }
+
+  return null;
+}
+
 function detectHoliday() {
   const today = new Date();
   const month = today.getMonth();
