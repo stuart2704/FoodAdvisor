@@ -1,0 +1,50 @@
+export function generateIntelligentImage(restaurant, post) {
+  const menu = restaurant.menu || [];
+  const cuisine = restaurant.cuisine || "restaurant";
+  const branding = restaurant.branding || {};
+  const palette = branding.colourPalette || ["#FF5733", "#FFD700"];
+
+  // Pick a dish if available
+  const dish = menu.length > 0
+    ? menu[Math.floor(Math.random() * menu.length)]
+    : null;
+
+  // Seasonal logic
+  const month = new Date().getMonth();
+  const season =
+    month >= 2 && month <= 4 ? "spring" :
+    month >= 5 && month <= 7 ? "summer" :
+    month >= 8 && month <= 10 ? "autumn" :
+    "winter";
+
+  // Build the image prompt
+  let prompt = "";
+
+  if (dish) {
+    prompt = `High-quality photo of ${dish.name}, styled in a ${cuisine} restaurant setting.`;
+  } else {
+    prompt = `High-quality photo of a signature ${cuisine} dish.`;
+  }
+
+  prompt += ` Seasonal theme: ${season}.`;
+  prompt += ` Colour palette: ${palette.join(", ")}.`;
+
+  if (branding.style === "premium") {
+    prompt += " Premium lighting, shallow depth of field, elegant composition.";
+  }
+
+  if (branding.style === "vibrant") {
+    prompt += " Bright colours, energetic composition, bold presentation.";
+  }
+
+  if (branding.style === "rustic") {
+    prompt += " Warm tones, wooden textures, cosy atmosphere.";
+  }
+
+  return {
+    prompt,
+    style: branding.style || "default",
+    palette,
+    season
+  };
+}
