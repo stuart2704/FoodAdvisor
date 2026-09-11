@@ -5,6 +5,8 @@
 import { useEffect, useState } from "react";
 import AnalyticsCard from "@/components/AnalyticsCard";
 import StatusTimeline from "@/components/StatusTimeline";
+import "../../src/styles/upgrade.css";
+import "../../src/styles/analytics.css";
 
 export default function DashboardPage() {
   const [analytics, setAnalytics] = useState(null);

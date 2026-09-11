@@ -1,0 +1,35 @@
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 20px;
+  margin-top: 30px;
+}
+
+.analytics-card {
+  background: #f7f7f7;
+  padding: 20px;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.analytics-card h3 {
+  font-size: 1.1rem;
+  margin-bottom: 10px;
+}
+
+.analytics-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+.timeline {
+  margin-top: 40px;
+}
+
+.timeline ul {
+  padding-left: 20px;
+}
+
+.timeline li {
+  margin-bottom: 10px;
+}
