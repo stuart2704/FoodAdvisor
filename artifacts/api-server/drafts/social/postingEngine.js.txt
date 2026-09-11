@@ -33,3 +33,7 @@ async function postToTikTok(post) {
 async function postToX(post) {
   // Post text + image
 }
+
+async function postToGoogleBusiness(post) {
+  // Create local post → publish
+}
