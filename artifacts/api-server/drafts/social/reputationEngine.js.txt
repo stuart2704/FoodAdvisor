@@ -1,0 +1,52 @@
+export function handleReview(review, restaurant) {
+  const text = review.text.toLowerCase();
+  const branding = restaurant.branding || {};
+
+  // Sentiment detection
+  const positiveWords = ["love", "amazing", "great", "delicious", "best", "friendly"];
+  const negativeWords = ["bad", "cold", "slow", "terrible", "awful", "rude"];
+  const complaintWords = ["wait", "late", "overpriced", "dirty"];
+
+  let sentiment = "neutral";
+
+  if (positiveWords.some(w => text.includes(w))) sentiment = "positive";
+  if (negativeWords.some(w => text.includes(w))) sentiment = "negative";
+  if (complaintWords.some(w => text.includes(w))) sentiment = "complaint";
+
+  // Base reply
+  let reply = "";
+
+  if (sentiment === "positive") {
+    reply = "Thanks so much for your wonderful review — we appreciate you!";
+  }
+
+  if (sentiment === "neutral") {
+    reply = "Thanks for taking the time to leave a review!";
+  }
+
+  if (sentiment === "negative") {
+    reply = "We’re really sorry to hear this. Please reach out — we’d love to make things right.";
+  }
+
+  if (sentiment === "complaint") {
+    reply = "Thanks for your feedback — we’re looking into this and appreciate you letting us know.";
+  }
+
+  // Apply branding tone
+  if (branding.tone === "friendly") {
+    reply = `Hey! 👋 ${reply}`;
+  }
+
+  if (branding.tone === "luxury") {
+    reply = `We truly appreciate your message. ${reply}`;
+  }
+
+  if (branding.tone === "bold") {
+    reply = `🔥 Appreciate you! 🔥 ${reply}`;
+  }
+
+  return {
+    sentiment,
+    reply
+  };
+}
