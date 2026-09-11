@@ -6,6 +6,7 @@ import { schedulePost } from "./scheduler.js";
 import { postAutomatically } from "./postingEngine.js";
 import { generateReply } from "./engagementEngine.js";
 import { getAnalytics } from "./analyticsEngine.js";
+import { learnFromAnalytics } from "./learningEngine.js";
 
 export async function runAutomationLoop(restaurant) {
   // 1. Generate content
@@ -36,8 +37,12 @@ export async function runAutomationLoop(restaurant) {
   // 8. Analytics collected after posting
   const analytics = getAnalytics(restaurant);
 
-  // 9. AI learns from analytics (future module)
-  // adjustBrandingOrTiming(analytics);
+  // 9. Proposed learning step — draft only; analytics are currently simulated.
+  const learning = learnFromAnalytics(restaurant, analytics);
+
+  // Apply learning to restaurant profile
+  // Draft dependency: updateRestaurantBranding is not defined or imported.
+  updateRestaurantBranding(restaurant.placeId, learning);
 
   return {
     scheduled,
