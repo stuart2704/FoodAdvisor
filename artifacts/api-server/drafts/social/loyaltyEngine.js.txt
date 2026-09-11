@@ -1,0 +1,36 @@
+export function generateLoyaltyMessage(customer, restaurant) {
+  const loyalty = detectLoyaltyLevel(customer);
+
+  if (loyalty === "new") {
+    return applyBrandingAndPersonality(
+      "Welcome! We’re so happy to have you here 😊",
+      restaurant
+    );
+  }
+
+  if (loyalty === "returning") {
+    return applyBrandingAndPersonality(
+      "Great to see you again! Thanks for coming back ❤️",
+      restaurant
+    );
+  }
+
+  if (loyalty === "loyal") {
+    return applyBrandingAndPersonality(
+      "You’re one of our regulars — thank you for always supporting us 😋🔥",
+      restaurant
+    );
+  }
+
+  if (loyalty === "vip") {
+    return applyBrandingAndPersonality(
+      "You’re part of our family — we appreciate you more than you know ✨",
+      restaurant
+    );
+  }
+
+  return applyBrandingAndPersonality(
+    "Thanks for your message! 😊",
+    restaurant
+  );
+}
