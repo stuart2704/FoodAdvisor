@@ -1,0 +1,31 @@
+import express from "express";
+
+const router = express.Router();
+
+router.get("/", async (req, res) => {
+  // Draft mode: simulated insights
+  return res.json({
+    topPosts: [
+      {
+        caption: "Try our new Chicken Katsu Curry!",
+        likes: 120,
+        comments: 18,
+        platform: "instagram"
+      }
+    ],
+    bestTime: "18:00",
+    bestPlatform: "instagram",
+    adjustments: [
+      "Shifted tone to friendly",
+      "Moved posting time to 18:00",
+      "Increased Instagram frequency"
+    ],
+    recommendations: [
+      "Add more bright images",
+      "Post more ramen content",
+      "Increase weekend posts"
+    ]
+  });
+});
+
+export default router;
