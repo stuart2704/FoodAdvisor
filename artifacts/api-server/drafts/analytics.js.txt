@@ -1,0 +1,22 @@
+import express from "express";
+
+const router = express.Router();
+
+router.get("/", async (req, res) => {
+  // Draft mode analytics — simulated until Stripe unlocks
+  return res.json({
+    views: 128,
+    menuOpens: 42,
+    searchAppearances: 310,
+    websiteClicks: 18,
+    funnel: "Viewed Upgrade Page",
+    timeline: [
+      { status: "free", date: "2026-09-01" },
+      { status: "checkout_started", date: "2026-09-05" },
+      { status: "upgraded_preview", date: "2026-09-06" },
+      { status: "menu_uploaded_draft", date: "2026-09-07" }
+    ]
+  });
+});
+
+export default router;
