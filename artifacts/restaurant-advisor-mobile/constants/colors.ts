@@ -15,40 +15,40 @@
 const colors = {
   light: {
     // Legacy aliases (kept for backward compatibility)
-    text: '#25192A',
-    tint: '#7A2E59',
+    text: '#33221E',
+    tint: '#E8562D',
 
     // Core surfaces
-    background: '#FFF9F0',
-    foreground: '#25192A',
+    background: '#FFF8ED',
+    foreground: '#33221E',
 
     // Cards / elevated surfaces
     card: '#FFFFFF',
-    cardForeground: '#25192A',
+    cardForeground: '#33221E',
 
     // Primary action color (buttons, links, active states)
-    primary: '#7A2E59',
+    primary: '#E8562D',
     primaryForeground: '#ffffff',
 
     // Secondary / less-emphasis interactive surfaces
-    secondary: '#F3E7DC',
-    secondaryForeground: '#4B2F3C',
+    secondary: '#F7E2D0',
+    secondaryForeground: '#33221E',
 
     // Muted / subdued elements (dividers, timestamps, placeholders)
     muted: '#F3E7DC',
-    mutedForeground: '#806D72',
+    mutedForeground: '#80675D',
 
     // Accent highlights (badges, selected items, focus rings)
-    accent: '#F2B84B',
-    accentForeground: '#3B2600',
+    accent: '#F4C75B',
+    accentForeground: '#33221E',
 
     // Destructive actions (delete, error states)
     destructive: '#ef4444',
     destructiveForeground: '#ffffff',
 
     // Borders and input outlines
-    border: '#E8D8CC',
-    input: '#E8D8CC',
+    border: '#EFDCCA',
+    input: '#ECCDB2',
   },
 
   // Border radius (in px). Sync from the sibling web artifact's --radius

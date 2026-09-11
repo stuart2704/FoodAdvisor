@@ -24,8 +24,14 @@ const queryClient = new QueryClient();
 
 function RootLayoutNav() {
   return (
-    <Stack screenOptions={{ headerBackTitle: 'Back' }}>
+    <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="owner-entry" options={{ title: 'Owner mode' }} />
+      <Stack.Screen name="onboarding/[step]" options={{ title: 'Owner setup' }} />
+      <Stack.Screen name="restaurant/[id]" options={{ title: 'Restaurant' }} />
+      <Stack.Screen name="dashboard" options={{ title: 'Dashboard' }} />
+      <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
+      <Stack.Screen name="settings" options={{ title: 'Settings' }} />
     </Stack>
   );
 }

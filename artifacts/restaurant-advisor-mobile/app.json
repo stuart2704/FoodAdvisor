@@ -4,7 +4,7 @@
     "slug": "restaurant-advisor-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/food-advisor-logo.png",
     "scheme": "restaurant-advisor-mobile",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -14,8 +14,13 @@
       }
     },
     "android": {},
+    "splash": {
+      "image": "./assets/food-advisor-logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFF8ED"
+    },
     "web": {
-      "favicon": "./assets/images/icon.png"
+      "favicon": "./assets/food-advisor-logo.png"
     },
     "plugins": ["expo-router", "expo-location"],
     "experiments": {

@@ -1,0 +1,4 @@
+import { Text, View } from 'react-native';
+import { Screen, Section, Notice, sharedStyles } from '@/components/FoodAdvisor';
+import { useColors } from '@/hooks/useColors';
+export default function Settings() { const colors = useColors(); return <Screen><Text style={[sharedStyles.hero, { color: colors.foreground }]}>Settings</Text><Section title="Account">{['Profile', 'Language · English (UK)', 'Notifications', 'Privacy', 'Terms', 'Support'].map(x => <View key={x} style={[sharedStyles.row, { borderBottomColor: colors.border }]}><Text style={{ color: colors.foreground, fontFamily: 'Inter_600SemiBold' }}>{x}</Text></View>)}</Section><Notice>Account connections and notification delivery are not enabled in this concept build.</Notice></Screen>; }

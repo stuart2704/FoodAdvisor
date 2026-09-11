@@ -1,0 +1,6 @@
+import { Text } from 'react-native';
+import { Link } from 'expo-router';
+import { Screen, ConceptButton, Notice, foodImages, sharedStyles } from '@/components/FoodAdvisor';
+import { Image } from 'react-native';
+import { useColors } from '@/hooks/useColors';
+export default function OwnerEntry() { const colors = useColors(); return <Screen owner><Text style={[sharedStyles.tag, { color: colors.primary, marginTop: 35 }]}>FOR RESTAURANT OWNERS</Text><Text style={[sharedStyles.hero, { color: colors.foreground }]}>Are you a restaurant owner?</Text><Image source={foodImages[2]} style={{ width: '100%', height: 170, borderRadius: 22, marginTop: 22 }} /><Text style={[sharedStyles.intro, { color: colors.foreground }]}>Grow your restaurant with daily content and clear management tools.</Text><Link href="/onboarding/welcome" asChild><ConceptButton label="Switch to Owner Mode" /></Link><Notice>Owner mode is a concept flow. AI generation, uploads and account connections are not activated.</Notice></Screen>; }

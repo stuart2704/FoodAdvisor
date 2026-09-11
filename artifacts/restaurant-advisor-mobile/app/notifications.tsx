@@ -1,0 +1,4 @@
+import { Text, View } from 'react-native';
+import { Screen, Section, sharedStyles } from '@/components/FoodAdvisor';
+import { useColors } from '@/hooks/useColors';
+export default function Notifications() { const colors = useColors(); const groups = [['FOR DINERS', 'New restaurants near you', 'Trending places', 'Promotions near you', 'Events near you'], ['FOR OWNERS', 'Today’s content ready', 'New enhanced photos', 'Promotion suggestion', 'Monthly report ready']]; return <Screen>{groups.map(([title, ...items]) => <Section key={title} title={title}>{items.map(x => <View key={x} style={[sharedStyles.row, { borderBottomColor: colors.border }]}><Text style={{ color: colors.primary, fontSize: 20 }}>•</Text><Text style={{ color: colors.foreground, fontFamily: 'Inter_600SemiBold' }}>{x}</Text></View>)}</Section>)}</Screen>; }

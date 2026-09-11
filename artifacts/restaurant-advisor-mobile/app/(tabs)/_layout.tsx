@@ -21,6 +21,18 @@ function NativeTabLayout() {
         />
         <NativeTabs.Trigger.Label>Discover</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="map">
+        <NativeTabs.Trigger.Icon sf={{ default: 'map', selected: 'map.fill' }} />
+        <NativeTabs.Trigger.Label>Map</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="search">
+        <NativeTabs.Trigger.Icon sf={{ default: 'magnifyingglass', selected: 'magnifyingglass' }} />
+        <NativeTabs.Trigger.Label>Search</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="profile">
+        <NativeTabs.Trigger.Icon sf={{ default: 'person', selected: 'person.fill' }} />
+        <NativeTabs.Trigger.Label>Profile</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }
@@ -37,7 +49,7 @@ function ClassicTabLayout() {
       screenOptions={{
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.mutedForeground,
-        headerShown: true,
+        headerShown: false,
         tabBarStyle: {
           position: 'absolute',
           backgroundColor: isIOS ? 'transparent' : colors.background,
@@ -75,6 +87,9 @@ function ClassicTabLayout() {
             ),
         }}
       />
+      <Tabs.Screen name="map" options={{ title: 'Map', tabBarIcon: ({ color }) => <Feather name="map" size={21} color={color} /> }} />
+      <Tabs.Screen name="search" options={{ title: 'Search', tabBarIcon: ({ color }) => <Feather name="search" size={21} color={color} /> }} />
+      <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: ({ color }) => <Feather name="user" size={21} color={color} /> }} />
     </Tabs>
   );
 }

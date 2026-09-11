@@ -2,10 +2,12 @@ import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Linking,
   Platform,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -25,6 +27,17 @@ import {
   useListRestaurants,
   useRunRestaurantImport,
 } from '@workspace/api-client-react';
+import { useRouter } from 'expo-router';
+import {
+  ConceptButton,
+  foodImages,
+  Notice,
+  Pill,
+  RestaurantCard,
+  Screen,
+  Section,
+  sharedStyles,
+} from '@/components/FoodAdvisor';
 import { useColors } from '@/hooks/useColors';
 
 const CITIES = [
@@ -37,7 +50,7 @@ const CITIES = [
   'Belfast',
 ];
 
-export default function DiscoverScreen() {
+export function ManagementScreen() {
   const colors = useColors();
   const queryClient = useQueryClient();
   const [selectedCities, setSelectedCities] = useState<string[]>(CITIES);
@@ -491,6 +504,281 @@ export default function DiscoverScreen() {
     />
   );
 }
+
+export default function DiscoverScreen() {
+  const colors = useColors();
+  const router = useRouter();
+  const restaurants = useListRestaurants();
+  const [radiusMiles, setRadiusMiles] = useState(5);
+  const [nearbyCoords, setNearbyCoords] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const [nearbyRequested, setNearbyRequested] = useState(false);
+  const [locationState, setLocationState] = useState<
+    'idle' | 'requesting' | 'ready' | 'denied' | 'error'
+  >('idle');
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [permission, requestPermission] = Location.useForegroundPermissions();
+  const nearbyParams = {
+    latitude: nearbyCoords?.latitude ?? 0,
+    longitude: nearbyCoords?.longitude ?? 0,
+    radiusMiles,
+  };
+  const nearby = useListNearbyRestaurants(nearbyParams, {
+    query: {
+      queryKey: getListNearbyRestaurantsQueryKey(nearbyParams),
+      enabled: nearbyRequested && nearbyCoords !== null,
+      retry: false,
+    },
+  });
+  const directory = nearbyRequested ? nearby.data ?? [] : restaurants.data ?? [];
+
+  const handleNearMe = async () => {
+    Haptics.selectionAsync();
+    setLocationError(null);
+    setLocationState('requesting');
+
+    try {
+      if (Platform.OS !== 'web') {
+        const currentPermission =
+          permission?.granted ? permission : await requestPermission();
+        if (!currentPermission.granted) {
+          setLocationState('denied');
+          setLocationError('Allow location access to find stored restaurants near you.');
+          return;
+        }
+      }
+
+      const position =
+        Platform.OS === 'web'
+          ? await new Promise<{ coords: { latitude: number; longitude: number } }>(
+              (resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(
+                  resolve,
+                  (error) => reject(new Error(error.message)),
+                  { enableHighAccuracy: false, timeout: 10_000, maximumAge: 0 },
+                );
+              },
+            )
+          : await Location.getCurrentPositionAsync({
+              accuracy: Location.Accuracy.Balanced,
+            });
+
+      setNearbyCoords({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      });
+      setNearbyRequested(true);
+      setLocationState('ready');
+    } catch {
+      setLocationState('error');
+      setLocationError('Your location could not be read. Check device settings and try again.');
+    }
+  };
+
+  const openRestaurant = (id: string) => {
+    router.push({ pathname: '/restaurant/[id]', params: { id } });
+  };
+
+  const restaurantRail = (items: typeof directory) => (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={consumerStyles.rail}
+    >
+      {items.map((restaurant, index) => (
+        <RestaurantCard
+          key={restaurant.id}
+          name={restaurant.name}
+          cuisine={restaurant.city}
+          rating={restaurant.rating}
+          image={index}
+          onPress={() => openRestaurant(restaurant.id)}
+        />
+      ))}
+    </ScrollView>
+  );
+
+  return (
+    <Screen>
+      <View style={consumerStyles.hero}>
+        <View style={consumerStyles.heroCopy}>
+          <Text style={[sharedStyles.hero, { color: colors.foreground }]}>
+            Discover restaurants near you
+          </Text>
+          <Text style={[sharedStyles.intro, { color: colors.mutedForeground }]}>
+            Real places from the shared Food Advisor directory.
+          </Text>
+        </View>
+        <Image source={foodImages[0]} style={consumerStyles.heroImage} />
+      </View>
+
+      <Pressable
+        testID="discover-near-me"
+        disabled={locationState === 'requesting'}
+        onPress={handleNearMe}
+        style={[consumerStyles.nearMe, { backgroundColor: colors.primary }]}
+      >
+        <View style={consumerStyles.nearMeIcon}>
+          <Feather name="navigation" size={20} color={colors.primaryForeground} />
+        </View>
+        <View style={consumerStyles.nearMeCopy}>
+          <Text style={[consumerStyles.nearMeTitle, { color: colors.primaryForeground }]}>
+            {locationState === 'requesting'
+              ? 'Finding your location…'
+              : nearbyRequested
+                ? 'Refresh places near me'
+                : 'Find places near me'}
+          </Text>
+          <Text style={[consumerStyles.nearMeText, { color: colors.primaryForeground }]}>
+            Uses your device’s live GPS with a 1, 5, 10 or 25 mile radius
+          </Text>
+        </View>
+        {locationState === 'requesting' ? (
+          <ActivityIndicator color={colors.primaryForeground} />
+        ) : (
+          <Feather name="crosshair" size={20} color={colors.primaryForeground} />
+        )}
+      </Pressable>
+      <View style={consumerStyles.radiusRow}>
+        <Text style={[consumerStyles.radiusLabel, { color: colors.mutedForeground }]}>
+          RADIUS
+        </Text>
+        {[1, 5, 10, 25].map((radius) => (
+          <Pill
+            key={radius}
+            selected={radiusMiles === radius}
+            onPress={() => {
+              setRadiusMiles(radius);
+              if (nearbyRequested) setNearbyRequested(false);
+            }}
+          >
+            {radius} mi
+          </Pill>
+        ))}
+      </View>
+      {locationError && (
+        <Notice>
+          {locationError}
+          {locationState === 'denied' && permission?.canAskAgain === false
+            ? ' Open device Settings to enable location.'
+            : ''}
+        </Notice>
+      )}
+
+      <Section title="Near you" action={`${directory.length} places`}>
+        {restaurants.isLoading ? (
+          <ActivityIndicator color={colors.primary} style={consumerStyles.loader} />
+        ) : directory.length ? (
+          restaurantRail(directory.slice(0, 6))
+        ) : (
+          <Notice>
+            No restaurants are available yet. The directory never substitutes city-centre
+            locations for missing coordinates.
+          </Notice>
+        )}
+      </Section>
+
+      <Section title="Popular cuisines" action="Explore">
+        <View style={consumerStyles.cuisines}>
+          {['British', 'Italian', 'Japanese', 'Indian', 'Mediterranean', 'Vegan'].map(
+            (cuisine) => (
+              <Pill key={cuisine} onPress={() => router.push('/search')}>
+                {cuisine}
+              </Pill>
+            ),
+          )}
+        </View>
+      </Section>
+
+      {directory.length > 1 && (
+        <Section title="Trending now" action="From the directory">
+          {restaurantRail([...directory].reverse().slice(0, 6))}
+        </Section>
+      )}
+
+      <Section title="Promotions & events">
+        <View style={consumerStyles.conceptGrid}>
+          <Pressable
+            onPress={() => router.push('/search')}
+            style={[consumerStyles.conceptCard, { backgroundColor: colors.secondary }]}
+          >
+            <Feather name="tag" size={21} color={colors.primary} />
+            <Text style={[consumerStyles.conceptTitle, { color: colors.foreground }]}>
+              Promotions
+            </Text>
+            <Text style={[sharedStyles.small, { color: colors.mutedForeground }]}>
+              Browse future verified offers
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push('/search')}
+            style={[consumerStyles.conceptCard, { backgroundColor: colors.secondary }]}
+          >
+            <Feather name="calendar" size={21} color={colors.primary} />
+            <Text style={[consumerStyles.conceptTitle, { color: colors.foreground }]}>
+              Events
+            </Text>
+            <Text style={[sharedStyles.small, { color: colors.mutedForeground }]}>
+              Browse future restaurant events
+            </Text>
+          </Pressable>
+        </View>
+        <Notice>
+          Promotion, event and recommendation labels remain concept previews until verified
+          restaurant data is connected.
+        </Notice>
+      </Section>
+
+      <View style={consumerStyles.ownerAction}>
+        <Text style={[sharedStyles.serif, { color: colors.foreground }]}>
+          Own a restaurant?
+        </Text>
+        <Text style={[sharedStyles.intro, { color: colors.mutedForeground }]}>
+          Preview the owner setup and AI marketing dashboard.
+        </Text>
+        <ConceptButton label="Switch to Owner Mode" onPress={() => router.push('/owner-entry')} />
+      </View>
+    </Screen>
+  );
+}
+
+const consumerStyles = StyleSheet.create({
+  hero: { flexDirection: 'row', alignItems: 'flex-end', gap: 14, marginTop: 4 },
+  heroCopy: { flex: 1 },
+  heroImage: { width: 104, height: 132, borderRadius: 24 },
+  nearMe: {
+    minHeight: 78,
+    borderRadius: 22,
+    padding: 15,
+    marginTop: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  nearMeIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nearMeCopy: { flex: 1 },
+  nearMeTitle: { fontFamily: 'Inter_700Bold', fontSize: 15 },
+  nearMeText: { fontFamily: 'Inter_400Regular', fontSize: 11, lineHeight: 15, opacity: 0.86 },
+  radiusRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 7, marginTop: 12 },
+  radiusLabel: { fontFamily: 'Inter_700Bold', fontSize: 10, letterSpacing: 1, marginRight: 2 },
+  rail: { gap: 10, paddingRight: 20 },
+  loader: { marginVertical: 28 },
+  cuisines: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  conceptGrid: { flexDirection: 'row', gap: 10 },
+  conceptCard: { flex: 1, minHeight: 135, borderRadius: 18, padding: 15, gap: 8 },
+  conceptTitle: { fontFamily: 'Inter_700Bold', fontSize: 17, marginTop: 4 },
+  ownerAction: { marginTop: 30, gap: 10 },
+});
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
