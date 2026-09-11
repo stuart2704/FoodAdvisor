@@ -1,0 +1,52 @@
+export function generateEmail(restaurant, type) {
+  const branding = restaurant.branding;
+  const personality = restaurant.personality;
+  const culture = restaurant.culture;
+
+  const email = {
+    subject: "",
+    preview: "",
+    body: "",
+    cta: "",
+    branding,
+    personality,
+    culture
+  };
+
+  if (type === "newsletter") {
+    email.subject = `${restaurant.name} — This Month’s Flavours`;
+    email.preview = `New dishes, offers, and updates from ${restaurant.name}`;
+    email.body = generateNewsletterBody(restaurant);
+    email.cta = "View our menu";
+  }
+
+  if (type === "promotion") {
+    email.subject = `Special Offer at ${restaurant.name}`;
+    email.preview = "Exclusive deal just for you";
+    email.body = generatePromotionBody(restaurant);
+    email.cta = "Order now";
+  }
+
+  if (type === "event") {
+    email.subject = `${restaurant.name} — Special Event This Week`;
+    email.preview = "Join us for something special";
+    email.body = generateEventBody(restaurant);
+    email.cta = "Reserve your table";
+  }
+
+  if (type === "delivery") {
+    email.subject = `${restaurant.name} — Order Online Tonight`;
+    email.preview = "Available on Uber Eats, Deliveroo, and Just Eat";
+    email.body = generateDeliveryBody(restaurant);
+    email.cta = "Order delivery";
+  }
+
+  if (type === "loyalty") {
+    email.subject = `Thank You for Being a Loyal Customer ❤️`;
+    email.preview = "A special message just for you";
+    email.body = generateLoyaltyBody(restaurant);
+    email.cta = "Visit us again";
+  }
+
+  return email;
+}
