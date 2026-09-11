@@ -1,0 +1,22 @@
+export function applySEO(post, restaurant) {
+  const keywords = generateKeywords(restaurant);
+
+  post.seoKeywords = keywords;
+
+  post.caption = `${post.caption}\n\n${keywords.join(" • ")}`;
+
+  return post;
+}
+
+function generateKeywords(restaurant) {
+  const city = restaurant.city || "Cardiff";
+  const cuisine = restaurant.cuisine || "restaurant";
+
+  return [
+    `${cuisine} ${city}`,
+    `best ${cuisine} ${city}`,
+    `${cuisine} near me`,
+    `${restaurant.name} ${city}`,
+    `${cuisine} delivery ${city}`
+  ];
+}
