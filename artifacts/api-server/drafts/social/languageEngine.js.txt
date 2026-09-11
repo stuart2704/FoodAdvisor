@@ -1,3 +1,38 @@
+export function applyLanguage(post, restaurant) {
+  const lang = restaurant.language || "en";
+
+  if (lang === "en") {
+    post.caption = post.caption; // Already English
+  }
+
+  if (lang === "ja") {
+    post.caption = translateToJapanese(post.caption);
+    post.politeness = "keigo";
+  }
+
+  if (lang === "ar") {
+    post.caption = translateToArabic(post.caption);
+    post.politeness = "formal";
+  }
+
+  if (lang === "hi") {
+    post.caption = translateToHindi(post.caption);
+    post.politeness = "warm";
+  }
+
+  if (lang === "it") {
+    post.caption = translateToItalian(post.caption);
+    post.politeness = "passionate";
+  }
+
+  if (lang === "es") {
+    post.caption = translateToSpanish(post.caption);
+    post.politeness = "expressive";
+  }
+
+  return post;
+}
+
 export function translateCaption(caption, restaurant) {
   const lang = restaurant.language || "en";
 
