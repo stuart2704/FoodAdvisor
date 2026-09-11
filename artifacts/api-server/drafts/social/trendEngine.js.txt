@@ -1,0 +1,12 @@
+export function getCurrentTrends(region, cuisine) {
+  const trends = {
+    tiktok: getTikTokTrends(region, cuisine),
+    reels: getReelsTrends(region, cuisine),
+    seasonal: getSeasonalTrends(region),
+    food: getFoodTrends(cuisine),
+    local: getLocalTrends(region),
+    global: getGlobalFoodTrends()
+  };
+
+  return trends;
+}
