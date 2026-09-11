@@ -1,0 +1,96 @@
+/* Upgrade Page — Modern App Style */
+
+.upgrade-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto;
+  color: #222;
+  line-height: 1.6;
+}
+
+.upgrade-header {
+  text-align: center;
+  margin-bottom: 50px;
+}
+
+.upgrade-header h1 {
+  font-size: 2.4rem;
+  font-weight: 700;
+  margin-bottom: 15px;
+}
+
+.upgrade-header p {
+  font-size: 1.2rem;
+  color: #555;
+}
+
+.upgrade-section {
+  margin-bottom: 50px;
+}
+
+.upgrade-section h2 {
+  font-size: 1.8rem;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.upgrade-section p {
+  font-size: 1.1rem;
+  color: #444;
+}
+
+.upgrade-section ul {
+  margin-top: 15px;
+  padding-left: 20px;
+}
+
+.upgrade-section ul li {
+  margin-bottom: 10px;
+  font-size: 1.05rem;
+}
+
+.upgrade-cta {
+  text-align: center;
+}
+
+.upgrade-button {
+  background: #000;
+  color: #fff;
+  padding: 14px 26px;
+  border-radius: 8px;
+  border: none;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: 0.2s ease;
+  margin-top: 15px;
+}
+
+.upgrade-button:hover {
+  background: #333;
+}
+
+.faq h3 {
+  margin-top: 25px;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.upgrade-footer {
+  text-align: center;
+  margin-top: 60px;
+}
+
+@media (max-width: 600px) {
+  .upgrade-header h1 {
+    font-size: 1.9rem;
+  }
+
+  .upgrade-section h2 {
+    font-size: 1.5rem;
+  }
+
+  .upgrade-button {
+    width: 100%;
+  }
+}

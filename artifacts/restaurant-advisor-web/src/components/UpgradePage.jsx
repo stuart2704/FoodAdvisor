@@ -1,5 +1,6 @@
 // DRAFT ONLY: leave unrouted until paid upgrades and advertised features are verified.
 import React from "react";
+import "../styles/upgrade.css";
 
 export default function UpgradePage() {
   return (
