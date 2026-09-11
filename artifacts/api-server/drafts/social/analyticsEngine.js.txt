@@ -7,3 +7,11 @@ export function getAnalytics(restaurant) {
     google: { views: 340 }
   };
 }
+
+async function fetchInstagramAnalytics(postId) {
+  return {
+    likes: 120,
+    comments: 18,
+    reach: 900
+  };
+}
