@@ -3,9 +3,9 @@ import React from "react";
 
 export default function UpgradePage() {
   return (
-    <div style={{ padding: "40px", maxWidth: "900px", margin: "0 auto" }}>
+    <div className="upgrade-container">
       
-      <header>
+      <header className="upgrade-header">
         <h1>Boost Your Restaurant’s Visibility Inside The Food Advisor App</h1>
         <p>
           Your free listing is live — now unlock priority placement, full menu
@@ -13,7 +13,7 @@ export default function UpgradePage() {
         </p>
       </header>
 
-      <section>
+      <section className="upgrade-section">
         <h2>Why Upgrade?</h2>
         <p>
           Upgrading gives your restaurant premium visibility inside both our
@@ -29,7 +29,7 @@ export default function UpgradePage() {
         </ul>
       </section>
 
-      <section>
+      <section className="upgrade-section">
         <h2>Restaurants already pay for visibility</h2>
         <p>
           Platforms like Deliveroo, Uber Eats, TripAdvisor, and Yelp charge for
@@ -38,7 +38,7 @@ export default function UpgradePage() {
         </p>
       </section>
 
-      <section>
+      <section className="upgrade-section">
         <h2>£99/month — Cancel Anytime</h2>
         <p>
           A simple, flat monthly subscription. No contracts. No hidden fees. No
@@ -46,7 +46,7 @@ export default function UpgradePage() {
         </p>
       </section>
 
-      <section>
+      <section className="upgrade-section">
         <h2>Included in your upgrade</h2>
         <ul>
           <li>
@@ -71,27 +71,21 @@ export default function UpgradePage() {
         </ul>
       </section>
 
-      <section>
+      <section className="upgrade-section upgrade-cta">
         <h2>Upgrade Now</h2>
         <p>Activate your premium listing and start reaching more diners today.</p>
 
-        <a
-          href="/upgrade/checkout"
-          style={{
-            padding: "12px 20px",
-            background: "black",
-            color: "white",
-            textDecoration: "none",
-            borderRadius: "6px",
-            display: "inline-block",
-            marginTop: "10px"
-          }}
+        <button
+          type="button"
+          className="upgrade-button"
+          disabled
+          title="Paid upgrades are currently unavailable"
         >
           Upgrade for £99/month
-        </a>
+        </button>
       </section>
 
-      <section>
+      <section className="upgrade-section">
         <h2>Cancel Anytime — No Risk</h2>
         <p>
           If you don’t see value, cancel instantly. Your free listing stays live
@@ -99,7 +93,7 @@ export default function UpgradePage() {
         </p>
       </section>
 
-      <section>
+      <section className="upgrade-section faq">
         <h2>FAQ</h2>
 
         <h3>Will my restaurant still appear if I don’t upgrade?</h3>
@@ -121,23 +115,17 @@ export default function UpgradePage() {
         <p>Instantly — changes appear immediately.</p>
       </section>
 
-      <footer>
+      <footer className="upgrade-footer">
         <h2>Ready to boost your visibility?</h2>
 
-        <a
-          href="/upgrade/checkout"
-          style={{
-            padding: "12px 20px",
-            background: "black",
-            color: "white",
-            textDecoration: "none",
-            borderRadius: "6px",
-            display: "inline-block",
-            marginTop: "10px"
-          }}
+        <button
+          type="button"
+          className="upgrade-button"
+          disabled
+          title="Paid upgrades are currently unavailable"
         >
           Upgrade for £99/month
-        </a>
+        </button>
       </footer>
     </div>
   );
