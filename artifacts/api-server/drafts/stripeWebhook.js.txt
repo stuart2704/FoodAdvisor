@@ -1,0 +1,66 @@
+// src/api/stripeWebhook.js
+
+import express from "express";
+import Stripe from "stripe";
+import { logEvent, logError } from "../dashboard/eventsFeed.js";
+import { updateStatus } from "../status/statusService.js";
+
+const router = express.Router();
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+/**
+ * Stripe Webhook — handles subscription events
+ */
+router.post("/", express.raw({ type: "application/json" }), async (req, res) => {
+  const sig = req.headers["stripe-signature"];
+
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (err) {
+    logError("Stripe webhook signature failed", err);
+    return res.status(400).send("Webhook Error");
+  }
+
+  const data = event.data.object;
+
+  try {
+    switch (event.type) {
+      case "checkout.session.completed":
+        logEvent("Stripe: Checkout completed");
+
+        const restaurantId = data.metadata.restaurantId;
+
+        await updateStatus(restaurantId, "upgraded");
+        logEvent(`Restaurant ${restaurantId} upgraded successfully`);
+
+        break;
+
+      case "customer.subscription.deleted":
+        logEvent("Stripe: Subscription cancelled");
+
+        const cancelledRestaurantId = data.metadata.restaurantId;
+
+        await updateStatus(cancelledRestaurantId, "cancelled");
+        logEvent(`Restaurant ${cancelledRestaurantId} subscription cancelled`);
+
+        break;
+
+      default:
+        logEvent(`Stripe webhook received: ${event.type}`);
+    }
+
+    res.json({ received: true });
+
+  } catch (err) {
+    logError("Stripe webhook processing failed", err);
+    res.status(500).send("Webhook Error");
+  }
+});
+
+export default router;
