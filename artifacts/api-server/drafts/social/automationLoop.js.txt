@@ -1,0 +1,46 @@
+import { generateIntelligentPost } from "./contentIntelligence.js";
+import { generateIntelligentImage } from "./imageIntelligence.js";
+import { applyBranding } from "./brandingEngine.js";
+import { getBestPostingTime } from "./schedulingIntelligence.js";
+import { schedulePost } from "./scheduler.js";
+import { postAutomatically } from "./postingEngine.js";
+import { generateReply } from "./engagementEngine.js";
+import { getAnalytics } from "./analyticsEngine.js";
+
+export async function runAutomationLoop(restaurant) {
+  // 1. Generate content
+  const post = generateIntelligentPost(restaurant);
+
+  // 2. Apply branding
+  const brandedPost = applyBranding(post, restaurant.branding);
+
+  // 3. Generate image
+  const image = generateIntelligentImage(restaurant, brandedPost);
+
+  // 4. Decide best time/platform
+  const timing = getBestPostingTime(restaurant);
+
+  // 5. Schedule post
+  const scheduled = schedulePost(restaurant, {
+    ...brandedPost,
+    image,
+    platforms: [timing.bestPlatform],
+    scheduledFor: `${new Date().toISOString().split("T")[0]}T${timing.bestTime}:00`
+  });
+
+  // 6. Auto-post when time arrives (cron handles this)
+  // postAutomatically(scheduled);
+
+  // 7. Auto-replies handled by engagement engine (cron)
+
+  // 8. Analytics collected after posting
+  const analytics = getAnalytics(restaurant);
+
+  // 9. AI learns from analytics (future module)
+  // adjustBrandingOrTiming(analytics);
+
+  return {
+    scheduled,
+    analytics
+  };
+}
