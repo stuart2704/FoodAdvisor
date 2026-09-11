@@ -1,0 +1,762 @@
+⭐ 1. SPLASH SCREEN
+The Food Advisor  
+Discover restaurants near you.
+Grow your restaurant with AI.
+
+⭐ 2. HOME — DISCOVER (Consumer Mode)
+Header
+Discover restaurants near you
+
+Sections
+Near You  
+Trending Now  
+New This Week  
+Promotions Near You  
+Events Near You  
+Popular Cuisines  
+Recommended For You
+
+Restaurant Card
+Name
+
+Cuisine
+
+Distance
+
+Rating
+
+Promotion badge: Offer Available
+
+Event badge: Event Today
+
+Bottom Navigation
+Discover  
+Map  
+Search  
+Profile
+
+⭐ 3. MAP SCREEN
+Header
+Explore on the map
+
+Buttons
+Search this area  
+Recenter
+
+Filters
+Open Now  
+Cuisine  
+Price  
+Promotions  
+Events  
+Delivery Available
+
+Pin Card
+Restaurant name
+
+Cuisine
+
+Distance
+
+Rating
+
+Button: View Restaurant
+
+⭐ 4. RESTAURANT PROFILE (Consumer View)
+Header
+Restaurant Name
+Cuisine • Rating • Distance
+Open Now / Closed
+
+Tabs
+Overview  
+Menu  
+Promotions  
+Events  
+Reviews
+
+Overview Section
+Photos  
+Videos  
+About  
+Opening Hours  
+Address  
+Call  
+Website  
+Delivery Platforms  
+Book a Table
+
+Menu Section
+Dish name
+Price
+Dietary tags
+Photo
+
+Promotions Section
+Promotion title
+Promotion description
+Expires: date
+
+Events Section
+Event name
+Event description
+Event date
+
+Reviews Section
+Customer reviews
+AI summary: What people are saying  
+Reply badge: AI‑assisted response
+
+⭐ 5. SEARCH SCREEN
+Header
+Search
+
+Search Bar
+Search restaurants, dishes, cuisines…
+
+Quick Filters
+Near Me  
+Open Now  
+Delivery  
+Bookings  
+Promotions  
+Events
+
+Popular Searches
+Sushi near me
+Indian food near me
+Romantic restaurants
+Halal restaurants
+Breakfast near me
+
+⭐ 6. PROFILE SCREEN (Consumer)
+Header
+Your Profile
+
+Sections
+Saved Restaurants
+Preferences
+Notifications
+Language
+About
+Support
+Switch to Owner Mode
+
+⭐ 7. OWNER MODE — ENTRY
+Header
+Are you a restaurant owner?
+
+Text
+Grow your restaurant with daily AI‑generated content, enhanced photos, videos, promotions, and more.
+
+Button
+Switch to Owner Mode
+
+⭐ 8. OWNER ONBOARDING
+Screen 1 — Welcome
+Grow your restaurant with AI  
+Daily content, enhanced photos, videos, promotions, and instant replies.
+
+Button: Start Setup
+
+Screen 2 — Restaurant Details
+Restaurant Details  
+Name
+Location
+Cuisine
+Opening Hours
+Delivery Platforms
+Social Media Links
+
+Button: Continue
+
+Screen 3 — Brand Style
+Choose your brand style  
+Friendly
+Luxury
+Bold
+Traditional
+Playful
+Modern
+
+Button: Continue
+
+Screen 4 — Photos
+Upload your photos  
+Upload 3–5 photos to train your AI.
+
+Button: Continue
+
+Screen 5 — Goals
+What are your goals?  
+More bookings
+More delivery orders
+More engagement
+More followers
+More reviews
+
+Button: Continue
+
+Screen 6 — Subscription
+Activate your AI marketing  
+Daily content, enhanced photos, videos, promotions, instant replies.
+
+Price: £99/month
+
+Button: Activate AI
+
+⭐ 9. OWNER DASHBOARD (AI Mode)
+Header
+Your AI Dashboard
+
+Section: Today’s Content
+Today’s Post  
+Preview
+Caption
+Hashtags
+Buttons: Approve • Edit • Replace
+
+Section: This Week
+This Week’s Content  
+7 posts
+3 stories
+1 reel
+1 Google post
+1 promotion
+1 booking post
+1 delivery post
+
+Section: Photos
+Enhanced Photos  
+Before/after slider
+Button: Upload More Photos
+
+Section: Videos
+AI‑Generated Videos  
+Cinematic reels
+Button: Upload Raw Clips
+
+Section: Promotions
+Promotions  
+Active promotions
+Suggested promotions
+Seasonal campaigns
+
+Button: Create Promotion
+
+Section: Events
+Events  
+Upcoming events
+AI‑generated event posts
+
+Button: Create Event
+
+Section: Instant Replies
+Instant Replies  
+Booking replies
+Delivery replies
+Menu replies
+Complaint replies
+Tone settings
+
+Section: Delivery Optimisation
+Delivery Boost  
+Uber Eats
+Deliveroo
+Just Eat
+AI‑generated delivery posts
+
+Section: Booking Optimisation
+Booking Boost  
+Booking posts
+Booking stories
+Booking ads
+
+Section: Analytics
+Analytics  
+Engagement
+Bookings
+Delivery orders
+Top posts
+Growth trends
+Monthly report
+
+Section: Subscription
+Subscription  
+Manage plan
+Upgrade
+Billing
+Invoices
+
+⭐ 10. NOTIFICATIONS
+Consumer
+New restaurants near you
+Trending places
+Promotions near you
+Events near you
+
+Owner
+Today’s content ready
+New enhanced photos
+New video generated
+Promotion suggestion
+Monthly report ready
+AI performance update
+
+⭐ 11. SETTINGS
+Profile
+Language
+Notifications
+Privacy
+Terms
+Support
+
+⭐ Stuart — this is everything.
+This is the complete UI text pack for your redesigned app.
+
+You can now:
+
+✔ Paste this into your app builder AI
+✔ Generate the new screens
+✔ Replace the old screens
+✔ Upload the updated version BEFORE Apple reviews it
+Your app will now:
+
+Match your website
+
+Match your brand
+
+Match your AI system
+
+Match your geo‑powered discovery engine
+
+Meet Apple’s UX expectations
+
+Convert restaurants
+
+Attract consumers
+
+Scale globally
+
+If you want, I can now create:
+
+⭐ The App Store screenshots (with text overlays)
+⭐ The App Store preview video storyboard
+⭐ The App Store description (long + short)
+⭐ The App Store keywords
+⭐ The App Launch Campaign
+⭐ The Food Advisor press release
+Just say continue.
+
+continue
+Alright Stuart — now that I have the full structure of your app and you’ve confirmed your builder AI can’t locate or redesign the screens, I’ll give you the exact text, labels, buttons, and wording for every redesigned screen.
+
+This is the final copywriting + UI text package you can paste directly into your app builder before Apple reviews it.
+
+Everything below is structured, polished, and aligned with:
+
+Your brand
+
+Your website
+
+Your AI system
+
+Your geo‑powered discovery engine
+
+Apple’s UX expectations
+
+Global scalability
+
+Restaurant conversion
+
+Consumer engagement
+
+Let’s build the full text system.
+
+⭐ THE FOOD ADVISOR — COMPLETE APP TEXT SYSTEM
+Every screen. Every label. Every button. Ready to upload.
+⭐ 1. SPLASH SCREEN
+Title: The Food Advisor
+Subtitle: Discover restaurants near you. Grow your restaurant with AI.
+
+⭐ 2. HOME SCREEN (Consumer Mode)
+Header: Discover restaurants near you
+
+Sections:
+
+Near You
+
+Trending
+
+New This Week
+
+Promotions Near You
+
+Events Near You
+
+Popular Cuisines
+
+Recommended For You
+
+Restaurant Card:
+
+Name
+
+Cuisine
+
+Distance
+
+Rating
+
+“Open Now”
+
+“Promotion” badge (if active)
+
+Bottom Navigation:
+
+Discover
+
+Map
+
+Search
+
+Profile
+
+⭐ 3. MAP SCREEN
+Header: Restaurants Near You
+Buttons:
+
+Filter
+
+Search This Area
+
+Recenter
+
+Pin Card:
+
+Restaurant Name
+
+Cuisine
+
+Distance
+
+Rating
+
+View Profile
+
+Filters:
+
+Open Now
+
+Cuisine
+
+Price
+
+Promotions
+
+Events
+
+Delivery Available
+
+⭐ 4. RESTAURANT PROFILE (Consumer View)
+Header:
+
+Restaurant Name
+
+Cuisine
+
+Rating
+
+Distance
+
+Open Now / Closed
+
+Tabs:
+
+Overview
+About
+
+Photos
+
+Videos
+
+Opening Hours
+
+Address
+
+Call
+
+Website
+
+Delivery Platforms
+
+Book a Table
+
+Menu
+Dish Name
+
+Price
+
+Description
+
+Dietary Tags
+
+Promotions
+Active Promotions
+
+Ending Soon
+
+Seasonal Offers
+
+Events
+Upcoming Events
+
+Special Nights
+
+Holiday Events
+
+Reviews
+Customer Reviews
+
+AI Summary
+
+AI Replies (if subscribed)
+
+⭐ 5. SEARCH SCREEN
+Search Bar: Search restaurants, dishes, cuisines
+Quick Filters:
+
+Near Me
+
+Open Now
+
+Delivery
+
+Bookings
+
+Promotions
+
+Events
+
+Popular Searches:
+
+Sushi near me
+
+Indian food near me
+
+Romantic restaurants
+
+Halal restaurants
+
+Breakfast near me
+
+⭐ 6. OWNER MODE — ENTRY
+Button: I’m a restaurant owner
+Subtitle: Switch to AI dashboard
+
+⭐ 7. OWNER ONBOARDING
+Screen 1 — Welcome
+Title: Grow your restaurant with AI
+Subtitle: Daily content, enhanced photos, videos, promotions & more
+Button: Start Setup
+
+Screen 2 — Restaurant Details
+Fields:
+
+Restaurant Name
+
+Address
+
+Cuisine
+
+Opening Hours
+
+Delivery Platforms
+
+Social Media Links
+Button: Continue
+
+Screen 3 — Brand Style
+Title: Choose your brand style
+Options:
+
+Friendly
+
+Luxury
+
+Bold
+
+Traditional
+
+Playful
+
+Modern
+Button: Continue
+
+Screen 4 — Photo Upload
+Title: Upload your photos
+Subtitle: Add 3–5 photos for AI enhancement
+Button: Continue
+
+Screen 5 — Goals
+Title: What do you want to improve?
+Options:
+
+More bookings
+
+More delivery orders
+
+More engagement
+
+More followers
+
+More reviews
+Button: Continue
+
+Screen 6 — Subscription
+Title: Activate your AI
+Subtitle: £99/month — cancel anytime
+Button: Activate AI
+
+⭐ 8. OWNER DASHBOARD (AI Mode)
+Header
+Your AI Dashboard
+
+Today’s Content
+Post
+
+Caption
+
+Hashtags
+
+Approve
+
+Edit
+
+Replace
+
+This Week
+7 Posts
+
+3 Stories
+
+1 Reel
+
+1 Google Post
+
+1 Promotion
+
+1 Booking Post
+
+1 Delivery Post
+
+Photos
+Enhanced Photos
+
+Before / After
+
+Upload More
+
+Videos
+AI Reels
+
+Cinematic Shots
+
+Upload Clips
+
+Promotions
+Active Promotions
+
+Suggested Promotions
+
+Seasonal Campaigns
+
+Events
+Upcoming Events
+
+AI Event Posts
+
+Instant Replies
+Booking Replies
+
+Delivery Replies
+
+Menu Replies
+
+Complaint Replies
+
+Tone Settings
+
+Delivery Optimisation
+Uber Eats
+
+Deliveroo
+
+Just Eat
+
+Delivery Posts
+
+Booking Optimisation
+Booking Posts
+
+Booking Stories
+
+Booking Ads
+
+Analytics
+Engagement
+
+Bookings
+
+Delivery Orders
+
+Top Posts
+
+Growth Trends
+
+Monthly Report
+
+Subscription
+Manage Plan
+
+Upgrade
+
+Billing
+
+Invoices
+
+⭐ 9. NOTIFICATIONS
+Consumer
+New restaurants near you
+
+Trending places
+
+Promotions near you
+
+Events near you
+
+Owner
+Today’s content ready
+
+New enhanced photos
+
+New video generated
+
+Promotion suggestion
+
+Monthly report ready
+
+AI performance update
+
+⭐ 10. SETTINGS
+Profile
+
+Language
+
+Notifications
+
+Privacy
+
+Terms
+
+Support
