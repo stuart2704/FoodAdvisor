@@ -13,3 +13,13 @@ Before implementation:
 - Avoid logging raw provider errors or sensitive payloads.
 
 These are release prerequisites, not implemented behavior.
+
+## Proposed mounting snippet — draft only
+
+```javascript
+import stripeWebhook from "./src/api/stripeWebhook.js";
+
+app.use("/api/stripeWebhook", stripeWebhook);
+```
+
+Do not add this to the running server while Stripe is disabled. When implementing later, adapt the import to the actual server entry point and mount the raw-body webhook before any JSON parser that would consume its request body. Confirm the route is included in the API artifact's routing configuration.
