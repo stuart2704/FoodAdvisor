@@ -1,0 +1,74 @@
+"use client";
+
+import { useState } from "react";
+
+export default function MenuUploadPage() {
+  const [pdf, setPdf] = useState(null);
+  const [images, setImages] = useState([]);
+  const [menuLink, setMenuLink] = useState("");
+  const [menuText, setMenuText] = useState("");
+  const [status, setStatus] = useState("");
+
+  const submitMenu = async () => {
+    setStatus("Uploading…");
+
+    const formData = new FormData();
+    formData.append("pdf", pdf);
+    images.forEach((img) => formData.append("images", img));
+    formData.append("menuLink", menuLink);
+    formData.append("menuText", menuText);
+
+    const res = await fetch("/api/menu-upload", {
+      method: "POST",
+      body: formData
+    });
+
+    if (res.ok) {
+      setStatus("Menu uploaded successfully");
+    } else {
+      setStatus("Upload failed");
+    }
+  };
+
+  return (
+    <div className="upgrade-container">
+      <h1>Upload Your Menu</h1>
+      <p>Send us your menu and we’ll format it beautifully inside The Food Advisor app.</p>
+
+      <div className="upload-section">
+        <h3>Upload PDF</h3>
+        <input type="file" accept="application/pdf" onChange={(e) => setPdf(e.target.files[0])} />
+      </div>
+
+      <div className="upload-section">
+        <h3>Upload Images</h3>
+        <input type="file" accept="image/*" multiple onChange={(e) => setImages([...e.target.files])} />
+      </div>
+
+      <div className="upload-section">
+        <h3>Menu Link</h3>
+        <input
+          type="text"
+          placeholder="https://yourwebsite.com/menu"
+          value={menuLink}
+          onChange={(e) => setMenuLink(e.target.value)}
+        />
+      </div>
+
+      <div className="upload-section">
+        <h3>Menu Text</h3>
+        <textarea
+          placeholder="Paste your menu text here…"
+          value={menuText}
+          onChange={(e) => setMenuText(e.target.value)}
+        />
+      </div>
+
+      <button className="upgrade-button" onClick={submitMenu}>
+        Submit Menu
+      </button>
+
+      {status && <p>{status}</p>}
+    </div>
+  );
+}
