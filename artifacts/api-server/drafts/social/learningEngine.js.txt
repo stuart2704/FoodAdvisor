@@ -1,0 +1,41 @@
+export function learnFromAnalytics(restaurant, analytics) {
+  const updates = {};
+
+  // 1. Platform learning
+  if (analytics.instagram.likes > analytics.facebook.likes) {
+    updates.preferredPlatform = "instagram";
+  } else {
+    updates.preferredPlatform = "facebook";
+  }
+
+  // 2. Timing learning
+  if (analytics.peakTime === "evening") {
+    updates.bestTime = "18:00";
+  }
+  if (analytics.peakTime === "morning") {
+    updates.bestTime = "09:00";
+  }
+
+  // 3. Tone learning
+  if (analytics.highEngagementTone === "friendly") {
+    updates.tone = "friendly";
+  }
+  if (analytics.highEngagementTone === "bold") {
+    updates.tone = "bold";
+  }
+
+  // 4. Hashtag learning
+  if (analytics.hashtagPerformance === "trending") {
+    updates.hashtagStyle = "trending";
+  }
+
+  // 5. Image style learning
+  if (analytics.imageStyle === "bright") {
+    updates.style = "vibrant";
+  }
+  if (analytics.imageStyle === "dark") {
+    updates.style = "premium";
+  }
+
+  return updates;
+}
