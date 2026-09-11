@@ -1,0 +1,16 @@
+export function applyGlobalisation(post, restaurant) {
+  const country = restaurant.country;
+  const currency = detectCurrency(country);
+  const culture = detectCulture(country);
+  const language = restaurant.language;
+
+  post.currency = currency;
+  post.culture = culture;
+  post.language = language;
+
+  post.caption = applyLanguage(post.caption, restaurant);
+  post.caption = applyCulturalTone(post.caption, culture);
+  post.caption = applyRegionalBehaviour(post.caption, country);
+
+  return post;
+}
