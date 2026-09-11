@@ -1,0 +1,41 @@
+export function generateIntelligentPost(restaurant) {
+  const menu = restaurant.menu || [];
+  const cuisine = restaurant.cuisine || "restaurant";
+  const location = restaurant.location || "your area";
+
+  // Pick a random menu item
+  const dish = menu.length > 0
+    ? menu[Math.floor(Math.random() * menu.length)]
+    : null;
+
+  // Seasonal logic
+  const month = new Date().getMonth();
+  const season =
+    month >= 2 && month <= 4 ? "spring" :
+    month >= 5 && month <= 7 ? "summer" :
+    month >= 8 && month <= 10 ? "autumn" :
+    "winter";
+
+  let caption = "";
+
+  if (dish) {
+    caption = `Try our ${dish.name} — one of our most loved ${cuisine} dishes.`;
+  } else {
+    caption = `Discover delicious ${cuisine} flavours at ${restaurant.name}.`;
+  }
+
+  caption += `\n\nPerfect for ${season} in ${location}.`;
+
+  return {
+    caption,
+    hashtags: [
+      `#${cuisine}`,
+      `#${location.replace(/\s+/g, "")}`,
+      `#${season}food`,
+      "#foodie"
+    ],
+    imagePrompt: dish
+      ? `High-quality photo of ${dish.name} in a ${cuisine} restaurant setting`
+      : `High-quality photo of a ${cuisine} dish in a warm restaurant setting`
+  };
+}
