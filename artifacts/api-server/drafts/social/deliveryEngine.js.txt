@@ -1,0 +1,9 @@
+export function analyseDeliveryPlatforms(restaurant) {
+  const platforms = restaurant.deliveryPlatforms || [];
+
+  return {
+    uber: platforms.includes("uber"),
+    deliveroo: platforms.includes("deliveroo"),
+    justeat: platforms.includes("justeat")
+  };
+}
