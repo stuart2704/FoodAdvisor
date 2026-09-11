@@ -1,0 +1,8 @@
+const textData = generateImageText(restaurant, "Weekend Special");
+
+const prompt = `
+Promotional banner with ${textData.text} in ${restaurant.language}.
+Typography: ${textData.typography}.
+Layout: ${textData.layout}.
+Colours: ${textData.colours.join(", ")}.
+`;
