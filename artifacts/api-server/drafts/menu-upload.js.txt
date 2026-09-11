@@ -1,0 +1,29 @@
+import express from "express";
+import multer from "multer";
+import { logEvent } from "../dashboard/eventsFeed.js";
+
+const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
+
+router.post(
+  "/",
+  upload.fields([
+    { name: "pdf", maxCount: 1 },
+    { name: "images", maxCount: 10 }
+  ]),
+  async (req, res) => {
+    const pdf = req.files["pdf"]?.[0];
+    const images = req.files["images"] || [];
+    const menuLink = req.body.menuLink;
+    const menuText = req.body.menuText;
+
+    logEvent("Menu uploaded (draft mode)");
+
+    // In live mode, you'd store files in S3/Supabase/etc.
+    // For now, everything is held as draft until Stripe unlocks.
+
+    return res.json({ success: true });
+  }
+);
+
+export default router;
