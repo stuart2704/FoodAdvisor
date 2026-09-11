@@ -1,0 +1,129 @@
+// src/outreach/instantlySequenceBuilder.ts
+
+import axios from "axios";
+import { logEvent, logError } from "../dashboard/eventsFeed";
+import { classifyScraperError } from "../errors/errorService";
+
+/**
+ * Instantly API client
+ */
+const INSTANTLY_API = axios.create({
+  baseURL: "https://api.instantly.ai/api/v1",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${process.env.INSTANTLY_API_KEY}`
+  }
+});
+
+/**
+ * Create a new Instantly sequence
+ */
+export async function createInstantlySequence(name: string) {
+  logEvent(`Instantly: Creating sequence '${name}'`);
+
+  try {
+    const res = await INSTANTLY_API.post("/sequences", {
+      name,
+      description: "AI‑generated outreach sequence for The Food Advisor"
+    });
+
+    const sequenceId = res.data.sequence_id;
+
+    logEvent(`Instantly: Sequence created → ID ${sequenceId}`);
+
+    return sequenceId;
+
+  } catch (err) {
+    const category = classifyScraperError(err);
+    logError("Instantly: Failed to create sequence", category);
+    return null;
+  }
+}
+
+/**
+ * Add an email step to a sequence
+ */
+export async function addSequenceStep(sequenceId: string, stepNumber: number, subject: string, body: string) {
+  logEvent(`Instantly: Adding step ${stepNumber} to sequence ${sequenceId}`);
+
+  try {
+    await INSTANTLY_API.post(`/sequences/${sequenceId}/steps`, {
+      step_number: stepNumber,
+      subject,
+      body,
+      delay_days: stepNumber === 1 ? 0 : 2
+    });
+
+    logEvent(`Instantly: Step ${stepNumber} added`);
+
+    return true;
+
+  } catch (err) {
+    const category = classifyScraperError(err);
+    logError(`Instantly: Failed to add step ${stepNumber}`, category);
+    return false;
+  }
+}
+
+/**
+ * Attach a mailbox to the sequence
+ */
+export async function attachMailbox(sequenceId: string, mailboxId: string) {
+  logEvent(`Instantly: Attaching mailbox ${mailboxId} to sequence ${sequenceId}`);
+
+  try {
+    await INSTANTLY_API.post(`/sequences/${sequenceId}/mailboxes`, {
+      mailbox_id: mailboxId
+    });
+
+    logEvent("Instantly: Mailbox attached");
+    return true;
+
+  } catch (err) {
+    const category = classifyScraperError(err);
+    logError("Instantly: Failed to attach mailbox", category);
+    return false;
+  }
+}
+
+/**
+ * Build a full outreach sequence (Email 1, 2, 3)
+ */
+export async function buildFullOutreachSequence(mailboxId: string) {
+  logEvent("Instantly: Building full outreach sequence");
+
+  // 1. Create sequence
+  const sequenceId = await createInstantlySequence("Food Advisor Outreach");
+  if (!sequenceId) return null;
+
+  // 2. Email 1 — Curiosity + App Mention
+  await addSequenceStep(
+    sequenceId,
+    1,
+    "Quick question about your restaurant",
+    "Hi {{restaurant_name}},\n\nI run The Food Advisor — a curated restaurant directory with a companion mobile app launching soon.\n\nWe’re adding selected restaurants, and yours stood out immediately.\n\nYour free listing would include your menu and photos inside the app, so diners can discover you more easily.\n\nWould you like me to send over the details?\n\n— Stuart"
+  );
+
+  // 3. Email 2 — Strong Value + Menu Integration
+  await addSequenceStep(
+    sequenceId,
+    2,
+    "Your restaurant in our app",
+    "Hi {{restaurant_name}},\n\nJust following up — your free listing includes:\n• Your menu displayed inside the app\n• Photos, opening hours, and location\n• Direct links for bookings or delivery\n\nThe app is designed to help diners find great restaurants quickly, and yours fits perfectly.\n\nWant me to send the setup link?\n\n— Stuart"
+  );
+
+  // 4. Email 3 — Upgrade Hook + Priority Placement
+  await addSequenceStep(
+    sequenceId,
+    3,
+    "Final follow‑up",
+    "Hi {{restaurant_name}},\n\nLast quick message — your free listing is ready whenever you want it.\n\nRestaurants that upgrade get:\n• Priority placement in the app\n• Full menu integration\n• Featured badge\n• Enhanced profile with photos\n\nThe upgrade is £99/month, but the free listing is always available.\n\nHappy to send the link if you’re interested.\n\n— Stuart"
+  );
+
+  // 5. Attach mailbox
+  await attachMailbox(sequenceId, mailboxId);
+
+  logEvent(`Instantly: Full outreach sequence ready → ID ${sequenceId}`);
+
+  return sequenceId;
+}
