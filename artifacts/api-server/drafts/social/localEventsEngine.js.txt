@@ -1,0 +1,34 @@
+export function getLocalEventContext(region) {
+  const today = new Date();
+  const month = today.getMonth();
+  const date = today.getDate();
+
+  // Cardiff-specific events
+  if (region === "Cardiff") {
+    if (isRugbyMatchDay(today)) return "rugby_match_day";
+    if (month === 5) return "cardiff_food_festival";
+    if (month === 11) return "christmas_market";
+    if (month === 7) return "summer_in_the_bay";
+  }
+
+  // UK-wide events
+  if (region === "UK") {
+    if (isBankHoliday(today)) return "bank_holiday";
+    if (month === 11) return "christmas_season";
+    if (month === 9 && date === 31) return "halloween";
+  }
+
+  return null;
+}
+
+function isRugbyMatchDay(date) {
+  // Simulated logic for draft mode
+  const matchDays = [5, 12, 19, 26]; // Saturdays
+  return matchDays.includes(date.getDate());
+}
+
+function isBankHoliday(date) {
+  // Simulated UK bank holiday logic
+  const bankHolidays = ["2026-08-31", "2026-12-25", "2026-12-26"];
+  return bankHolidays.includes(date.toISOString().split("T")[0]);
+}
