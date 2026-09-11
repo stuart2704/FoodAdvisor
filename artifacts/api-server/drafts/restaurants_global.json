@@ -1,0 +1,15 @@
+{
+  "placeId": "123",
+  "name": "Tokyo Ramen House",
+  "country": "Japan",
+  "city": "Tokyo",
+  "timezone": "Asia/Tokyo",
+  "language": "ja",
+  "cuisine": "japanese",
+  "type": "casual",
+  "branding": {
+    "tone": "friendly",
+    "style": "minimal",
+    "colourPalette": ["#E63946", "#1A1A1A"]
+  }
+}
