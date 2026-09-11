@@ -1,0 +1,20 @@
+export function generateContentForAllRestaurants(restaurants) {
+  const results = [];
+
+  for (const restaurant of restaurants) {
+    const post = generateFullSocialPost(restaurant);
+    const ads = generateAdCampaign(restaurant, "promotion");
+    const email = generateEmail(restaurant, "newsletter");
+    const website = generateWebsiteContent(restaurant, "home");
+
+    results.push({
+      restaurantId: restaurant.id,
+      socialPost: post,
+      ads,
+      email,
+      website
+    });
+  }
+
+  return results;
+}
