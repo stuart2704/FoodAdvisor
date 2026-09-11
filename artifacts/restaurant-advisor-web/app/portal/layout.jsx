@@ -1,4 +1,6 @@
 // Inactive draft in this Vite app; portal routes are not configured.
+import "../../src/styles/portal.css";
+
 export default function PortalLayout({ children }) {
   return (
     <div className="portal-layout">
