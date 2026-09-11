@@ -1,48 +1,43 @@
-export function generateReply(comment, branding) {
-  const text = comment.toLowerCase();
+export function generateReply(message, restaurant) {
+  const type = detectMessageType(message);
 
-  // Sentiment detection
-  const positive = ["love", "amazing", "great", "delicious", "best"];
-  const negative = ["bad", "cold", "slow", "terrible", "awful"];
-  const question = ["?", "how", "when", "where", "do you"];
-
-  let sentiment = "neutral";
-
-  if (positive.some((w) => text.includes(w))) sentiment = "positive";
-  if (negative.some((w) => text.includes(w))) sentiment = "negative";
-  if (question.some((w) => text.includes(w))) sentiment = "question";
-
-  // Base reply
-  let reply = "";
-
-  if (sentiment === "positive") {
-    reply = "Thanks so much for visiting! We appreciate you.";
+  if (type === "compliment") {
+    return applyBrandingAndPersonality(
+      "Thank you so much! We appreciate your support ❤️",
+      restaurant
+    );
   }
 
-  if (sentiment === "negative") {
-    reply = "We’re really sorry to hear this. Please message us — we’d love to make it right.";
+  if (type === "complaint") {
+    return applyBrandingAndPersonality(
+      "We’re really sorry to hear this — please message us privately so we can make things right.",
+      restaurant
+    );
   }
 
-  if (sentiment === "question") {
-    reply = "Great question! Send us a DM and we’ll help you right away.";
+  if (type === "menu_question") {
+    return applyBrandingAndPersonality(
+      "Great question! Here’s more info about that dish:",
+      restaurant
+    );
   }
 
-  if (sentiment === "neutral") {
-    reply = "Thanks for your comment!";
+  if (type === "delivery_question") {
+    return applyBrandingAndPersonality(
+      "Yes! We’re available on Uber Eats, Deliveroo, and Just Eat.",
+      restaurant
+    );
   }
 
-  // Apply branding tone
-  if (branding.tone === "luxury") {
-    reply = `We truly appreciate your message. ${reply}`;
+  if (type === "booking_question") {
+    return applyBrandingAndPersonality(
+      "We’d love to have you! Would you like to book a table?",
+      restaurant
+    );
   }
 
-  if (branding.tone === "friendly") {
-    reply = `Hey! 👋 ${reply}`;
-  }
-
-  if (branding.tone === "bold") {
-    reply = `🔥 Appreciate you! 🔥 ${reply}`;
-  }
-
-  return reply;
+  return applyBrandingAndPersonality(
+    "Thanks for your message! 😊",
+    restaurant
+  );
 }
