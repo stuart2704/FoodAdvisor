@@ -1,0 +1,35 @@
+export function analyseProfitability(restaurant) {
+  const menu = restaurant.menu || [];
+
+  const profitable = menu.map(dish => {
+    // Estimate margin if not provided
+    const margin = dish.margin || estimateMargin(dish);
+
+    return {
+      ...dish,
+      marginScore: margin
+    };
+  });
+
+  // Sort by margin
+  profitable.sort((a, b) => b.marginScore - a.marginScore);
+
+  return {
+    topMarginDish: profitable[0],
+    top3MarginDishes: profitable.slice(0, 3),
+    profitableCategories: detectProfitableCategories(profitable),
+    upsells: generateUpsells(profitable),
+    combos: generateCombos(profitable)
+  };
+}
+
+function estimateMargin(dish) {
+  // Simple heuristic
+  if (dish.category === "Cocktail") return 90;
+  if (dish.category === "Dessert") return 75;
+  if (dish.category === "Starter") return 70;
+  if (dish.category === "Side") return 65;
+  if (dish.category === "Main") return 55;
+
+  return 50;
+}
