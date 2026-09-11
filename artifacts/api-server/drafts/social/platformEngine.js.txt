@@ -1,0 +1,59 @@
+export function adaptForPlatform(post, platform) {
+  let adapted = { ...post };
+
+  // Instagram Feed
+  if (platform === "instagram") {
+    adapted.caption = shorten(post.caption, 180);
+    adapted.hashtags = post.hashtags.slice(0, 8);
+    adapted.imageRatio = "1:1";
+  }
+
+  // Instagram Story
+  if (platform === "story") {
+    adapted.caption = shorten(post.caption, 60);
+    adapted.hashtags = [];
+    adapted.imageRatio = "9:16";
+    adapted.overlayText = post.caption.split(".")[0];
+  }
+
+  // Instagram Reel
+  if (platform === "reel") {
+    adapted.caption = shorten(post.caption, 80);
+    adapted.hashtags = post.hashtags.slice(0, 5);
+    adapted.videoStyle = "fast-paced";
+  }
+
+  // TikTok
+  if (platform === "tiktok") {
+    adapted.caption = shorten(post.caption, 50);
+    adapted.hashtags = post.hashtags.slice(0, 3);
+    adapted.videoStyle = "trending";
+  }
+
+  // Facebook
+  if (platform === "facebook") {
+    adapted.caption = post.caption; // full caption
+    adapted.hashtags = post.hashtags.slice(0, 3);
+    adapted.imageRatio = "1.91:1";
+  }
+
+  // X (Twitter)
+  if (platform === "x") {
+    adapted.caption = shorten(post.caption, 140);
+    adapted.hashtags = post.hashtags.slice(0, 1);
+    adapted.imageRatio = "16:9";
+  }
+
+  // Google Business Profile
+  if (platform === "google") {
+    adapted.caption = `${post.caption}\n\nVisit us today!`;
+    adapted.hashtags = [];
+    adapted.imageRatio = "4:3";
+  }
+
+  return adapted;
+}
+
+function shorten(text, max) {
+  return text.length > max ? text.slice(0, max - 3) + "..." : text;
+}
