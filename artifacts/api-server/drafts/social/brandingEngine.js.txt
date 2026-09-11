@@ -1,34 +1,31 @@
-export function applyBranding(post, branding) {
-  let caption = post.caption;
+export function applyBranding(post, restaurant) {
+  const branding = restaurant.branding || {};
 
   // Tone
-  if (branding.tone === "luxury") {
-    caption = `Experience excellence.\n\n${caption}`;
-  }
   if (branding.tone === "friendly") {
-    caption = `Hey there! 👋\n\n${caption}`;
+    post.caption = `Hey! 👋 ${post.caption}`;
   }
+
+  if (branding.tone === "luxury") {
+    post.caption = `Experience excellence. ${post.caption}`;
+  }
+
   if (branding.tone === "bold") {
-    caption = `🔥 Big flavour incoming! 🔥\n\n${caption}`;
+    post.caption = `🔥 ${post.caption.toUpperCase()} 🔥`;
   }
 
-  // Emoji usage
-  if (!branding.emojis) {
-    caption = caption.replace(/[\u{1F300}-\u{1FAFF}]/gu, "");
+  if (branding.tone === "minimal") {
+    post.caption = `${post.caption}`;
   }
 
-  // Hashtag style
-  let hashtags = post.hashtags;
-  if (branding.hashtagStyle === "minimal") {
-    hashtags = hashtags.slice(0, 2);
-  }
-  if (branding.hashtagStyle === "trending") {
-    hashtags.push("#foodie", "#cardifffood", "#restaurant");
-  }
+  // Colours
+  post.colours = branding.colourPalette || ["#000000", "#FFFFFF"];
 
-  return {
-    ...post,
-    caption,
-    hashtags
-  };
+  // Typography
+  post.typography = branding.typography || "Modern Sans";
+
+  // Style
+  post.style = branding.style || "clean";
+
+  return post;
 }
