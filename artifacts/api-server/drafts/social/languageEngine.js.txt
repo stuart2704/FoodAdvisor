@@ -1,0 +1,37 @@
+export function translateCaption(caption, restaurant) {
+  const lang = restaurant.language || "en";
+
+  // Basic fallback
+  if (lang === "en") return caption;
+
+  // Language-specific transforms
+  if (lang === "es") {
+    return `¡Descubre algo delicioso! ${caption}`;
+  }
+
+  if (lang === "fr") {
+    return `Découvrez quelque chose de délicieux. ${caption}`;
+  }
+
+  if (lang === "it") {
+    return `Scopri qualcosa di delizioso. ${caption}`;
+  }
+
+  if (lang === "de") {
+    return `Entdecke etwas Leckeres. ${caption}`;
+  }
+
+  if (lang === "ar") {
+    return `اكتشف شيئًا لذيذًا. ${caption}`;
+  }
+
+  if (lang === "hi") {
+    return `कुछ स्वादिष्ट खोजें। ${caption}`;
+  }
+
+  if (lang === "ja") {
+    return `美味しいものを発見してください。 ${caption}`;
+  }
+
+  return caption;
+}
