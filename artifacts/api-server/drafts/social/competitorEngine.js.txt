@@ -1,0 +1,53 @@
+export function analyseCompetitors(restaurant, competitors) {
+  const insights = {
+    cheaperThan: [],
+    moreExpensiveThan: [],
+    betterPhotosThan: [],
+    worsePhotosThan: [],
+    strongerReviewsThan: [],
+    weakerReviewsThan: [],
+    competitorPromotions: [],
+    competitorDeliveryPresence: []
+  };
+
+  competitors.forEach(comp => {
+    // Pricing comparison
+    if (comp.averagePrice > restaurant.averagePrice) {
+      insights.cheaperThan.push(comp.name);
+    } else {
+      insights.moreExpensiveThan.push(comp.name);
+    }
+
+    // Photo quality comparison
+    if (comp.photoQuality < restaurant.photoQuality) {
+      insights.betterPhotosThan.push(comp.name);
+    } else {
+      insights.worsePhotosThan.push(comp.name);
+    }
+
+    // Review comparison
+    if (comp.reviewScore < restaurant.reviewScore) {
+      insights.strongerReviewsThan.push(comp.name);
+    } else {
+      insights.weakerReviewsThan.push(comp.name);
+    }
+
+    // Promotions
+    if (comp.promotions && comp.promotions.length > 0) {
+      insights.competitorPromotions.push({
+        name: comp.name,
+        promotions: comp.promotions
+      });
+    }
+
+    // Delivery presence
+    if (comp.deliveryPlatforms) {
+      insights.competitorDeliveryPresence.push({
+        name: comp.name,
+        platforms: comp.deliveryPlatforms
+      });
+    }
+  });
+
+  return insights;
+}
