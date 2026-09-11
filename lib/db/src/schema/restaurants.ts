@@ -1,5 +1,6 @@
 import {
   boolean,
+  doublePrecision,
   integer,
   pgTable,
   real,
@@ -18,6 +19,10 @@ export const restaurantsTable = pgTable(
     name: text("name").notNull(),
     address: text("address").notNull(),
     city: text("city").notNull(),
+    // Coordinates are optional because older imports and manually added
+    // listings may not have a verified Places location yet.
+    latitude: doublePrecision("latitude"),
+    longitude: doublePrecision("longitude"),
     rating: real("rating"),
     website: text("website"),
     websiteTitle: text("website_title"),

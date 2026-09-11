@@ -33,7 +33,9 @@ import type {
   HealthStatus,
   IncomingReplyInput,
   InstantlyReplyPollResult,
+  ListNearbyRestaurantsParams,
   ListRestaurantsParams,
+  NearbyRestaurantsResponse,
   OutreachRunResult,
   PubSubPushEnvelope,
   ReplyClassification,
@@ -907,6 +909,91 @@ export function useListRestaurants<TData = Awaited<ReturnType<typeof listRestaur
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListRestaurantsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListNearbyRestaurantsUrl = (params: ListNearbyRestaurantsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/restaurants/nearby?${stringifiedParams}` : `/api/restaurants/nearby`
+}
+
+/**
+ * Returns only restaurants with coordinates already stored in the database. This endpoint never geocodes, calls a places provider, or fills missing coordinates.
+ * @summary List stored-coordinate restaurants near a device location
+ */
+export const listNearbyRestaurants = async (params: ListNearbyRestaurantsParams, options?: Parameters<typeof customFetch>[1]): Promise<NearbyRestaurantsResponse> => {
+
+  return customFetch<NearbyRestaurantsResponse>(getListNearbyRestaurantsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListNearbyRestaurantsQueryKey = (params?: ListNearbyRestaurantsParams,) => {
+    return [
+    `/api/restaurants/nearby`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListNearbyRestaurantsQueryOptions = <TData = Awaited<ReturnType<typeof listNearbyRestaurants>>, TError = ErrorType<ErrorResponse>>(params: ListNearbyRestaurantsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listNearbyRestaurants>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListNearbyRestaurantsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listNearbyRestaurants>>> = ({ signal }) => listNearbyRestaurants(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listNearbyRestaurants>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListNearbyRestaurantsQueryResult = NonNullable<Awaited<ReturnType<typeof listNearbyRestaurants>>>
+export type ListNearbyRestaurantsQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary List stored-coordinate restaurants near a device location
+ */
+
+export function useListNearbyRestaurants<TData = Awaited<ReturnType<typeof listNearbyRestaurants>>, TError = ErrorType<ErrorResponse>>(
+ params: ListNearbyRestaurantsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listNearbyRestaurants>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListNearbyRestaurantsQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

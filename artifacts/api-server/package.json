@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
-    "test": "node --experimental-strip-types --test src/outreach/sendEmail.test.ts src/replies/replyClassifier.test.mjs src/lib/claim-link.test.ts src/routes/claim.test.mjs src/services/gmail/gmailContracts.test.ts src/services/instantly/instantlyContracts.test.ts src/outreach/followupSupport.test.mjs src/outreach/instantlyWebhookContracts.test.ts src/outreach/instantlyWebhook.test.ts src/outreach/instantlySequenceBuilder.test.ts",
+    "test": "node --experimental-strip-types --test src/outreach/sendEmail.test.ts src/replies/replyClassifier.test.mjs src/lib/claim-link.test.ts src/lib/geo.test.ts src/routes/claim.test.mjs src/services/gmail/gmailContracts.test.ts src/services/instantly/instantlyContracts.test.ts src/outreach/followupSupport.test.mjs src/outreach/instantlyWebhookContracts.test.ts src/outreach/instantlyWebhook.test.ts src/outreach/instantlySequenceBuilder.test.ts",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

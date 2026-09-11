@@ -42,3 +42,17 @@ mtime_ms = 1789141756573
 storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/f81e7a40-5371-4302-9138-922eaa4d7812/1f3aa62c-77f2-4dd5-b72c-f876c154e164"
 storage_version_token = "1789141761670535"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "DoBja6LlsUDYBUro7WDGh"
+uri = "file://screenshots/food-advisor-near-me.jpg"
+type = "image"
+title = "Near me — updated mobile screen"
+description = "GPS search with 1, 5, 10 and 25 mile radius options."
+logical_id = "a3ae23ad-cf98-4e0f-9031-e71874ff3ff4"
+content_hash = "sha256:dd28ab8c5d6d7b4ed886d0b0967c2fefe02a1570fad193b8a24a76a3250da436"
+size = 49557
+mtime_ms = 1789142705166
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/a3ae23ad-cf98-4e0f-9031-e71874ff3ff4/94eaba60-b62e-409c-a963-cfc9d9f952d9"
+storage_version_token = "1789142761338765"
+content_type = "image/jpeg"

@@ -132,11 +132,25 @@ export interface RestaurantImportStatus {
   cities: string[];
 }
 
+export interface GeoLocation {
+  /**
+     * @minimum -90
+     * @maximum 90
+     */
+  latitude: number;
+  /**
+     * @minimum -180
+     * @maximum 180
+     */
+  longitude: number;
+}
+
 export interface Restaurant {
   id: string;
   name: string;
   address: string;
   city: string;
+  location: GeoLocation | null;
   /** @nullable */
   rating: number | null;
   /** @nullable */
@@ -146,6 +160,13 @@ export interface Restaurant {
   outreachStatus: string;
   claimed: boolean;
 }
+
+export type NearbyRestaurant = Restaurant & {
+  /** @minimum 0 */
+  distanceMiles: number;
+};
+
+export type NearbyRestaurantsResponse = NearbyRestaurant[];
 
 export interface RestaurantClaimInput {
   /**
@@ -390,6 +411,24 @@ export type GetGmailWatchStatus200 = {
 
 export type ListRestaurantsParams = {
 city?: string;
+};
+
+export type ListNearbyRestaurantsParams = {
+/**
+ * @minimum -90
+ * @maximum 90
+ */
+latitude: number;
+/**
+ * @minimum -180
+ * @maximum 180
+ */
+longitude: number;
+/**
+ * @minimum 1
+ * @maximum 25
+ */
+radiusMiles?: number;
 };
 
 export type AdminRenewGmailWatch200 = {

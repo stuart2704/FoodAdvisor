@@ -234,6 +234,12 @@ export const runRestaurantImportResponseApiCallsMultipleOf = 1;
 
 export const runRestaurantImportResponseChargedCentsMultipleOf = 1;
 
+export const runRestaurantImportResponseRestaurantsItemLocationOneLatitudeMin = -90;
+export const runRestaurantImportResponseRestaurantsItemLocationOneLatitudeMax = 90;
+
+export const runRestaurantImportResponseRestaurantsItemLocationOneLongitudeMin = -180;
+export const runRestaurantImportResponseRestaurantsItemLocationOneLongitudeMax = 180;
+
 
 
 export const RunRestaurantImportResponse = zod.object({
@@ -247,6 +253,10 @@ export const RunRestaurantImportResponse = zod.object({
   "name": zod.string(),
   "address": zod.string(),
   "city": zod.string(),
+  "location": zod.union([zod.object({
+  "latitude": zod.number().min(runRestaurantImportResponseRestaurantsItemLocationOneLatitudeMin).max(runRestaurantImportResponseRestaurantsItemLocationOneLatitudeMax),
+  "longitude": zod.number().min(runRestaurantImportResponseRestaurantsItemLocationOneLongitudeMin).max(runRestaurantImportResponseRestaurantsItemLocationOneLongitudeMax)
+}),zod.null()]),
   "rating": zod.number().nullable(),
   "website": zod.string().nullable(),
   "googleMapsUrl": zod.string(),
@@ -264,11 +274,23 @@ export const ListRestaurantsQueryParams = zod.object({
   "city": zod.coerce.string().optional()
 })
 
+export const listRestaurantsResponseLocationOneLatitudeMin = -90;
+export const listRestaurantsResponseLocationOneLatitudeMax = 90;
+
+export const listRestaurantsResponseLocationOneLongitudeMin = -180;
+export const listRestaurantsResponseLocationOneLongitudeMax = 180;
+
+
+
 export const ListRestaurantsResponseItem = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "address": zod.string(),
   "city": zod.string(),
+  "location": zod.union([zod.object({
+  "latitude": zod.number().min(listRestaurantsResponseLocationOneLatitudeMin).max(listRestaurantsResponseLocationOneLatitudeMax),
+  "longitude": zod.number().min(listRestaurantsResponseLocationOneLongitudeMin).max(listRestaurantsResponseLocationOneLongitudeMax)
+}),zod.null()]),
   "rating": zod.number().nullable(),
   "website": zod.string().nullable(),
   "googleMapsUrl": zod.string(),
@@ -277,6 +299,58 @@ export const ListRestaurantsResponseItem = zod.object({
   "claimed": zod.boolean()
 })
 export const ListRestaurantsResponse = zod.array(ListRestaurantsResponseItem)
+
+
+/**
+ * Returns only restaurants with coordinates already stored in the database. This endpoint never geocodes, calls a places provider, or fills missing coordinates.
+ * @summary List stored-coordinate restaurants near a device location
+ */
+export const listNearbyRestaurantsQueryLatitudeMin = -90;
+export const listNearbyRestaurantsQueryLatitudeMax = 90;
+
+export const listNearbyRestaurantsQueryLongitudeMin = -180;
+export const listNearbyRestaurantsQueryLongitudeMax = 180;
+
+export const listNearbyRestaurantsQueryRadiusMilesDefault = 5;
+export const listNearbyRestaurantsQueryRadiusMilesMax = 25;
+
+
+
+export const ListNearbyRestaurantsQueryParams = zod.object({
+  "latitude": zod.coerce.number().min(listNearbyRestaurantsQueryLatitudeMin).max(listNearbyRestaurantsQueryLatitudeMax),
+  "longitude": zod.coerce.number().min(listNearbyRestaurantsQueryLongitudeMin).max(listNearbyRestaurantsQueryLongitudeMax),
+  "radiusMiles": zod.coerce.number().min(1).max(listNearbyRestaurantsQueryRadiusMilesMax).default(listNearbyRestaurantsQueryRadiusMilesDefault)
+})
+
+export const listNearbyRestaurantsResponseOneLocationOneLatitudeMin = -90;
+export const listNearbyRestaurantsResponseOneLocationOneLatitudeMax = 90;
+
+export const listNearbyRestaurantsResponseOneLocationOneLongitudeMin = -180;
+export const listNearbyRestaurantsResponseOneLocationOneLongitudeMax = 180;
+
+export const listNearbyRestaurantsResponseTwoDistanceMilesMin = 0;
+
+
+
+export const ListNearbyRestaurantsResponseItem = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "address": zod.string(),
+  "city": zod.string(),
+  "location": zod.union([zod.object({
+  "latitude": zod.number().min(listNearbyRestaurantsResponseOneLocationOneLatitudeMin).max(listNearbyRestaurantsResponseOneLocationOneLatitudeMax),
+  "longitude": zod.number().min(listNearbyRestaurantsResponseOneLocationOneLongitudeMin).max(listNearbyRestaurantsResponseOneLocationOneLongitudeMax)
+}),zod.null()]),
+  "rating": zod.number().nullable(),
+  "website": zod.string().nullable(),
+  "googleMapsUrl": zod.string(),
+  "types": zod.array(zod.string()),
+  "outreachStatus": zod.string(),
+  "claimed": zod.boolean()
+}).and(zod.object({
+  "distanceMiles": zod.number().min(listNearbyRestaurantsResponseTwoDistanceMilesMin)
+}))
+export const ListNearbyRestaurantsResponse = zod.array(ListNearbyRestaurantsResponseItem)
 
 
 /**

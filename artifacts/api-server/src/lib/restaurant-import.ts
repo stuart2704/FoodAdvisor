@@ -4,6 +4,7 @@ import {
   restaurantImportRunsTable,
   restaurantsTable,
 } from "@workspace/db";
+import { normaliseCoordinates, type Coordinates } from "./geo";
 
 export const SUPPORTED_CITIES = [
   "London",
@@ -21,6 +22,7 @@ const FIELD_MASK = [
   "places.displayName",
   "places.formattedAddress",
   "places.rating",
+  "places.location",
   "places.websiteUri",
   "places.googleMapsUri",
   "places.types",
@@ -37,6 +39,10 @@ type GooglePlace = {
   displayName?: { text?: string };
   formattedAddress?: string;
   rating?: number;
+  location?: {
+    latitude?: number;
+    longitude?: number;
+  };
   websiteUri?: string;
   googleMapsUri?: string;
   types?: string[];
@@ -51,6 +57,7 @@ export type ImportedRestaurant = {
   website: string | null;
   googleMapsUrl: string;
   types: string[];
+  location: Coordinates | null;
   outreachStatus: string;
   claimed: boolean;
 };
@@ -215,6 +222,7 @@ async function searchRestaurants(
       address: place.formattedAddress ?? city,
       city,
       rating: typeof place.rating === "number" ? place.rating : null,
+      location: normaliseCoordinates(place.location),
       website: place.websiteUri ?? null,
       googleMapsUrl:
         place.googleMapsUri ??
@@ -272,11 +280,27 @@ export async function runImport(input: PlanInput & { confirm: boolean }) {
           address: place.address,
           city: place.city,
           rating: place.rating,
+          latitude: place.location?.latitude ?? null,
+          longitude: place.location?.longitude ?? null,
           website: place.website,
           googleMapsUrl: place.googleMapsUrl,
           types: place.types,
         })),
       );
+    }
+
+    // A repeated place is still useful when Places has supplied a newly
+    // verified location. Refresh only the nullable coordinates so this
+    // explicitly approved import cannot overwrite outreach or claim state.
+    for (const place of places) {
+      if (!existingIds.has(place.id) || !place.location) continue;
+      await db
+        .update(restaurantsTable)
+        .set({
+          latitude: place.location.latitude,
+          longitude: place.location.longitude,
+        })
+        .where(sql`${restaurantsTable.placeId} = ${place.id}`);
     }
 
     imported += fresh.length;

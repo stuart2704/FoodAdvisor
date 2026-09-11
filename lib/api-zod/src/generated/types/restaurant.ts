@@ -5,12 +5,14 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { GeoLocation } from './geoLocation';
 
 export interface Restaurant {
   id: string;
   name: string;
   address: string;
   city: string;
+  location: GeoLocation | null;
   /** @nullable */
   rating: number | null;
   /** @nullable */

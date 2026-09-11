@@ -270,6 +270,51 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Restaurant"
+  /restaurants/nearby:
+    get:
+      operationId: listNearbyRestaurants
+      tags: [restaurants]
+      summary: List stored-coordinate restaurants near a device location
+      description: >
+        Returns only restaurants with coordinates already stored in the
+        database. This endpoint never geocodes, calls a places provider, or
+        fills missing coordinates.
+      parameters:
+        - in: query
+          name: latitude
+          required: true
+          schema:
+            type: number
+            minimum: -90
+            maximum: 90
+        - in: query
+          name: longitude
+          required: true
+          schema:
+            type: number
+            minimum: -180
+            maximum: 180
+        - in: query
+          name: radiusMiles
+          required: false
+          schema:
+            type: number
+            minimum: 1
+            maximum: 25
+            default: 5
+      responses:
+        "200":
+          description: Nearby restaurants sorted by stored-coordinate distance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NearbyRestaurantsResponse"
+        "400":
+          description: Invalid location or radius
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /restaurants/{placeId}/claim:
     post:
       operationId: claimRestaurant
@@ -777,6 +822,10 @@ components:
           type: string
         city:
           type: string
+        location:
+          oneOf:
+            - $ref: "#/components/schemas/GeoLocation"
+            - type: "null"
         rating:
           type: ["number", "null"]
         website:
@@ -796,12 +845,38 @@ components:
         - name
         - address
         - city
+        - location
         - rating
         - website
         - googleMapsUrl
         - types
         - outreachStatus
         - claimed
+    GeoLocation:
+      type: object
+      required: [latitude, longitude]
+      properties:
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+    NearbyRestaurant:
+      allOf:
+        - $ref: "#/components/schemas/Restaurant"
+        - type: object
+          required: [distanceMiles]
+          properties:
+            distanceMiles:
+              type: number
+              minimum: 0
+    NearbyRestaurantsResponse:
+      type: array
+      items:
+        $ref: "#/components/schemas/NearbyRestaurant"
     RestaurantClaimInput:
       type: object
       properties:

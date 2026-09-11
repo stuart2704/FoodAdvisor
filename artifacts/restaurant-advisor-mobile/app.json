@@ -8,13 +8,16 @@
     "scheme": "restaurant-advisor-mobile",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "The Food Advisor uses your location to show restaurants nearby when you tap Near me."
+      }
     },
     "android": {},
     "web": {
       "favicon": "./assets/images/icon.png"
     },
-    "plugins": ["expo-router"],
+    "plugins": ["expo-router", "expo-location"],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true

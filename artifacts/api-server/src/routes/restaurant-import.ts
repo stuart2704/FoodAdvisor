@@ -15,6 +15,7 @@ import {
   getImportStatus,
   runImport,
 } from "../lib/restaurant-import";
+import { toRestaurantResponse } from "../lib/restaurant-response";
 
 const router: IRouter = Router();
 
@@ -82,18 +83,7 @@ router.get("/restaurants", async (req, res): Promise<void> => {
 
   res.json(
     ListRestaurantsResponse.parse(
-      rows.map((row) => ({
-        id: row.placeId,
-        name: row.name,
-        address: row.address,
-        city: row.city,
-        rating: row.rating,
-        website: row.website,
-        googleMapsUrl: row.googleMapsUrl,
-        types: row.types,
-        outreachStatus: row.outreachStatus,
-        claimed: row.claimStatus !== null,
-      })),
+        rows.map((row) => toRestaurantResponse(row)),
     ),
   );
 });

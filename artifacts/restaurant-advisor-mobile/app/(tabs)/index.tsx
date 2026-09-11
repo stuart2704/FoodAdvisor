@@ -13,12 +13,15 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import * as Location from 'expo-location';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   getGetRestaurantImportStatusQueryKey,
+  getListNearbyRestaurantsQueryKey,
   getListRestaurantsQueryKey,
   useCreateRestaurantImportPlan,
   useGetRestaurantImportStatus,
+  useListNearbyRestaurants,
   useListRestaurants,
   useRunRestaurantImport,
 } from '@workspace/api-client-react';
@@ -40,8 +43,34 @@ export default function DiscoverScreen() {
   const [selectedCities, setSelectedCities] = useState<string[]>(CITIES);
   const [budget, setBudget] = useState('25');
   const [limit, setLimit] = useState(10);
+  const [radiusMiles, setRadiusMiles] = useState(5);
+  const [nearbyCoords, setNearbyCoords] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const [nearbyRequested, setNearbyRequested] = useState(false);
+  const [locationState, setLocationState] = useState<
+    'idle' | 'requesting' | 'loading' | 'ready' | 'denied' | 'timeout' | 'error'
+  >('idle');
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [permission, requestPermission] = Location.useForegroundPermissions();
   const status = useGetRestaurantImportStatus();
   const restaurants = useListRestaurants();
+  const nearbyParams = {
+    latitude: nearbyCoords?.latitude ?? 0,
+    longitude: nearbyCoords?.longitude ?? 0,
+    radiusMiles,
+  };
+  const nearby = useListNearbyRestaurants(
+    nearbyParams,
+    {
+      query: {
+        queryKey: getListNearbyRestaurantsQueryKey(nearbyParams),
+        enabled: nearbyRequested && nearbyCoords !== null,
+        retry: false,
+      },
+    },
+  );
   const plan = useCreateRestaurantImportPlan();
   const run = useRunRestaurantImport();
 
@@ -65,8 +94,109 @@ export default function DiscoverScreen() {
   };
 
   const refresh = async () => {
-    await Promise.all([status.refetch(), restaurants.refetch()]);
+    await Promise.all([
+      status.refetch(),
+      restaurants.refetch(),
+      ...(nearbyCoords ? [nearby.refetch()] : []),
+    ]);
   };
+
+  const handleNearMe = async () => {
+    Haptics.selectionAsync();
+    setLocationError(null);
+    setLocationState('requesting');
+
+    try {
+      if (Platform.OS !== 'web') {
+        const currentPermission =
+          permission?.granted ? permission : await requestPermission();
+        if (!currentPermission.granted) {
+          setLocationState('denied');
+          setLocationError(
+            currentPermission.canAskAgain
+              ? 'Location permission is needed to find restaurants near you.'
+              : 'Location permission is blocked. Open Settings to allow Near me.',
+          );
+          return;
+        }
+      }
+
+      setLocationState('loading');
+      const position =
+        Platform.OS === 'web'
+          ? await new Promise<{
+              coords: { latitude: number; longitude: number };
+            }>((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(
+                (result) => resolve(result),
+                (error) => reject(new Error(error.message)),
+                { enableHighAccuracy: false, timeout: 10_000, maximumAge: 0 },
+              );
+            })
+          : await Promise.race([
+              Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.Balanced,
+              }),
+              new Promise<never>((_, reject) => {
+                setTimeout(
+                  () => reject(new Error('LOCATION_TIMEOUT')),
+                  10_000,
+                );
+              }),
+            ]);
+
+      setNearbyCoords({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      });
+      setNearbyRequested(true);
+      setLocationState('ready');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      if (message === 'LOCATION_TIMEOUT') {
+        setLocationState('timeout');
+        setLocationError(
+          'Location took too long to respond. Check your signal and try again.',
+        );
+      } else {
+        setLocationState('error');
+        setLocationError(
+          'We could not read your location. Check device settings and try again.',
+        );
+      }
+    }
+  };
+
+  const retryNearby = async () => {
+    if (!nearbyCoords) {
+      await handleNearMe();
+      return;
+    }
+    setLocationError(null);
+    setLocationState('loading');
+    const result = await nearby.refetch();
+    if (result.error) {
+      setLocationState('error');
+      setLocationError(
+        'Nearby restaurants could not be loaded. Check your connection and try again.',
+      );
+    } else {
+      setLocationState('ready');
+    }
+  };
+
+  const openLocationSettings = () => {
+    if (Platform.OS !== 'web') {
+      Linking.openSettings().catch(() => {
+        setLocationError('Open your device Settings to allow location access.');
+      });
+    }
+  };
+
+  const visibleRestaurants = nearbyRequested
+    ? nearby.data ?? []
+    : restaurants.data ?? [];
+  const showingNearby = nearbyRequested;
 
   const runImport = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -81,6 +211,9 @@ export default function DiscoverScreen() {
           queryClient.invalidateQueries({
             queryKey: getListRestaurantsQueryKey(),
           });
+          queryClient.invalidateQueries({
+            queryKey: getListNearbyRestaurantsQueryKey(),
+          });
         },
       },
     );
@@ -94,7 +227,7 @@ export default function DiscoverScreen() {
     <FlatList
       style={[styles.screen, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.content}
-      data={restaurants.data ?? []}
+      data={visibleRestaurants}
       keyExtractor={(item) => item.id}
       refreshControl={
         <RefreshControl refreshing={false} onRefresh={refresh} tintColor={colors.primary} />
@@ -115,6 +248,84 @@ export default function DiscoverScreen() {
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
             Grow the UK guide with a clear monthly spending ceiling.
           </Text>
+
+          <View style={[styles.nearbyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.nearbyHeader}>
+              <View style={[styles.nearbyIcon, { backgroundColor: colors.secondary }]}>
+                <Feather name="navigation" size={18} color={colors.primary} />
+              </View>
+              <View style={styles.nearbyCopy}>
+                <Text style={[styles.nearbyTitle, { color: colors.foreground }]}>Near me</Text>
+                <Text style={[styles.nearbyDescription, { color: colors.mutedForeground }]}>
+                  Use your device location to sort stored restaurant coordinates by distance.
+                </Text>
+              </View>
+            </View>
+            <View style={styles.radiusRow}>
+              <Text style={[styles.radiusLabel, { color: colors.mutedForeground }]}>RADIUS</Text>
+              {[1, 5, 10, 25].map((value) => (
+                <Pressable
+                  key={value}
+                  testID={`radius-${value}`}
+                  onPress={() => setRadiusMiles(value)}
+                  style={[
+                    styles.radiusChip,
+                    {
+                      backgroundColor: radiusMiles === value ? colors.accent : colors.background,
+                      borderColor: radiusMiles === value ? colors.accent : colors.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.radiusText, { color: colors.foreground }]}>{value} mi</Text>
+                </Pressable>
+              ))}
+            </View>
+            <Pressable
+              testID="button-near-me"
+              disabled={locationState === 'requesting' || locationState === 'loading'}
+              onPress={handleNearMe}
+              style={[styles.nearbyButton, { backgroundColor: colors.primary }]}
+            >
+              {locationState === 'requesting' || locationState === 'loading' ? (
+                <ActivityIndicator color={colors.primaryForeground} />
+              ) : (
+                <>
+                  <Feather name="crosshair" size={17} color={colors.primaryForeground} />
+                  <Text style={[styles.primaryText, { color: colors.primaryForeground }]}>
+                    {nearbyRequested ? 'Refresh near me' : 'Find near me'}
+                  </Text>
+                </>
+              )}
+            </Pressable>
+            {locationError && (
+              <View style={[styles.nearbyError, { backgroundColor: colors.secondary }]}>
+                <Feather name="alert-circle" size={17} color={colors.destructive} />
+                <Text style={[styles.nearbyErrorText, { color: colors.destructive }]}>
+                  {locationError}
+                </Text>
+                {(locationState === 'denied' && permission?.canAskAgain === false) ? (
+                  <Pressable testID="button-location-settings" onPress={openLocationSettings}>
+                    <Text style={[styles.retryText, { color: colors.primary }]}>Settings</Text>
+                  </Pressable>
+                ) : (
+                  <Pressable testID="button-nearby-retry" onPress={retryNearby}>
+                    <Text style={[styles.retryText, { color: colors.primary }]}>Retry</Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
+            {nearby.isError && !locationError && (
+              <View style={[styles.nearbyError, { backgroundColor: colors.secondary }]}>
+                <Feather name="wifi-off" size={17} color={colors.destructive} />
+                <Text style={[styles.nearbyErrorText, { color: colors.destructive }]}>
+                  Nearby restaurants could not be loaded.
+                </Text>
+                <Pressable testID="button-nearby-retry" onPress={retryNearby}>
+                  <Text style={[styles.retryText, { color: colors.primary }]}>Retry</Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
 
           <View style={[styles.budgetCard, { backgroundColor: colors.primary }]}>
             <View>
@@ -222,10 +433,16 @@ export default function DiscoverScreen() {
           </View>
 
           <View style={styles.listHeading}>
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Latest finds</Text>
-            <Text style={[styles.count, { color: colors.mutedForeground }]}>{restaurants.data?.length ?? 0}</Text>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              {showingNearby ? 'Nearby finds' : 'Latest finds'}
+            </Text>
+            <Text style={[styles.count, { color: colors.mutedForeground }]}>
+              {visibleRestaurants.length}
+            </Text>
           </View>
-          {restaurants.isLoading && <ActivityIndicator color={colors.primary} style={styles.loader} />}
+          {(restaurants.isLoading || nearby.isLoading) && (
+            <ActivityIndicator color={colors.primary} style={styles.loader} />
+          )}
         </View>
       }
       renderItem={({ item }) => (
@@ -241,15 +458,36 @@ export default function DiscoverScreen() {
             <Text numberOfLines={1} style={[styles.restaurantName, { color: colors.foreground }]}>{item.name}</Text>
             <Text numberOfLines={1} style={[styles.address, { color: colors.mutedForeground }]}>{item.city} · {item.address}</Text>
           </View>
-          {item.rating !== null && <Text style={[styles.rating, { color: colors.foreground }]}>{item.rating.toFixed(1)}</Text>}
+          <View style={styles.restaurantMeta}>
+            {typeof (item as { distanceMiles?: unknown }).distanceMiles === 'number' && (
+              <Text style={[styles.distance, { color: colors.primary }]}>
+                {(item as unknown as { distanceMiles: number }).distanceMiles.toFixed(1)} mi
+              </Text>
+            )}
+            {item.rating !== null && (
+              <Text style={[styles.rating, { color: colors.foreground }]}>
+                {item.rating.toFixed(1)}
+              </Text>
+            )}
+          </View>
         </Pressable>
       )}
-      ListEmptyComponent={!restaurants.isLoading ? (
-        <View style={styles.empty}>
-          <Feather name="compass" size={30} color={colors.mutedForeground} />
-          <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>Run your first safe import to fill the guide.</Text>
-        </View>
-      ) : null}
+      ListEmptyComponent={
+        !restaurants.isLoading && !nearby.isLoading ? (
+          <View style={styles.empty}>
+            <Feather
+              name={showingNearby ? 'map-pin' : 'compass'}
+              size={30}
+              color={colors.mutedForeground}
+            />
+            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+              {showingNearby
+                ? `No nearby restaurants with stored coordinates were found within ${radiusMiles} miles. Imported listings without coordinates are not shown.`
+                : 'Run your first safe import to fill the guide.'}
+            </Text>
+          </View>
+        ) : null
+      }
     />
   );
 }
@@ -262,6 +500,20 @@ const styles = StyleSheet.create({
   eyebrow: { fontFamily: 'Inter_700Bold', fontSize: 12, letterSpacing: 1.7 },
   hero: { fontFamily: 'Inter_700Bold', fontSize: 42, lineHeight: 46, letterSpacing: -1.5 },
   subtitle: { fontFamily: 'Inter_400Regular', fontSize: 16, lineHeight: 24, marginTop: 12, marginBottom: 24 },
+  nearbyCard: { borderWidth: 1, borderRadius: 22, padding: 16, marginBottom: 18 },
+  nearbyHeader: { flexDirection: 'row', alignItems: 'center' },
+  nearbyIcon: { width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  nearbyCopy: { flex: 1, marginLeft: 11 },
+  nearbyTitle: { fontFamily: 'Inter_700Bold', fontSize: 17 },
+  nearbyDescription: { fontFamily: 'Inter_400Regular', fontSize: 12, lineHeight: 17, marginTop: 2 },
+  radiusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 15 },
+  radiusLabel: { fontFamily: 'Inter_700Bold', fontSize: 10, letterSpacing: 1, marginRight: 2 },
+  radiusChip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 6 },
+  radiusText: { fontFamily: 'Inter_600SemiBold', fontSize: 11 },
+  nearbyButton: { height: 45, borderRadius: 14, flexDirection: 'row', gap: 7, alignItems: 'center', justifyContent: 'center', marginTop: 15 },
+  nearbyError: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, padding: 10, marginTop: 10 },
+  nearbyErrorText: { flex: 1, fontFamily: 'Inter_500Medium', fontSize: 12, lineHeight: 16 },
+  retryText: { fontFamily: 'Inter_700Bold', fontSize: 12 },
   budgetCard: { borderRadius: 24, padding: 22, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 28 },
   cardLabel: { fontFamily: 'Inter_700Bold', fontSize: 11, letterSpacing: 1.2 },
   budgetValue: { fontFamily: 'Inter_700Bold', fontSize: 35, marginTop: 4 },
@@ -298,6 +550,8 @@ const styles = StyleSheet.create({
   restaurantCopy: { flex: 1, marginHorizontal: 11 },
   restaurantName: { fontFamily: 'Inter_700Bold', fontSize: 15 },
   address: { fontFamily: 'Inter_400Regular', fontSize: 12, marginTop: 3 },
+  restaurantMeta: { alignItems: 'flex-end', gap: 4 },
+  distance: { fontFamily: 'Inter_700Bold', fontSize: 12 },
   rating: { fontFamily: 'Inter_700Bold', fontSize: 14 },
   empty: { alignItems: 'center', paddingVertical: 34, gap: 10 },
   emptyText: { fontFamily: 'Inter_400Regular', fontSize: 14, textAlign: 'center', maxWidth: 240 },

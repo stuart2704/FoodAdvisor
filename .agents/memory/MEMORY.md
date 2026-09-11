@@ -2,3 +2,4 @@
 - [Monorepo tooling](monorepo-tooling.md) — package helper scoping and Zod version auto-detection can misread workspace configuration.
 - [Provider contract verification](provider-contracts.md) — connector setup examples are not authoritative response schemas; verify identity fields and timing semantics.
 - [Claim invitations](claim-invitations.md) — issuing an invitation is not a pending claim and must not suppress later outreach.
+- [Nearby location policy](nearby-location-policy.md) — no paid lookups on GPS requests or city-centre substitutes for missing restaurant coordinates.
