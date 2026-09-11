@@ -1,0 +1,40 @@
+export function applyCulture(post, restaurant) {
+  const cuisine = restaurant.cuisine || "generic";
+
+  if (cuisine === "japanese") {
+    post.caption = `${post.caption} 🍜✨`;
+    post.culturalTone = "polite_minimal";
+    post.culturalTypography = "Japanese Mincho";
+    post.culturalColours = ["#FFFFFF", "#1A1A1A"];
+  }
+
+  if (cuisine === "indian") {
+    post.caption = `${post.caption} 😋🔥🇮🇳`;
+    post.culturalTone = "warm_energetic";
+    post.culturalTypography = "Devanagari Bold";
+    post.culturalColours = ["#FF8C00", "#FFD700"];
+  }
+
+  if (cuisine === "italian") {
+    post.caption = `${post.caption} 🍝❤️🇮🇹`;
+    post.culturalTone = "romantic_passionate";
+    post.culturalTypography = "Elegant Serif";
+    post.culturalColours = ["#C19A6B", "#8B0000"];
+  }
+
+  if (cuisine === "arabic") {
+    post.caption = `${post.caption} ✨🇦🇪`;
+    post.culturalTone = "elegant_warm";
+    post.culturalTypography = "Arabic Calligraphy";
+    post.culturalColours = ["#C19A6B", "#8B0000"];
+  }
+
+  if (cuisine === "spanish") {
+    post.caption = `${post.caption} 🔥🇪🇸`;
+    post.culturalTone = "energetic_expressive";
+    post.culturalTypography = "Bold Spanish Sans";
+    post.culturalColours = ["#FF5733", "#FFC300"];
+  }
+
+  return post;
+}
