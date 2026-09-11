@@ -1,0 +1,17 @@
+const seasonal = getSeasonalContext(restaurant);
+
+if (seasonal.season === "winter") {
+  post.caption = `Warm up with our ${topDish.name} — perfect for cold days.`;
+}
+
+if (seasonal.season === "summer") {
+  post.caption = `Cool off with our refreshing ${topDish.name}.`;
+}
+
+if (seasonal.holiday === "christmas") {
+  post.caption = `Festive flavours are here — try our ${topDish.name}! 🎄`;
+}
+
+if (seasonal.localEvent === "rugby_match_day") {
+  post.caption = `Match day special — ${topDish.name} is perfect before the game! 🏉`;
+}
