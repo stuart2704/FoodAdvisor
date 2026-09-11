@@ -8,6 +8,16 @@ if (!restaurant.isPremium) {
 
 Preserved as supplied; not connected to a live page.
 
+## Proposed subscription entitlement rule
+
+```javascript
+if (stripeSubscriptionActive) {
+  restaurant.isPremium = true;
+}
+```
+
+Inactive snippet only. The flag must come from verified server-side subscription data mapped to the correct restaurant, not client input or preview state. This assignment alone does not persist an entitlement or revoke access when a subscription stops qualifying. Full lifecycle handling is required before activation.
+
 Before activation:
 - Implement and import `PremiumLock` in the intended React component.
 - Derive premium access from verified server-side entitlements, never draft or preview upgrade statuses.
