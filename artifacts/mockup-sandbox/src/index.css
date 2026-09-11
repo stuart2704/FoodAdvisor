@@ -1,4 +1,10 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Space+Mono:wght@400;700&display=swap');
 @import "tailwindcss";
+
+:root { --background: 36 52% 96%; --foreground: 17 36% 17%; --primary: 16 88% 54%; --primary-foreground: 36 52% 96%; --muted: 32 34% 90%; --muted-foreground: 21 15% 43%; --border: 26 25% 83%; --card: 40 55% 98%; --ring: 16 88% 54%; }
+.dark { --background: 17 36% 17%; --foreground: 36 52% 96%; --primary: 16 88% 54%; }
+* { box-sizing: border-box; }
+body { margin: 0; background: hsl(var(--background)); color: hsl(var(--foreground)); font-family: 'DM Sans', sans-serif; }
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));

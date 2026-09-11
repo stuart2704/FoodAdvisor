@@ -1,0 +1,1 @@
+export { Photos as default } from "./_shared/Screens";

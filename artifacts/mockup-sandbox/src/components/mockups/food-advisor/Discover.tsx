@@ -1,0 +1,1 @@
+export { Discover as default } from "./_shared/Screens";

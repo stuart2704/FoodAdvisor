@@ -1,0 +1,1 @@
+export { Subscription as default } from "./_shared/Screens";
