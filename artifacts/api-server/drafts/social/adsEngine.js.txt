@@ -1,0 +1,43 @@
+export function generateAdCampaign(restaurant, type) {
+  const campaign = {
+    platform: "",
+    headline: "",
+    copy: "",
+    cta: "",
+    creative: "",
+    targeting: "",
+    branding: restaurant.branding,
+    personality: restaurant.personality,
+    culture: restaurant.culture,
+    language: restaurant.language
+  };
+
+  if (type === "delivery") {
+    campaign.platform = "facebook_instagram";
+    campaign.headline = "Order Your Favourite Dishes Tonight";
+    campaign.copy = `Available on Uber Eats, Deliveroo, and Just Eat. Try our ${restaurant.signatureDish}!`;
+    campaign.cta = "Order now";
+    campaign.creative = generateAdCreative(restaurant, "delivery");
+    campaign.targeting = generateTargeting(restaurant, "delivery");
+  }
+
+  if (type === "booking") {
+    campaign.platform = "facebook_instagram";
+    campaign.headline = "Book a Table Tonight";
+    campaign.copy = `Enjoy authentic ${restaurant.cuisine} cuisine in ${restaurant.city}. Reserve your table now.`;
+    campaign.cta = "Book now";
+    campaign.creative = generateAdCreative(restaurant, "booking");
+    campaign.targeting = generateTargeting(restaurant, "booking");
+  }
+
+  if (type === "promotion") {
+    campaign.platform = "facebook_instagram_tiktok";
+    campaign.headline = `${restaurant.promoTitle}`;
+    campaign.copy = `${restaurant.promoDescription}`;
+    campaign.cta = "Order now";
+    campaign.creative = generateAdCreative(restaurant, "promotion");
+    campaign.targeting = generateTargeting(restaurant, "promotion");
+  }
+
+  return campaign;
+}
