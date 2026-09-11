@@ -1,0 +1,4 @@
+if (seasonal.season === "winter") visuals = "warm_cozy";
+if (seasonal.season === "summer") visuals = "bright_vibrant";
+if (seasonal.season === "autumn") visuals = "earthy_comfort";
+if (seasonal.season === "spring") visuals = "fresh_light";
