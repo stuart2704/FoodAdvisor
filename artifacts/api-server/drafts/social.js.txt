@@ -1,0 +1,38 @@
+import express from "express";
+import { generatePost } from "../social/contentEngine.js";
+import { schedulePost } from "../social/scheduler.js";
+
+const router = express.Router();
+
+router.get("/", async (req, res) => {
+  return res.json({
+    posts: [],
+    branding: {
+      tone: "friendly",
+      emojis: true,
+      hashtagStyle: "trending"
+    },
+    schedule: [],
+    analytics: {
+      instagram: { likes: 0 },
+      facebook: { likes: 0 },
+      google: { views: 0 }
+    }
+  });
+});
+
+router.post("/generate", async (req, res) => {
+  const post = generatePost({ name: "Restaurant" });
+  return res.json({ post });
+});
+
+router.post("/schedule", async (req, res) => {
+  const post = req.body;
+  const scheduled = schedulePost({}, post);
+
+  return res.json({
+    message: "Post scheduled (draft mode). Will publish once Stripe unlocks."
+  });
+});
+
+export default router;
