@@ -1,9 +1,35 @@
-// src/social/postingEngine.js
+export async function postAutomatically(post) {
+  const results = [];
 
-export async function postToPlatform(platform, post) {
-  return {
-    success: true,
-    platform,
-    postId: "abc123"
-  };
+  for (const platform of post.platforms) {
+    if (platform === "instagram") {
+      results.push(await postToInstagram(post));
+    }
+    if (platform === "facebook") {
+      results.push(await postToFacebook(post));
+    }
+    if (platform === "tiktok") {
+      results.push(await postToTikTok(post));
+    }
+    if (platform === "x") {
+      results.push(await postToX(post));
+    }
+    if (platform === "google") {
+      results.push(await postToGoogleBusiness(post));
+    }
+  }
+
+  return results;
+}
+
+async function postToInstagram(post) {
+  // Upload image → create media → publish
+}
+
+async function postToTikTok(post) {
+  // Upload video or image → publish
+}
+
+async function postToX(post) {
+  // Post text + image
 }
