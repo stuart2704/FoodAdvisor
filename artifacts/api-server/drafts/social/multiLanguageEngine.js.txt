@@ -1,0 +1,21 @@
+export function generateMultiLanguageCaption(post, restaurant) {
+  const lang = restaurant.language || "en";
+  let caption = post.caption;
+
+  // Step 1: Translate base caption
+  caption = translateCaption(caption, restaurant);
+
+  // Step 2: Apply local tone
+  caption = applyLocalTone(caption, lang);
+
+  // Step 3: Apply local food vocabulary
+  caption = applyFoodVocabulary(caption, restaurant);
+
+  // Step 4: Apply local emoji style
+  caption = applyEmojiStyle(caption, lang);
+
+  // Step 5: Apply local punctuation
+  caption = applyLocalPunctuation(caption, lang);
+
+  return caption;
+}
