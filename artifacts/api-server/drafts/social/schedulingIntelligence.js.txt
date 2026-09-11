@@ -1,0 +1,44 @@
+export function getBestPostingTime(restaurant) {
+  const cuisine = restaurant.cuisine || "restaurant";
+  const type = restaurant.type || "casual";
+  const month = new Date().getMonth();
+
+  // Seasonal logic
+  const season =
+    month >= 2 && month <= 4 ? "spring" :
+    month >= 5 && month <= 7 ? "summer" :
+    month >= 8 && month <= 10 ? "autumn" :
+    "winter";
+
+  // Default best times
+  let bestTime = "12:00"; // lunchtime default
+  let bestDay = "Friday";
+  let bestPlatform = "instagram";
+
+  // Cuisine-based timing
+  if (cuisine === "breakfast") bestTime = "08:00";
+  if (cuisine === "steakhouse") bestTime = "19:00";
+  if (cuisine === "street food") bestTime = "22:00";
+  if (cuisine === "coffee") bestTime = "09:00";
+
+  // Type-based timing
+  if (type === "premium") bestDay = "Saturday";
+  if (type === "family") bestDay = "Sunday";
+  if (type === "bar") bestDay = "Friday";
+
+  // Seasonal adjustments
+  if (season === "summer") bestTime = "18:00";
+  if (season === "winter") bestTime = "11:00";
+
+  // Platform logic
+  if (cuisine === "dessert") bestPlatform = "tiktok";
+  if (type === "premium") bestPlatform = "instagram";
+  if (type === "family") bestPlatform = "facebook";
+
+  return {
+    bestTime,
+    bestDay,
+    bestPlatform,
+    season
+  };
+}
