@@ -1,0 +1,12 @@
+export function enhancePhoto(photo, restaurant) {
+  return {
+    ...photo,
+    lighting: fixLighting(photo),
+    colour: fixColour(photo),
+    sharpness: enhanceSharpness(photo),
+    background: cleanBackground(photo),
+    branding: applyBrandStyle(photo, restaurant),
+    culture: applyCulturalTone(photo, restaurant),
+    personality: applyPersonalityTone(photo, restaurant)
+  };
+}
