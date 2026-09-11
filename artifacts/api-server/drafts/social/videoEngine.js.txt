@@ -25,3 +25,15 @@ export function generateVideo(restaurant, post) {
     ratio: "9:16"
   };
 }
+
+function buildVideoConcept(restaurant, post) {
+  const cuisine = restaurant.cuisine;
+
+  if (cuisine === "japanese") return "ramen_closeup_sizzle";
+  if (cuisine === "italian") return "pasta_slow_motion";
+  if (cuisine === "indian") return "curry_pouring";
+  if (cuisine === "mexican") return "taco_assembly";
+  if (cuisine === "steakhouse") return "steak_grill_flames";
+
+  return "generic_food_highlight";
+}
