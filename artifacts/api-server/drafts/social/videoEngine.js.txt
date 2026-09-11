@@ -1,0 +1,27 @@
+export function generateVideo(restaurant, post) {
+  const lang = restaurant.language || "en";
+
+  // 1. Build video concept
+  const concept = buildVideoConcept(restaurant, post);
+
+  // 2. Build text overlays
+  const text = generateImageText(restaurant, post.caption);
+
+  // 3. Build motion style
+  const motion = getMotionStyle(restaurant);
+
+  // 4. Build audio style
+  const audio = getAudioStyle(restaurant);
+
+  // 5. Build visual style
+  const visuals = getVisualStyle(restaurant);
+
+  return {
+    concept,
+    text,
+    motion,
+    audio,
+    visuals,
+    ratio: "9:16"
+  };
+}
