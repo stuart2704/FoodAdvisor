@@ -1,0 +1,36 @@
+export function handleCrisis(message, restaurant) {
+  const severity = detectSeverity(message);
+
+  if (severity === "low") {
+    return applyBrandingAndPersonality(
+      "Thank you for your feedback — we appreciate you letting us know.",
+      restaurant
+    );
+  }
+
+  if (severity === "medium") {
+    return applyBrandingAndPersonality(
+      "We’re really sorry to hear this — please send us a private message so we can make things right.",
+      restaurant
+    );
+  }
+
+  if (severity === "high") {
+    return applyBrandingAndPersonality(
+      "We take this very seriously — please contact us privately so we can resolve this immediately.",
+      restaurant
+    );
+  }
+
+  if (severity === "critical") {
+    return applyBrandingAndPersonality(
+      "We’re aware of this situation and are addressing it urgently. Please contact us privately so we can resolve this.",
+      restaurant
+    );
+  }
+
+  return applyBrandingAndPersonality(
+    "Thank you for your message — we’re here to help.",
+    restaurant
+  );
+}
