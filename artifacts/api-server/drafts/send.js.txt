@@ -1,0 +1,14 @@
+// src/outreach/send.js
+
+import { logEvent } from "../dashboard/eventsFeed.js";
+
+export async function sendOutreachDraft(placeId, email, outreach) {
+  logEvent(`Outreach draft prepared → ${placeId}`);
+
+  return {
+    status: "draft_prepared",
+    placeId,
+    email,
+    outreach
+  };
+}
