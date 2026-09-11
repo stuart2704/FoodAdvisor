@@ -3,3 +3,7 @@
 export function generateReply(comment) {
   return `Thanks so much for visiting! We appreciate you.`;
 }
+
+async function autoReply(comment) {
+  return `Thanks so much for visiting! We appreciate you.`;
+}
