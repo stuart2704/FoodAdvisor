@@ -1,0 +1,5 @@
+// src/social/replyEngine.js
+
+export function generateReply(comment) {
+  return `Thanks so much for visiting! We appreciate you.`;
+}
