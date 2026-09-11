@@ -1,0 +1,27 @@
+import express from "express";
+import { logEvent } from "../../dashboard/eventsFeed.js";
+
+const router = express.Router();
+
+router.get("/", async (req, res) => {
+  // Draft mode: no real connections yet
+  return res.json({
+    instagram: false,
+    facebook: false,
+    tiktok: false,
+    x: false,
+    google: false
+  });
+});
+
+router.post("/connect/:platform", async (req, res) => {
+  const { platform } = req.params;
+
+  logEvent(`SOCIAL CONNECT (draft mode) → ${platform}`);
+
+  return res.json({
+    message: `Connection simulated (draft mode). Will activate once Stripe unlocks.`
+  });
+});
+
+export default router;
