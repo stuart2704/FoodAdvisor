@@ -1,0 +1,25 @@
+export function generateStory(post, restaurant) {
+  const type = restaurant.storyStyle || "origin";
+
+  if (type === "origin") {
+    post.story = `We started ${restaurant.name} with one simple idea — bring authentic flavours to our community.`;
+  }
+
+  if (type === "chef") {
+    post.story = `Our chef learned this recipe from family traditions passed down through generations.`;
+  }
+
+  if (type === "dish") {
+    post.story = `This dish has a story — its flavours come from a recipe perfected over years.`;
+  }
+
+  if (type === "cultural") {
+    post.story = `In our culture, food is more than a meal — it’s a moment shared with loved ones.`;
+  }
+
+  if (type === "emotional") {
+    post.story = `There’s something special about the smell of fresh spices in the kitchen — it reminds us why we cook.`;
+  }
+
+  return post;
+}
