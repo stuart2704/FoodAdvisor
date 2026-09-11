@@ -1,0 +1,10 @@
+// src/social/brandingEngine.js
+
+export function applyBranding(post, branding) {
+  return {
+    ...post,
+    caption: branding.tone === "luxury"
+      ? `Experience excellence. ${post.caption}`
+      : post.caption
+  };
+}

@@ -1,0 +1,9 @@
+// src/social/postingEngine.js
+
+export async function postToPlatform(platform, post) {
+  return {
+    success: true,
+    platform,
+    postId: "abc123"
+  };
+}

@@ -1,0 +1,7 @@
+// src/social/imageEngine.js
+
+export async function generateImage(prompt) {
+  return {
+    url: "/generated/image123.jpg"
+  };
+}

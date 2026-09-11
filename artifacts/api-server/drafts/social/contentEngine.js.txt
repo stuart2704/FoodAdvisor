@@ -1,0 +1,12 @@
+// src/social/contentEngine.js
+
+export function generatePost(restaurant) {
+  return {
+    caption: `
+Try our new ${restaurant.specialDish}! Fresh, handmade, and served with love.
+Come visit us at ${restaurant.address}.
+    `,
+    hashtags: ["#foodie", "#cardifffood", "#restaurant", "#fresh"],
+    imagePrompt: `High-quality photo of ${restaurant.specialDish} in a warm restaurant setting`
+  };
+}
