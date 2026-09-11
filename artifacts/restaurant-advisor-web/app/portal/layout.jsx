@@ -12,6 +12,7 @@ export default function PortalLayout({ children }) {
           <a href="/portal/listing">Listing</a>
           <a href="/portal/menu">Menu</a>
           <a href="/portal/analytics">Analytics</a>
+          <a href="/portal/social">Social Media AI</a>
           <a href="/portal/upgrade">Upgrade</a>
         </nav>
       </aside>
