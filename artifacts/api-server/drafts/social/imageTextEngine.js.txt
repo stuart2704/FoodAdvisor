@@ -1,0 +1,22 @@
+export function generateImageText(restaurant, message) {
+  const lang = restaurant.language || "en";
+
+  // Step 1: Translate message
+  let translated = translateCaption(message, restaurant);
+
+  // Step 2: Apply local typography rules
+  const typography = getTypographyForLanguage(lang);
+
+  // Step 3: Apply local layout rules
+  const layout = getLayoutForLanguage(lang);
+
+  // Step 4: Apply local colour psychology
+  const colours = getColoursForLanguage(lang, restaurant.branding);
+
+  return {
+    text: translated,
+    typography,
+    layout,
+    colours
+  };
+}
