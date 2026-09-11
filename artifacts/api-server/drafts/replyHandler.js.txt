@@ -1,0 +1,14 @@
+// src/outreach/replyHandler.js
+
+import { updateStatus } from "../status/statusService.js";
+import { logEvent } from "../dashboard/eventsFeed.js";
+
+export async function handleReply(placeId, message) {
+  logEvent(`Reply received → ${placeId}`);
+
+  await updateStatus(placeId, "reply_received");
+
+  return {
+    nextAction: "prepare_onboarding_draft"
+  };
+}
