@@ -1,5 +1,13 @@
 # Intelligent scheduling example — inactive draft
 
+## Proposed timezone conversion
+
+```javascript
+scheduledFor: convertToLocalTime(restaurant.timezone, bestTime)
+```
+
+Preserved as supplied; not executed. `convertToLocalTime` still needs an implementation and an explicit posting date. It should resolve the restaurant's local date and time to an unambiguous timestamp, handling daylight-saving transitions and avoiding past times. In the existing example, the time value is `timing.bestTime`.
+
 ```javascript
 const timing = getBestPostingTime(restaurant);
 
