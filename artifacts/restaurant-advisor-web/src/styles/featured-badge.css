@@ -1,0 +1,10 @@
+.featured-badge {
+  display: inline-block;
+  background: #ffd700;
+  color: #000;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  margin-left: 8px;
+}
