@@ -1,0 +1,43 @@
+export function generateEvent(restaurant, eventType) {
+  const event = {
+    title: "",
+    description: "",
+    visuals: "",
+    date: "",
+    cta: "",
+    branding: restaurant.branding,
+    personality: restaurant.personality,
+    culture: restaurant.culture,
+    language: restaurant.language
+  };
+
+  if (eventType === "seasonal") {
+    event.title = `${restaurant.seasonName} Specials`;
+    event.description = `Enjoy our seasonal dishes crafted for ${restaurant.seasonName.toLowerCase()} — warm, fresh, and full of flavour.`;
+    event.cta = "Book now";
+    event.visuals = generateEventVisuals(restaurant, "seasonal");
+  }
+
+  if (eventType === "holiday") {
+    event.title = `${restaurant.holidayName} Menu`;
+    event.description = `Celebrate ${restaurant.holidayName} with our special menu inspired by tradition and flavour.`;
+    event.cta = "Reserve your table";
+    event.visuals = generateEventVisuals(restaurant, "holiday");
+  }
+
+  if (eventType === "themed") {
+    event.title = `${restaurant.themeName} Night`;
+    event.description = `Join us for ${restaurant.themeName} Night — a themed experience full of flavour and fun.`;
+    event.cta = "Book now";
+    event.visuals = generateEventVisuals(restaurant, "themed");
+  }
+
+  if (eventType === "delivery") {
+    event.title = `${restaurant.name} Delivery Week`;
+    event.description = `Order your favourite dishes with exclusive delivery offers all week long.`;
+    event.cta = "Order now";
+    event.visuals = generateEventVisuals(restaurant, "delivery");
+  }
+
+  return event;
+}
