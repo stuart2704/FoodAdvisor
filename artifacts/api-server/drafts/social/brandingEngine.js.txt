@@ -1,10 +1,34 @@
-// src/social/brandingEngine.js
-
 export function applyBranding(post, branding) {
+  let caption = post.caption;
+
+  // Tone
+  if (branding.tone === "luxury") {
+    caption = `Experience excellence.\n\n${caption}`;
+  }
+  if (branding.tone === "friendly") {
+    caption = `Hey there! 👋\n\n${caption}`;
+  }
+  if (branding.tone === "bold") {
+    caption = `🔥 Big flavour incoming! 🔥\n\n${caption}`;
+  }
+
+  // Emoji usage
+  if (!branding.emojis) {
+    caption = caption.replace(/[\u{1F300}-\u{1FAFF}]/gu, "");
+  }
+
+  // Hashtag style
+  let hashtags = post.hashtags;
+  if (branding.hashtagStyle === "minimal") {
+    hashtags = hashtags.slice(0, 2);
+  }
+  if (branding.hashtagStyle === "trending") {
+    hashtags.push("#foodie", "#cardifffood", "#restaurant");
+  }
+
   return {
     ...post,
-    caption: branding.tone === "luxury"
-      ? `Experience excellence. ${post.caption}`
-      : post.caption
+    caption,
+    hashtags
   };
 }

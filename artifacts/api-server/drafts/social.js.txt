@@ -10,7 +10,11 @@ router.get("/", async (req, res) => {
     branding: {
       tone: "friendly",
       emojis: true,
-      hashtagStyle: "trending"
+      hashtagStyle: "trending",
+      colourPalette: ["#FFD700", "#FF5733"],
+      personality: "chef-led",
+      rhythm: "short",
+      localisation: "cardiff"
     },
     schedule: [],
     analytics: {
