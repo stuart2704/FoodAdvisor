@@ -112,3 +112,241 @@ mtime_ms = 1789145110293
 storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/8c553450-f994-4444-84b0-98329037d1c0/dced67c7-6d2e-46c3-bf66-a54ca7d4cab9"
 storage_version_token = "1789145114785470"
 content_type = "application/pdf"
+
+[[outputs]]
+id = "KmIDgZK6-qiKz_D0n9FDl"
+uri = "file://exports/food-advisor-iphone-screens/01-Splash.png"
+type = "image"
+title = "Splash — iPhone"
+description = "Individual high-resolution PNG in an iPhone frame."
+logical_id = "36db4392-990e-41f5-bda4-7f5a34f067f7"
+content_hash = "sha256:81d7e5cc1cb056b1f2e03e8a78b109b0f4a38412d327dc004cdfb70929b76354"
+size = 331082
+mtime_ms = 1789148034337
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/36db4392-990e-41f5-bda4-7f5a34f067f7/5e4847f0-82e4-464c-835e-8b777004d432"
+storage_version_token = "1789148467367635"
+content_type = "image/png"
+
+[[outputs]]
+id = "i3Xml75cz6nNMW6rSYZdU"
+uri = "file://exports/food-advisor-iphone-screens/02-Discover.png"
+type = "image"
+title = "Discover — iPhone"
+description = "Individual high-resolution PNG in an iPhone frame."
+logical_id = "f3bbec20-77f2-4abe-a0d2-7b1033088104"
+content_hash = "sha256:be9d426762d5e414dcab2bb71512a219246fe1d3646e294fa5da01fe13970315"
+size = 2430946
+mtime_ms = 1789148061161
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/f3bbec20-77f2-4abe-a0d2-7b1033088104/fcb6480b-a75f-4efc-92cb-1b1c5be26960"
+storage_version_token = "1789148467941919"
+content_type = "image/png"
+
+[[outputs]]
+id = "_cV8lRPR_v9u1aCS_62ZF"
+uri = "file://exports/food-advisor-iphone-screens/03-Map.png"
+type = "image"
+title = "Map — iPhone"
+description = "Individual high-resolution PNG in an iPhone frame."
+logical_id = "3f3e516c-4623-4e74-9afb-412af78ddf5c"
+content_hash = "sha256:44cb80b28350b0a4f28a950a7b6618bff4bfc0fabbd36331ad884c69f6b2afa2"
+size = 540884
+mtime_ms = 1789148087857
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/3f3e516c-4623-4e74-9afb-412af78ddf5c/b10c46df-68da-4d82-98b1-9362cb399c3e"
+storage_version_token = "1789148468501555"
+content_type = "image/png"
+
+[[outputs]]
+id = "Q2t6YvIdOqAY158kPvWUy"
+uri = "file://exports/food-advisor-iphone-screens/04-Restaurant.png"
+type = "image"
+title = "Restaurant — iPhone"
+description = "Individual high-resolution PNG in an iPhone frame."
+logical_id = "c9095326-b10f-4265-9fde-492df61c096b"
+content_hash = "sha256:371cba1869db1ba528575d62f5588f1edc640e308d8dd47041de60e4fce13d4b"
+size = 2232166
+mtime_ms = 1789148115508
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/c9095326-b10f-4265-9fde-492df61c096b/1daf6ef9-5ddf-4b8d-98f2-d8dc720ce414"
+storage_version_token = "1789148469079904"
+content_type = "image/png"
+
+[[outputs]]
+id = "6IK2Oqmu6OMxof17kouUl"
+uri = "file://exports/food-advisor-iphone-screens/05-Search.png"
+type = "image"
+title = "Search — iPhone"
+description = "Individual high-resolution PNG in an iPhone frame."
+logical_id = "eb3dcb50-f895-4523-a4ea-19cdd4fac26f"
+content_hash = "sha256:3a9c0867355196d6817150985af662f93f7291c3501550ea2be7a0b08c269d5b"
+size = 382907
+mtime_ms = 1789148142012
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/eb3dcb50-f895-4523-a4ea-19cdd4fac26f/8e43b70a-ec14-4deb-946c-d0a98ce1bfea"
+storage_version_token = "1789148469597937"
+content_type = "image/png"
+
+[[outputs]]
+id = "xAQzMjTsvYho70gpDtMqD"
+uri = "file://exports/food-advisor-iphone-screens/06-Profile.png"
+type = "image"
+title = "Profile — iPhone"
+description = "Individual high-resolution PNG in an iPhone frame."
+logical_id = "40056067-9e53-427f-af5b-8cd43c5d5dee"
+content_hash = "sha256:c9ddfc3d6e41e8ce8ff32be442ef4689cf0d7da3e694ab235c8b4d96ec85b137"
+size = 370688
+mtime_ms = 1789148167316
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/40056067-9e53-427f-af5b-8cd43c5d5dee/a94cdcd5-e7f9-42cd-9003-869955eacc94"
+storage_version_token = "1789148470164269"
+content_type = "image/png"
+
+[[outputs]]
+id = "ZzgkK4xgxgfIoCmwJClwX"
+uri = "file://exports/food-advisor-iphone-screens/07-OwnerEntry.png"
+type = "image"
+title = "Owner Entry — iPhone"
+description = "Individual high-resolution PNG in an iPhone frame."
+logical_id = "9af806ab-d8fb-4090-99f3-824792a54b20"
+content_hash = "sha256:23584b158a99153d68e534a315b1cd2999e21511d30d8394bbb1628f458ca5e8"
+size = 1101571
+mtime_ms = 1789148193064
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/9af806ab-d8fb-4090-99f3-824792a54b20/d0a11a85-859b-4561-b2d6-0dde305e278c"
+storage_version_token = "1789148470614347"
+content_type = "image/png"
+
+[[outputs]]
+id = "Uo3FUmOt23-WDUYi_DXS5"
+uri = "file://exports/food-advisor-iphone-screens/08-Welcome.png"
+type = "image"
+title = "Welcome — iPhone"
+description = "Individual high-resolution PNG in an iPhone frame."
+logical_id = "41d2b955-c601-4c39-a98c-5fae8db45f5b"
+content_hash = "sha256:d77048680dad33c057ee76c885c0fb0326710d011634464bfb755775a964b0c2"
+size = 263655
+mtime_ms = 1789148218688
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/41d2b955-c601-4c39-a98c-5fae8db45f5b/98dbcf57-e513-4588-bc3e-fd93d451387d"
+storage_version_token = "1789148471127124"
+content_type = "image/png"
+
+[[outputs]]
+id = "7X5ttrKjMf-ouX1aUMyrU"
+uri = "file://exports/food-advisor-iphone-screens/09-Details.png"
+type = "image"
+title = "Details — iPhone"
+description = "Individual high-resolution PNG in an iPhone frame."
+logical_id = "21571502-183c-4801-97ee-1539a502d705"
+content_hash = "sha256:3255a07c713d0301cba3da5faf5ebbe65b0d028576b66e4e30e5eea6b4fd225d"
+size = 264030
+mtime_ms = 1789148244116
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/21571502-183c-4801-97ee-1539a502d705/aa3b06d0-571d-4aa3-8944-8a5a6ab96f94"
+storage_version_token = "1789148471587458"
+content_type = "image/png"
+
+[[outputs]]
+id = "B7p5xFMtOHr3UrD7UtcNX"
+uri = "file://exports/food-advisor-iphone-screens/10-BrandStyle.png"
+type = "image"
+title = "Brand Style — iPhone"
+description = "Individual high-resolution PNG in an iPhone frame."
+logical_id = "f1fb5601-72de-4d97-98c0-a805f7834e5f"
+content_hash = "sha256:6d6a390112cc1880295a9aaa0a26a567e0347aca0165ef9a09e2f65f3bfbe045"
+size = 253672
+mtime_ms = 1789148269848
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/f1fb5601-72de-4d97-98c0-a805f7834e5f/294f7a80-ee42-4ea8-902c-05dabfdec570"
+storage_version_token = "1789148472053729"
+content_type = "image/png"
+
+[[outputs]]
+id = "57zX-bEFxwvfmAMfvJU5T"
+uri = "file://exports/food-advisor-iphone-screens/11-Photos.png"
+type = "image"
+title = "Photos — iPhone"
+description = "Individual high-resolution PNG in an iPhone frame."
+logical_id = "c999199d-c9ac-404a-af6c-80f2f8d2e31d"
+content_hash = "sha256:f6c50115e5d1b7951e366ee776cf354c2dab46a7f1e5813e4e6d0131c896d932"
+size = 263422
+mtime_ms = 1789148295472
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/c999199d-c9ac-404a-af6c-80f2f8d2e31d/7152bf70-7763-4cb1-8409-34b0816c1261"
+storage_version_token = "1789148472570713"
+content_type = "image/png"
+
+[[outputs]]
+id = "R9hQH3SmUciWFtCMLRMez"
+uri = "file://exports/food-advisor-iphone-screens/12-Goals.png"
+type = "image"
+title = "Goals — iPhone"
+description = "Individual high-resolution PNG in an iPhone frame."
+logical_id = "62b830fe-0b24-40eb-a0bf-73c686433727"
+content_hash = "sha256:4d0f9122c8547c6b3b7e2c2564e7b8886b1a5003af52db6787aa1eb5a79f8c62"
+size = 277879
+mtime_ms = 1789148350125
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/62b830fe-0b24-40eb-a0bf-73c686433727/2b115afc-fdf9-475f-b31b-d0e6448d1556"
+storage_version_token = "1789148473039831"
+content_type = "image/png"
+
+[[outputs]]
+id = "QfHuH1AqcJbmMO7PAZeuF"
+uri = "file://exports/food-advisor-iphone-screens/13-Subscription.png"
+type = "image"
+title = "Subscription — iPhone"
+description = "Individual high-resolution PNG in an iPhone frame."
+logical_id = "ee1a8e30-d2f8-48f5-a60f-880f31950b2c"
+content_hash = "sha256:ae2a0049895bb5c93e0c768c01af6d2f1393b5fa37a4e8f47e75cfd290ebde24"
+size = 339255
+mtime_ms = 1789148375525
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/ee1a8e30-d2f8-48f5-a60f-880f31950b2c/b209ceb4-54c1-41b7-930d-2847da1337bb"
+storage_version_token = "1789148473480729"
+content_type = "image/png"
+
+[[outputs]]
+id = "p9tbUc_1ywbr0nx_YNIYR"
+uri = "file://exports/food-advisor-iphone-screens/14-Dashboard.png"
+type = "image"
+title = "Dashboard — iPhone"
+description = "Individual high-resolution PNG in an iPhone frame."
+logical_id = "b05fef78-7a7d-440d-be07-e3757d044dad"
+content_hash = "sha256:3d166b6c7ab169f727fed6b4c21cd122a42ba673774471dab8a625a6d64d9ef1"
+size = 1231758
+mtime_ms = 1789148401232
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/b05fef78-7a7d-440d-be07-e3757d044dad/64657c30-4b0e-4f85-a42b-c1597b2bd1b0"
+storage_version_token = "1789148473923896"
+content_type = "image/png"
+
+[[outputs]]
+id = "cPycUyXt1Jc486roNcqnl"
+uri = "file://exports/food-advisor-iphone-screens/15-Notifications.png"
+type = "image"
+title = "Notifications — iPhone"
+description = "Individual high-resolution PNG in an iPhone frame."
+logical_id = "37b7a81d-bf81-4b45-8e30-0e48885716db"
+content_hash = "sha256:de9e18b46fadf232d272a732cdde963067cfe4c8176eb55983be2f04001db50f"
+size = 450581
+mtime_ms = 1789148426512
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/37b7a81d-bf81-4b45-8e30-0e48885716db/a05c82a8-80e2-4b82-ad75-18b8fa50de79"
+storage_version_token = "1789148474405345"
+content_type = "image/png"
+
+[[outputs]]
+id = "lGHXDepYuAOOoY8Luzs9J"
+uri = "file://exports/food-advisor-iphone-screens/16-Settings.png"
+type = "image"
+title = "Settings — iPhone"
+description = "Individual high-resolution PNG in an iPhone frame."
+logical_id = "af2e31e2-1fa9-4623-af40-3ae15d2d8a2a"
+content_hash = "sha256:d4fda1746cbbff1c4771ee5df386a417d5a82625b28480f90e0ed36ceb0bd515"
+size = 287662
+mtime_ms = 1789148451736
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/af2e31e2-1fa9-4623-af40-3ae15d2d8a2a/adf1ba8e-d1c2-49ee-9a1c-74cc7353d8e5"
+storage_version_token = "1789148474840195"
+content_type = "image/png"
+
+[[outputs]]
+id = "nDRxJHum0Gm21JzeeGv5c"
+uri = "file://exports/food-advisor-iphone-screens.zip"
+type = "unspecified"
+title = "All Food Advisor iPhone Screens"
+description = "ZIP containing all 16 individually framed high-resolution PNG images."
+logical_id = "bfba26e3-e261-4e9f-bb4e-670cf7d637fa"
+content_hash = "sha256:6e15060dfd93c8a557a12b0374b74d4eed4d841f21a747c8a51141e8a2510934"
+size = 10227101
+mtime_ms = 1789148452756
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/bfba26e3-e261-4e9f-bb4e-670cf7d637fa/8309ed82-6432-44dc-a6dc-a7ab5fa7120f"
+storage_version_token = "1789148475469540"
+content_type = "application/octet-stream"
