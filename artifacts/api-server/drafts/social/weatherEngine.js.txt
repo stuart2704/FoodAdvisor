@@ -1,0 +1,19 @@
+export function getWeatherContext(weather) {
+  const temp = weather.temperature;
+  const condition = weather.condition.toLowerCase();
+
+  let context = {
+    temp,
+    condition,
+    type: "normal"
+  };
+
+  if (temp >= 25) context.type = "hot";
+  if (temp <= 8) context.type = "cold";
+  if (condition.includes("rain")) context.type = "rainy";
+  if (condition.includes("sun")) context.type = "sunny";
+  if (condition.includes("snow")) context.type = "snowy";
+  if (temp >= 30) context.type = "heatwave";
+
+  return context;
+}
