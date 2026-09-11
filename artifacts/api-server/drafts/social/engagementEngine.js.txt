@@ -1,0 +1,48 @@
+export function generateReply(comment, branding) {
+  const text = comment.toLowerCase();
+
+  // Sentiment detection
+  const positive = ["love", "amazing", "great", "delicious", "best"];
+  const negative = ["bad", "cold", "slow", "terrible", "awful"];
+  const question = ["?", "how", "when", "where", "do you"];
+
+  let sentiment = "neutral";
+
+  if (positive.some((w) => text.includes(w))) sentiment = "positive";
+  if (negative.some((w) => text.includes(w))) sentiment = "negative";
+  if (question.some((w) => text.includes(w))) sentiment = "question";
+
+  // Base reply
+  let reply = "";
+
+  if (sentiment === "positive") {
+    reply = "Thanks so much for visiting! We appreciate you.";
+  }
+
+  if (sentiment === "negative") {
+    reply = "We’re really sorry to hear this. Please message us — we’d love to make it right.";
+  }
+
+  if (sentiment === "question") {
+    reply = "Great question! Send us a DM and we’ll help you right away.";
+  }
+
+  if (sentiment === "neutral") {
+    reply = "Thanks for your comment!";
+  }
+
+  // Apply branding tone
+  if (branding.tone === "luxury") {
+    reply = `We truly appreciate your message. ${reply}`;
+  }
+
+  if (branding.tone === "friendly") {
+    reply = `Hey! 👋 ${reply}`;
+  }
+
+  if (branding.tone === "bold") {
+    reply = `🔥 Appreciate you! 🔥 ${reply}`;
+  }
+
+  return reply;
+}
