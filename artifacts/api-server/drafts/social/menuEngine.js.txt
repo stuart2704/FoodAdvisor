@@ -1,0 +1,33 @@
+export function analyseMenu(restaurant) {
+  const menu = restaurant.menu || [];
+
+  // Rank dishes by popularity (reviews + engagement)
+  const ranked = menu.map(dish => {
+    const score =
+      (dish.reviews || 0) * 2 +
+      (dish.engagement || 0) +
+      (dish.isSignature ? 10 : 0);
+
+    return {
+      ...dish,
+      score
+    };
+  });
+
+  // Sort by score
+  ranked.sort((a, b) => b.score - a.score);
+
+  // Detect categories
+  const categories = {};
+  ranked.forEach(dish => {
+    if (!categories[dish.category]) categories[dish.category] = [];
+    categories[dish.category].push(dish);
+  });
+
+  return {
+    ranked,
+    categories,
+    topDish: ranked[0],
+    top3: ranked.slice(0, 3)
+  };
+}
