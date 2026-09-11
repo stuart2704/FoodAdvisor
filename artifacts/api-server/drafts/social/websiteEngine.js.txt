@@ -1,0 +1,43 @@
+export function generateWebsiteContent(restaurant, page) {
+  const branding = restaurant.branding;
+  const personality = restaurant.personality;
+  const culture = restaurant.culture;
+  const language = restaurant.language;
+
+  const content = {
+    title: "",
+    body: "",
+    seoKeywords: generateSEOKeywords(restaurant),
+    branding,
+    personality,
+    culture,
+    language
+  };
+
+  if (page === "home") {
+    content.title = `${restaurant.name} — Authentic ${restaurant.cuisine} in ${restaurant.city}`;
+    content.body = generateHomePage(restaurant);
+  }
+
+  if (page === "menu") {
+    content.title = `${restaurant.name} Menu`;
+    content.body = generateMenuPage(restaurant);
+  }
+
+  if (page === "about") {
+    content.title = `About ${restaurant.name}`;
+    content.body = generateAboutPage(restaurant);
+  }
+
+  if (page === "delivery") {
+    content.title = `${restaurant.name} Delivery`;
+    content.body = generateDeliveryPage(restaurant);
+  }
+
+  if (page === "contact") {
+    content.title = `Contact ${restaurant.name}`;
+    content.body = generateContactPage(restaurant);
+  }
+
+  return content;
+}
