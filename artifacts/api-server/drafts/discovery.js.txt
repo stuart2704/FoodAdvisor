@@ -1,0 +1,17 @@
+// src/outreach/discovery.js
+
+import { logEvent } from "../dashboard/eventsFeed.js";
+
+export async function discoverRestaurant(placeId, data) {
+  logEvent(`Restaurant discovered → ${placeId}`);
+
+  return {
+    placeId,
+    name: data.name,
+    address: data.address,
+    email: data.email || null,
+    website: data.website || null,
+    cuisine: data.cuisine || null,
+    status: "free"
+  };
+}

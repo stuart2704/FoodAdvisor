@@ -1,0 +1,19 @@
+// src/outreach/personalise.js
+
+export function generateOutreach(restaurant) {
+  return {
+    subject: `Quick question about ${restaurant.name}`,
+    body: `
+Hi ${restaurant.name},
+
+I’ve added your restaurant to The Food Advisor — a new app helping diners discover great places to eat.
+
+I’d love to include your menu and photos so your listing looks complete.
+
+Would you like me to format everything for you?
+
+— Stuart
+The Food Advisor
+    `
+  };
+}
