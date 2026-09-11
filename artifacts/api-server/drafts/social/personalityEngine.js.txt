@@ -1,0 +1,33 @@
+export function applyPersonality(post, restaurant) {
+  const personality = restaurant.personality || "neutral";
+
+  if (personality === "friendly") {
+    post.caption = `${post.caption} 😊`;
+  }
+
+  if (personality === "luxury") {
+    post.caption = `${post.caption} — crafted with excellence.`;
+  }
+
+  if (personality === "bold") {
+    post.caption = `${post.caption.toUpperCase()} 💥`;
+  }
+
+  if (personality === "playful") {
+    post.caption = `${post.caption} 😋🔥`;
+  }
+
+  if (personality === "elegant") {
+    post.caption = `${post.caption} ✨`;
+  }
+
+  if (personality === "traditional") {
+    post.caption = `${post.caption} — made with heritage and care.`;
+  }
+
+  if (personality === "energetic") {
+    post.caption = `${post.caption} LET’S GO! 🔥`;
+  }
+
+  return post;
+}
