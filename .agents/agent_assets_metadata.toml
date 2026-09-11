@@ -14,3 +14,17 @@ mtime_ms = 1788886018285
 storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/32cfd299-78fd-4e30-8852-66756955ecd8/d5834167-6b81-456d-b637-c507f5781796"
 storage_version_token = "1788886030482633"
 content_type = "text/csv"
+
+[[outputs]]
+id = "FlUcIRVRjgU3F1NiHIXny"
+uri = "file://screenshots/food-advisor-mobile-home.jpg"
+type = "image"
+title = "The Food Advisor — mobile screenshot"
+description = "Current Discover screen captured from the running mobile app preview at 402 × 874."
+logical_id = "96131efb-4584-40c2-9f40-dd0b62a7f6f9"
+content_hash = "sha256:b964b1af544a96ad1307341350e189cd1ec2f8866d6bd4e1988dcc76a3160184"
+size = 37869
+mtime_ms = 1789141663114
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/96131efb-4584-40c2-9f40-dd0b62a7f6f9/0e070024-5410-4059-a59f-c7213d116cbe"
+storage_version_token = "1789141668613597"
+content_type = "image/jpeg"
