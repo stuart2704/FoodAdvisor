@@ -21,6 +21,40 @@ export function generateReplyMessage(intent: ReplyIntent | string, reply: ReplyC
   const signature = "Best wishes,\nStuart\nThe Food Advisor";
   const offer = "A basic listing is free. Paid verification is currently unavailable, and no subscription is needed for a basic listing.";
   switch (intent) {
+    case "upgrade_request":
+      return {
+        subject: "About upgrading your listing",
+        body: [
+          greeting,
+          "Thanks for asking about an upgrade.",
+          offer,
+          "There is no paid upgrade link available at present. If you would like to proceed with a free basic listing, please let me know.",
+          signature,
+        ].join("\n\n"),
+      };
+    case "menu_request":
+      return {
+        subject: "Your restaurant menu",
+        body: [
+          greeting,
+          "Thanks for asking about menus. Please share a link to your current menu and let me know which menu details you would like included.",
+          "I’ll review what can be added and confirm the setup and timing before publication.",
+          offer,
+          signature,
+        ].join("\n\n"),
+      };
+    case "app_question":
+      return {
+        subject: "About The Food Advisor app",
+        body: [
+          greeting,
+          "The Food Advisor is a restaurant discovery directory with a companion mobile app planned.",
+          "Please let me know what you would like to know about the app. I’ll confirm availability and supported listing features before sharing any setup instructions.",
+          offer,
+          signature,
+        ].join("\n\n"),
+      };
+    case "positive":
     case "interested":
       return {
         subject: "Great to hear from you — next steps",
@@ -33,6 +67,7 @@ export function generateReplyMessage(intent: ReplyIntent | string, reply: ReplyC
           signature,
         ].join("\n\n"),
       };
+    case "followup":
     case "questions":
       return {
         subject: "Happy to explain how it works",
@@ -45,6 +80,7 @@ export function generateReplyMessage(intent: ReplyIntent | string, reply: ReplyC
           signature,
         ].join("\n\n"),
       };
+    case "negative":
     case "not_interested":
       return {
         subject: "Thanks for letting me know",

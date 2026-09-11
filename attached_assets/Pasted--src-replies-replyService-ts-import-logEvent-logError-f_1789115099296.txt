@@ -1,0 +1,80 @@
+// src/replies/replyService.ts
+
+import { logEvent, logError } from "../dashboard/eventsFeed";
+import { classifyScraperError } from "../errors/errorService";
+import { updateStatus } from "../status/statusService";
+import { classifyReplyIntent } from "./replyClassifier";
+
+export async function handleReply(reply: any) {
+  logEvent(`Processing reply from: ${reply.restaurantName}`);
+
+  try {
+    const intent = classifyReplyIntent(reply.body);
+    const newStatus = mapIntentToStatus(intent);
+
+    await updateStatus(reply.restaurantId, newStatus);
+
+    logEvent(
+      `Reply processed: ${reply.restaurantName} → intent=${intent} → status=${newStatus}`
+    );
+
+    // Trigger follow-up actions
+    await triggerFollowUp(intent, reply.restaurantId);
+
+    return { intent, newStatus };
+
+  } catch (err) {
+    const category = classifyScraperError(err);
+    logError(`Failed to process reply from ${reply.restaurantName}`, category);
+    return null;
+  }
+}
+
+function mapIntentToStatus(intent: string) {
+  switch (intent) {
+    case "positive":
+      return "interested";
+    case "upgrade_request":
+      return "upgrade_requested";
+    case "menu_request":
+      return "menu_question";
+    case "app_question":
+      return "app_question";
+    case "negative":
+      return "closed";
+    case "followup":
+      return "awaiting_followup";
+    default:
+      return "unknown_reply";
+  }
+}
+
+/**
+ * Trigger automated follow-up actions
+ */
+async function triggerFollowUp(intent: string, restaurantId: number) {
+  switch (intent) {
+    case "upgrade_request":
+      logEvent(`Sending upgrade link to restaurant ${restaurantId}`);
+      // TODO: send upgrade link email
+      break;
+
+    case "menu_request":
+      logEvent(`Sending menu integration info to restaurant ${restaurantId}`);
+      // TODO: send menu instructions
+      break;
+
+    case "app_question":
+      logEvent(`Sending app details to restaurant ${restaurantId}`);
+      // TODO: send app explanation
+      break;
+
+    case "positive":
+      logEvent(`Sending more info to restaurant ${restaurantId}`);
+      // TODO: send general info email
+      break;
+
+    default:
+      break;
+  }
+}

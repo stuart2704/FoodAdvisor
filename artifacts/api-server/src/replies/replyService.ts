@@ -10,7 +10,7 @@ import {
 import { processGmailIncomingReply } from "../services/replyClassifier/processIncomingReply";
 import { logEvent } from "../utils/eventLog";
 import { mapReplyIntent } from "./classifier";
-import { toReplyIntentLabel } from "./replyClassifier";
+import { classifyReplyIntent } from "./replyClassifier";
 import { generateReplyMessage } from "./replyGenerator";
 
 async function getWatchAccount(): Promise<string | null> {
@@ -102,15 +102,16 @@ export async function handleReply(reply: unknown) {
     const intent = result.classification.category;
     const newStatus = ["unsubscribe", "wrong_contact", "not_interested"].includes(intent)
       ? "suppressed" : intent === "unknown" ? "replied" : intent;
+    const intentLabel = classifyReplyIntent(body);
     const draft = newStatus === "suppressed" || intent === "out_of_office"
       ? null
-      : generateReplyMessage(mapReplyIntent(result.classification), {
+      : generateReplyMessage(intentLabel, {
           restaurantName: restaurant.name,
         });
     return {
       status: "processed" as const,
       intent: mapReplyIntent(result.classification),
-      intentLabel: toReplyIntentLabel(mapReplyIntent(result.classification)),
+      intentLabel,
       classification: result.classification,
       newStatus,
       responseDraft: draft,

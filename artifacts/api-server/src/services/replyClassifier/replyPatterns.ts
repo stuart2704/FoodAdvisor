@@ -35,6 +35,7 @@ export const REPLY_PATTERN_GROUPS: readonly ReplyPatternGroup[] = [
     recommendedAction: "suppress",
     patterns: [
       { name: "unsubscribe", expression: /\b(?:please\s+)?unsubscribe(?:\s+(?:me|us))?\b/i, confidence: "high" },
+      { name: "standalone_remove", expression: /^(?:please\s+)?remove[.! ]*$/i, confidence: "medium" },
       { name: "remove_recipient", expression: /\bremove\s+(?:me|us)\b/i, confidence: "high" },
       { name: "stop_emailing", expression: /\bstop\s+emailing(?:\s+(?:me|us))?\b/i, confidence: "high" },
       { name: "remove_from_list", expression: /\b(?:remove|take)\s+(?:me|us)\s+(?:off|from)\s+(?:your\s+)?(?:list|mailing list|emails?)\b/i, confidence: "high" },
@@ -83,9 +84,18 @@ export const REPLY_PATTERN_GROUPS: readonly ReplyPatternGroup[] = [
     category: "upgrade",
     recommendedAction: "sales_follow_up",
     patterns: [
+      { name: "upgrade_enquiry", expression: /\b(?:upgrade|paid\s+version|priority\s+placement|send\s+(?:(?:me|us)\s+)?the\s+link)\b/i, confidence: "medium" },
       { name: "ready_to_upgrade", expression: /\b(?:ready|want|would like|keen)\s+to\s+(?:upgrade|subscribe|sign\s*up|claim)\b/i, confidence: "high" },
       { name: "start_subscription", expression: /\b(?:start|set\s+up|activate)\s+(?:the|a|our)?\s*(?:subscription|listing|upgrade)\b/i, confidence: "high" },
       { name: "send_checkout", expression: /\b(?:send|share)\s+(?:me|us)\s+(?:the\s+)?(?:checkout|payment|sign\s*up)\s+link\b/i, confidence: "high" },
+    ],
+  },
+  {
+    category: "question",
+    recommendedAction: "answer_question",
+    patterns: [
+      { name: "menu_request", expression: /\bmenus?\b/i, confidence: "medium" },
+      { name: "app_question", expression: /\b(?:mobile\s+)?app\b/i, confidence: "medium" },
     ],
   },
   {
@@ -100,6 +110,8 @@ export const REPLY_PATTERN_GROUPS: readonly ReplyPatternGroup[] = [
       { name: "keen_to_proceed", expression: /^(?:(?:i'm|i\s+am|we're|we\s+are)\s+)?keen[.! ]*$/i, confidence: "medium" },
       { name: "sounds_interesting", expression: /\b(?:this|that|it)\s+sounds\s+(?:very\s+)?interesting\b/i, confidence: "medium" },
       { name: "tell_me_more", expression: /\b(?:tell|send)\s+(?:me|us)\s+more\b/i, confidence: "medium" },
+      { name: "send_details", expression: /\bsend\s+(?:(?:me|us)\s+)?details\b/i, confidence: "medium" },
+      { name: "more_info", expression: /\bmore\s+info(?:rmation)?\b/i, confidence: "medium" },
     ],
   },
   {
