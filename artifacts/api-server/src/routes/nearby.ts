@@ -37,6 +37,13 @@ router.get("/restaurants/nearby", async (req, res): Promise<void> => {
       cos(radians(${restaurantsTable.longitude}) - radians(${longitude}))
     )))
   `;
+  const premiumAdjustedDistance = sql<number>`
+    greatest(
+      0,
+      ${distanceMiles} -
+      case when ${restaurantsTable.premium} then 1 else 0 end
+    )
+  `;
 
   const rows = await db
     .select({
@@ -51,7 +58,7 @@ router.get("/restaurants/nearby", async (req, res): Promise<void> => {
         sql`${distanceMiles} <= ${radiusMiles}`,
       ),
     )
-    .orderBy(asc(distanceMiles))
+    .orderBy(asc(premiumAdjustedDistance), asc(distanceMiles))
     .limit(100);
 
   const response = rows.map(({ restaurant, distanceMiles: distance }) =>

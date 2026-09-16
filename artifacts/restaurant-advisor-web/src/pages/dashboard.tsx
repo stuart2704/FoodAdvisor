@@ -16,6 +16,7 @@ import { TestOutreach } from '@/components/test-outreach';
 import { LeadQualification } from '@/components/lead-qualification';
 import { FollowUpActivity } from '@/components/follow-up-activity';
 import { LeadEscalation } from '@/components/lead-escalation';
+import { PremiumClients } from '@/components/premium-clients';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   useGetRestaurantImportStatus,
@@ -315,6 +316,8 @@ export default function Dashboard() {
         <FollowUpActivity />
 
         <LeadEscalation />
+
+        <PremiumClients />
 
         <SchedulerStatus />
 

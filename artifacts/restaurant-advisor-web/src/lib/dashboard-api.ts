@@ -18,6 +18,17 @@ export type DashboardStats = GetDashboardSummary200 & {
   claims: number;
 };
 
+export interface PremiumClientsResponse {
+  success: boolean;
+  items: Array<{
+    placeId: string;
+    name: string;
+    city: string;
+    premiumSince: string;
+    stripeSubscriptionId: string | null;
+  }>;
+}
+
 export class DashboardApiError extends Error {
   constructor(message: string, public readonly status: number | null) {
     super(message);
@@ -73,3 +84,5 @@ export const getHealth = (options?: DashboardRequestOptions) => request<Dashboar
 export const getStatus = (options?: DashboardRequestOptions) => request<DashboardStatusCounts>('status', options);
 export const getErrors = (options?: DashboardRequestOptions) => request<GetDashboardErrors200>('errors', options);
 export const getSummary = (options?: DashboardRequestOptions) => request<DashboardStats>('stats', options);
+export const getPremiumClients = (options?: DashboardRequestOptions) =>
+  request<PremiumClientsResponse>('premium', options);

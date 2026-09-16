@@ -78,7 +78,10 @@ router.get("/restaurants", async (req, res): Promise<void> => {
         ? eq(restaurantsTable.city, parsed.data.city)
         : undefined,
     )
-    .orderBy(desc(restaurantsTable.importedAt))
+    .orderBy(
+      desc(restaurantsTable.premium),
+      desc(restaurantsTable.importedAt),
+    )
     .limit(100);
 
   res.json(

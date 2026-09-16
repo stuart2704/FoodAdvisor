@@ -56,7 +56,13 @@ export default function PortalPage() {
   const sections = [
     { href: `/portal/${token}/menu`, label: 'Manage Menu', icon: UtensilsCrossed },
     { href: `/portal/${token}/photos`, label: 'Manage Photos', icon: Camera },
-    { href: `/portal/${token}/analytics`, label: 'View Analytics', icon: BarChart3 },
+    {
+      href: restaurant.premium
+        ? `/portal/${token}/analytics`
+        : `/portal/${token}/upgrade`,
+      label: restaurant.premium ? 'View Analytics' : 'Analytics — Premium',
+      icon: BarChart3,
+    },
     { href: `/portal/${token}/upgrade`, label: 'View Premium Options', icon: Crown },
   ];
   return (
