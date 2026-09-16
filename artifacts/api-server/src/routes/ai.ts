@@ -56,7 +56,7 @@ function validAutomationToken(header: string | undefined): boolean {
 }
 
 router.post(
-  "/draft-outreach",
+  "/generate-outreach",
   draftLimiter,
   async (req, res): Promise<void> => {
     if (!validAutomationToken(req.header("authorization"))) {
