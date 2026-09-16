@@ -7,6 +7,7 @@ import express, {
 import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
+import aiRoutes from "./routes/ai";
 import adminRoutes from "./routes/admin";
 import statusRoutes from "./routes/status";
 import { dashboardRouter } from "./dashboard/dashboardAPI";
@@ -14,6 +15,11 @@ import { logger } from "./lib/logger";
 import { instantlyWebhookRouter } from "./outreach/instantlyWebhook";
 
 const app: Express = express();
+
+// Replit forwards requests through one trusted proxy hop. This lets middleware
+// such as express-rate-limit identify the real client without trusting an
+// arbitrary chain supplied by the caller.
+app.set("trust proxy", 1);
 
 app.use(
   pinoHttp({
@@ -44,6 +50,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
+app.use("/ai", aiRoutes);
 app.use("/admin", adminRoutes);
 app.use("/status", statusRoutes);
 app.use("/dashboard", dashboardRouter);
