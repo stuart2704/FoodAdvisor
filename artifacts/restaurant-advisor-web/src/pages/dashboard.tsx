@@ -15,6 +15,7 @@ import { GlobalMetrics } from '@/components/global-metrics';
 import { TestOutreach } from '@/components/test-outreach';
 import { LeadQualification } from '@/components/lead-qualification';
 import { FollowUpActivity } from '@/components/follow-up-activity';
+import { LeadEscalation } from '@/components/lead-escalation';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   useGetRestaurantImportStatus,
@@ -312,6 +313,8 @@ export default function Dashboard() {
         <LeadQualification />
 
         <FollowUpActivity />
+
+        <LeadEscalation />
 
         <SchedulerStatus />
 

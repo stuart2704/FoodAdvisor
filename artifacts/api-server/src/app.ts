@@ -22,6 +22,7 @@ import dashboardGlobal from "./routes/dashboardGlobal";
 import dashboardTestOutreach from "./routes/dashboardTestOutreach";
 import dashboardLeadQualification from "./routes/dashboardLeadQualification";
 import dashboardFollowups from "./routes/dashboardFollowups";
+import dashboardEscalation from "./routes/dashboardEscalation";
 import { logger } from "./lib/logger";
 import { instantlyWebhookRouter } from "./outreach/instantlyWebhook";
 
@@ -94,6 +95,7 @@ app.use("/dashboard", dashboardGlobal);
 app.use("/dashboard", dashboardTestOutreach);
 app.use("/dashboard", dashboardLeadQualification);
 app.use("/dashboard", dashboardFollowups);
+app.use("/dashboard", dashboardEscalation);
 // Generated clients use the shared /api base; both aliases use identical auth.
 app.use("/api/dashboard", dashboardRoutes);
 

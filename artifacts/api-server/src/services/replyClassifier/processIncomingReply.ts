@@ -10,6 +10,7 @@ import { eq, sql } from "drizzle-orm";
 import { logEvent } from "../../utils/eventLog";
 import { enqueueAllInstantlyCancellationIntents } from "../instantly/cancellationIntents";
 import { classifyReply, type ReplyClassification } from "./classifyReply";
+import { escalatePositiveReply } from "../leadEscalationService";
 
 function senderDomain(from: string | undefined): string | undefined {
   if (!from) return undefined;
@@ -117,7 +118,20 @@ export async function processGmailIncomingReply(
     return { status: "processed", classification };
   });
   // Record success only after the transaction has committed.
-  if (result.status === "processed") logEvent("success", "Reply processed");
+  if (result.status === "processed") {
+    if (
+      result.classification.category === "interested" ||
+      result.classification.category === "upgrade"
+    ) {
+      await escalatePositiveReply({
+        placeId: input.placeId,
+        body: input.body,
+        from: input.from,
+        gmailThreadId: input.gmailThreadId,
+      });
+    }
+    logEvent("success", "Reply processed");
+  }
   return result;
 }
 
@@ -151,6 +165,18 @@ export async function processInstantlyIncomingReply(
     }
     return { status: "processed", classification };
   });
-  if (result.status === "processed") logEvent("success", "Instantly reply processed");
+  if (result.status === "processed") {
+    if (
+      result.classification.category === "interested" ||
+      result.classification.category === "upgrade"
+    ) {
+      await escalatePositiveReply({
+        placeId: input.placeId,
+        body: input.body,
+        from: input.from,
+      });
+    }
+    logEvent("success", "Instantly reply processed");
+  }
   return result;
 }

@@ -73,6 +73,66 @@ export async function getGmailProfile(): Promise<{ emailAddress: string }> {
   return { emailAddress: emailAddress.toLowerCase() };
 }
 
+export async function sendGmailPlainText(input: {
+  to: string;
+  subject: string;
+  body: string;
+  threadId?: string;
+}): Promise<{ id: string; threadId: string }> {
+  if (
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.to) ||
+    input.to.length > 254 ||
+    /[\r\n]/.test(input.to)
+  ) {
+    throw new Error("Gmail recipient is invalid.");
+  }
+  if (
+    !input.subject.trim() ||
+    input.subject.length > 160 ||
+    /[\r\n\u0000-\u001f\u007f]/.test(input.subject)
+  ) {
+    throw new Error("Gmail subject is invalid.");
+  }
+  if (!input.body.trim() || input.body.length > 10_000) {
+    throw new Error("Gmail body is invalid.");
+  }
+  if (
+    input.threadId !== undefined &&
+    (!validId(input.threadId) || /[\r\n]/.test(input.threadId))
+  ) {
+    throw new Error("Gmail thread is invalid.");
+  }
+  const profile = await getGmailProfile();
+  const raw = Buffer.from(
+    [
+      `From: ${profile.emailAddress}`,
+      `To: ${input.to}`,
+      `Subject: ${input.subject}`,
+      "MIME-Version: 1.0",
+      'Content-Type: text/plain; charset="UTF-8"',
+      "Content-Transfer-Encoding: 8bit",
+      "",
+      input.body.replace(/\r?\n/g, "\r\n"),
+    ].join("\r\n"),
+    "utf8",
+  ).toString("base64url");
+  const value = await gmailJson("/gmail/v1/users/me/messages/send", {
+    method: "POST",
+    body: {
+      raw,
+      ...(input.threadId ? { threadId: input.threadId } : {}),
+    },
+  });
+  const item =
+    typeof value === "object" && value !== null
+      ? (value as { id?: unknown; threadId?: unknown })
+      : {};
+  if (!validId(item.id) || !validId(item.threadId)) {
+    throw new Error("Gmail send acknowledgement was invalid.");
+  }
+  return { id: item.id, threadId: item.threadId };
+}
+
 export interface GmailWatch {
   historyId: string;
   expiration: Date;

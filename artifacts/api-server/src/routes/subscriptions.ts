@@ -14,6 +14,7 @@ import {
   ClaimLinkConfigurationError,
   verifyClaimLink,
 } from "../lib/claim-link";
+import { escalateOnboardingComplete } from "../services/leadEscalationService";
 
 const router: IRouter = Router();
 
@@ -90,6 +91,7 @@ router.post("/restaurants/:placeId/claim", async (req, res): Promise<void> => {
       res.status(403).json({ error: "This claim link is invalid or has expired." });
       return;
     }
+    await escalateOnboardingComplete(result.placeId);
     res.json(
       ClaimRestaurantResponse.parse({
         placeId: result.placeId,
