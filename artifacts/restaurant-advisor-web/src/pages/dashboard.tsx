@@ -7,6 +7,7 @@ import ErrorPanel from '@/components/error-panel';
 import SummaryPanel from '@/components/summary-panel';
 import { DarkModeToggle } from '@/components/dark-mode-toggle';
 import { DashboardRestaurants } from '@/components/dashboard-restaurants';
+import { OutreachActivity } from '@/components/outreach-activity';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   useGetRestaurantImportStatus,
@@ -296,6 +297,8 @@ export default function Dashboard() {
         </section>
 
         <DashboardRestaurants />
+
+        <OutreachActivity />
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
