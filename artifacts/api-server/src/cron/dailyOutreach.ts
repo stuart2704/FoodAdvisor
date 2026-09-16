@@ -12,7 +12,7 @@ async function runScheduledDailyOutreach(): Promise<void> {
   const startedAt = new Date();
   logger.info("Scheduled daily outreach cycle started.");
   try {
-    const result = await runDailyCycle({ sendOutreach: true });
+    const result = await runDailyCycle();
     const outreach =
       result.outreach.status === "completed" ? result.outreach.result : null;
     recordSchedulerRun(

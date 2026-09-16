@@ -5,7 +5,7 @@ import {
 } from "../core/integration";
 
 export async function runDailyCycle(
-  options: DailyCycleOptions = {},
+  options: DailyCycleOptions = { sendOutreach: true },
 ): Promise<DailyCycleResult> {
   return runIntegratedDailyCycle(options);
 }
