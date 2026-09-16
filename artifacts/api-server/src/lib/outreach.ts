@@ -94,6 +94,7 @@ export async function runDailyOutreach(options: {
   placeId?: string;
   initialOnly?: boolean;
   followupStep?: FollowupStep;
+  messageOverride?: { subject: string; body: string };
 } = {}): Promise<{
   discovered: number;
   sent: number;
@@ -105,6 +106,9 @@ export async function runDailyOutreach(options: {
 }> {
   if (options.followupStep !== undefined && ![2, 3].includes(options.followupStep)) {
     throw new Error("Invalid follow-up step.");
+  }
+  if (options.messageOverride && (!options.placeId || !options.followupStep)) {
+    throw new Error("A targeted follow-up is required for a message override.");
   }
   if (process.env.OUTREACH_ENABLED !== "true") {
     throw new Error("Outreach sending is disabled. Set OUTREACH_ENABLED=true explicitly.");
@@ -229,7 +233,9 @@ export async function runDailyOutreach(options: {
       }
       // Targeted initial outreach uses a fresh draft from trusted DB fields.
       // Caller-provided recipients, bodies, and statuses cannot bypass safeguards.
-      const message = options.followupStep
+      const message = options.messageOverride
+        ? options.messageOverride
+        : options.followupStep
         ? buildFollowupMessage(options.followupStep, candidate.name)
         : await generateOutreachFor({
             placeId: candidate.placeId,

@@ -232,6 +232,7 @@ async function sendInstantlyEmailUnlocked(
       campaignId,
       placeId: ownedRestaurant.placeId,
       emailNumber: sequenceId,
+      subject: draft.subject,
       recipientEmail,
       eaccount,
       state: "campaign_created",

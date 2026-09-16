@@ -14,6 +14,12 @@ import { enrichRestaurant } from "../services/enrichment/enrichRestaurant";
 import { pollInstantlyReplies } from "../services/instantly/instantlyService";
 import { generateDailySummary } from "../dashboard/metricsService";
 import { applyScalingLimits, getScalingLimits, limitOutreach, limitReplies, type ScalingTier } from "../scaling/scalingService";
+import {
+  qualifyRestaurant,
+  type QualificationResult,
+  type QualificationTier,
+} from "../services/leadQualificationService";
+import { applyQualificationFollowUpPolicy } from "../services/qualificationFollowUpPolicy";
 
 export interface DailyCycleOptions {
   // Internal, trusted caller only; this does not establish a paid entitlement.
@@ -37,6 +43,10 @@ export interface DailyCycleOptions {
 type ImportPlan = Awaited<ReturnType<typeof createImportPlan>>;
 type ImportResult = Awaited<ReturnType<typeof runImport>>;
 type OutreachResult = Awaited<ReturnType<typeof runDailyOutreach>>;
+
+function isQualificationTier(value: unknown): value is QualificationTier {
+  return value === "A" || value === "B" || value === "C" || value === "D";
+}
 
 export interface DailyCycleResult {
   status: "completed" | "completed_with_errors";
@@ -208,11 +218,47 @@ export async function runDailyCycle(
     let followups: DailyCycleResult["followups"] = { status: "skipped" };
     if (options.sendFollowups === true) {
       phase = "follow-up sending";
-      // Reply processing, when requested, happens first. All sending stages
-      // share the same database-backed daily budget and advisory lock.
       const results: OutreachResult[] = [];
-      for (const followupStep of [3, 2] as const) {
-        results.push(await runDailyOutreach({ followupStep }));
+      const candidates = await db
+        .select()
+        .from(restaurantsTable)
+        .where(
+          and(
+            isNull(restaurantsTable.suppressedAt),
+            isNull(restaurantsTable.claimedAt),
+            or(
+              and(
+                eq(restaurantsTable.outreachCount, 1),
+                eq(restaurantsTable.outreachStatus, "sent"),
+              ),
+              and(
+                eq(restaurantsTable.outreachCount, 2),
+                eq(restaurantsTable.outreachStatus, "followup_sent"),
+              ),
+            ),
+          ),
+        )
+        .orderBy(restaurantsTable.lastOutreachAt)
+        .limit(limits.MAX_OUTREACH_PER_DAY);
+
+      for (const restaurant of candidates) {
+        const qualified: QualificationResult =
+          restaurant.qualificationScore !== null &&
+          isQualificationTier(restaurant.qualificationTier) &&
+          restaurant.qualificationReason
+            ? {
+                score: restaurant.qualificationScore,
+                tier: restaurant.qualificationTier,
+                reason: restaurant.qualificationReason,
+              }
+            : await qualifyRestaurant(restaurant);
+        const action = await applyQualificationFollowUpPolicy(
+          restaurant,
+          qualified,
+        );
+        if ("result" in action && action.result) {
+          results.push(action.result);
+        }
       }
       followups = { status: "completed", results };
     }

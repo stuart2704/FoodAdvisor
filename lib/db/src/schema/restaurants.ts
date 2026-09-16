@@ -54,6 +54,10 @@ export const restaurantsTable = pgTable(
     claimStatus: text("claim_status"),
     claimAttemptId: text("claim_attempt_id"),
     claimedAt: timestamp("claimed_at", { withTimezone: true }),
+    qualificationScore: integer("qualification_score"),
+    qualificationTier: text("qualification_tier"),
+    qualificationReason: text("qualification_reason"),
+    qualifiedAt: timestamp("qualified_at", { withTimezone: true }),
     stripeCustomerId: text("stripe_customer_id"),
     stripeSubscriptionId: text("stripe_subscription_id"),
   },
@@ -176,6 +180,7 @@ export const instantlyFollowupCampaignsTable = pgTable(
       .notNull()
       .references(() => restaurantsTable.placeId),
     emailNumber: integer("email_number").notNull(),
+    subject: text("subject"),
     recipientEmail: text("recipient_email").notNull(),
     eaccount: text("eaccount").notNull(),
     leadId: text("lead_id").unique(),
