@@ -350,3 +350,31 @@ mtime_ms = 1789148452756
 storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/bfba26e3-e261-4e9f-bb4e-670cf7d637fa/8309ed82-6432-44dc-a6dc-a7ab5fa7120f"
 storage_version_token = "1789148475469540"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "R3Z2ikKG2kuENXeg7qs91"
+uri = "file://exports/food-advisor-iphone-mockups.zip"
+type = "unspecified"
+title = "Food Advisor iPhone Mockups"
+description = "Download all seven high-resolution iPhone-framed app screens."
+logical_id = "6f1b0c89-0e4b-4f03-88b9-ea1bcf91a5f3"
+content_hash = "sha256:31a1780307fdfb522b380473476b6f14ce1fb7e641aa73aa0fd77aa31968a3c5"
+size = 7701366
+mtime_ms = 1789546717260
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/6f1b0c89-0e4b-4f03-88b9-ea1bcf91a5f3/b157db13-ce4f-4f28-8966-dc03de4b87c0"
+storage_version_token = "1789546726461963"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "j49VhwLiKeBjmZa2WILlB"
+uri = "file://exports/food-advisor-iphone-mockups/food-advisor-discover-iphone.png"
+type = "image"
+title = "Discover Screen — iPhone"
+description = "Preview of the consistent iPhone framing used across the complete set."
+logical_id = "3189bb55-ee5f-4bca-9122-c15f1e0eba59"
+content_hash = "sha256:be9d426762d5e414dcab2bb71512a219246fe1d3646e294fa5da01fe13970315"
+size = 2430946
+mtime_ms = 1789546715864
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/3189bb55-ee5f-4bca-9122-c15f1e0eba59/6cc9c16a-528e-4c36-9f85-f1d262b0fb25"
+storage_version_token = "1789546727063745"
+content_type = "image/png"
