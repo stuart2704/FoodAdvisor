@@ -12,6 +12,7 @@ interface PortalResponse {
     address: string;
     website: string | null;
     onboardingStatus: string | null;
+    premium: boolean;
   };
   error?: string;
 }
@@ -62,7 +63,12 @@ export default function PortalPage() {
     <div className="min-h-screen bg-background p-6 text-foreground md:p-12">
       <main className="mx-auto max-w-5xl space-y-8">
         <div>
-          <p className="text-sm font-semibold text-primary">Restaurant portal</p>
+          <div className="flex items-center gap-3">
+            <p className="text-sm font-semibold text-primary">Restaurant portal</p>
+            <span className="rounded-full border border-border px-2.5 py-1 text-xs font-semibold">
+              {restaurant.premium ? 'Premium' : 'Basic'}
+            </span>
+          </div>
           <h1 className="mt-2 font-serif text-4xl font-semibold">Welcome, {restaurant.name}</h1>
         </div>
         <Card>

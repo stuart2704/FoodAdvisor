@@ -7,6 +7,7 @@ import repliesRouter from "./replies";
 import gmailRouter from "./gmail";
 import subscriptionsRouter from "./subscriptions";
 import portalRouter from "./portal";
+import premiumRouter from "./premium";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(repliesRouter);
 router.use(gmailRouter);
 router.use(subscriptionsRouter);
 router.use(portalRouter);
+router.use(premiumRouter);
 
 export default router;

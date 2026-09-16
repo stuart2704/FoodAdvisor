@@ -29,6 +29,7 @@ router.get("/portal/:token", async (req, res) => {
       address: restaurantsTable.address,
       website: restaurantsTable.website,
       onboardingStatus: restaurantsTable.onboardingStatus,
+      premium: restaurantsTable.premium,
     })
     .from(restaurantsTable)
     .where(eq(restaurantsTable.placeId, placeId))
