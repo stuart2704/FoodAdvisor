@@ -462,3 +462,115 @@ mtime_ms = 1789546715988
 storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/c43a7f80-e454-4d58-8dd7-37be8acc2bb8/ea2d8ff2-c32f-4f97-baac-0be9381b2514"
 storage_version_token = "1789549396585615"
 content_type = "image/png"
+
+[[outputs]]
+id = "BxK08ITg9SOsqLW6rjzYE"
+uri = "file://exports/app-store-connect-iphone-6.5/food-advisor-discover-iphone.png"
+type = "image"
+title = "App Store — Discover"
+description = "App Store Connect-compatible portrait screenshot, 1242 × 2688 px."
+logical_id = "e703b635-e0cb-4621-8986-39be98d9b019"
+content_hash = "sha256:5218dc8818325b9423e8ca11fc8f23b94d9b42c3101cdc481ae49d462cc34a7d"
+size = 4147594
+mtime_ms = 1789550041316
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/e703b635-e0cb-4621-8986-39be98d9b019/6df157c4-2079-4e52-8785-e0319eb520c8"
+storage_version_token = "1789550060132218"
+content_type = "image/png"
+
+[[outputs]]
+id = "Idev2w7HSGI0sMEgXza-2"
+uri = "file://exports/app-store-connect-iphone-6.5/food-advisor-map-iphone.png"
+type = "image"
+title = "App Store — Map"
+description = "App Store Connect-compatible portrait screenshot, 1242 × 2688 px."
+logical_id = "58680e4c-2676-4b86-afc5-ceaa674a0a4c"
+content_hash = "sha256:f4415d602a3b2d31a7d675b1739f291428d4f1500956cb4c39781ca42b644a38"
+size = 1176064
+mtime_ms = 1789550042764
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/58680e4c-2676-4b86-afc5-ceaa674a0a4c/13965724-7240-488e-b88d-9a3d243cf698"
+storage_version_token = "1789550060652759"
+content_type = "image/png"
+
+[[outputs]]
+id = "oWLAEcSqRzuND_QqwBf5N"
+uri = "file://exports/app-store-connect-iphone-6.5/food-advisor-restaurant-iphone.png"
+type = "image"
+title = "App Store — Restaurant"
+description = "App Store Connect-compatible portrait screenshot, 1242 × 2688 px."
+logical_id = "d83b8350-0329-4362-8ba8-371a469f205a"
+content_hash = "sha256:714b4a2226fdf7ff957cfe642e15f7683d85686aaae60160027bbe3801cc3f3f"
+size = 4753647
+mtime_ms = 1789550047572
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/d83b8350-0329-4362-8ba8-371a469f205a/c42a0f1d-1ffc-4bfd-b7ee-9b8d0780bcc5"
+storage_version_token = "1789550061189901"
+content_type = "image/png"
+
+[[outputs]]
+id = "Jv4Wd9lRgS7eEggua2H4J"
+uri = "file://exports/app-store-connect-iphone-6.5/food-advisor-owner-entry-iphone.png"
+type = "image"
+title = "App Store — Owner Entry"
+description = "App Store Connect-compatible portrait screenshot, 1242 × 2688 px."
+logical_id = "aae3897d-2513-4a59-b572-c48e3b4caa0c"
+content_hash = "sha256:c606baad4ec3b9f4e5dde0c28454aef8a6e7ea69b0553e7f5b6387b9ee15f1f5"
+size = 2651144
+mtime_ms = 1789550045156
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/aae3897d-2513-4a59-b572-c48e3b4caa0c/6d060188-bca9-4725-b2c0-d3ebd911e57f"
+storage_version_token = "1789550061699680"
+content_type = "image/png"
+
+[[outputs]]
+id = "rSB8w7BLZIpC5JjkaUBJe"
+uri = "file://exports/app-store-connect-iphone-6.5/food-advisor-welcome-iphone.png"
+type = "image"
+title = "App Store — Welcome"
+description = "App Store Connect-compatible portrait screenshot, 1242 × 2688 px."
+logical_id = "d45ede37-6d22-4f55-9e66-e971158bcf47"
+content_hash = "sha256:f0d5383b2e0da0d2f1bc866a430be770681ec65c6ab7a239f612d27306b75326"
+size = 544704
+mtime_ms = 1789550048764
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/d45ede37-6d22-4f55-9e66-e971158bcf47/acb86428-e9f6-4249-839b-9860ddcc421a"
+storage_version_token = "1789550062209389"
+content_type = "image/png"
+
+[[outputs]]
+id = "-W23ePbrGoSMTFmjB1nuY"
+uri = "file://exports/app-store-connect-iphone-6.5/food-advisor-details-iphone.png"
+type = "image"
+title = "App Store — Details"
+description = "App Store Connect-compatible portrait screenshot, 1242 × 2688 px."
+logical_id = "bd2f49e1-4027-4bcc-ba05-54803ee28b7d"
+content_hash = "sha256:65e067592bd7279140252b6b1b400d8f4ee85fd0ec4ef03b377d95eae05f6b5f"
+size = 531099
+mtime_ms = 1789550038936
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/bd2f49e1-4027-4bcc-ba05-54803ee28b7d/a18f1370-f5d7-48e9-9d0a-35602cfd408b"
+storage_version_token = "1789550062628231"
+content_type = "image/png"
+
+[[outputs]]
+id = "5C8U75PqkU_IRHCB1XYLu"
+uri = "file://exports/app-store-connect-iphone-6.5/food-advisor-dashboard-iphone.png"
+type = "image"
+title = "App Store — Dashboard"
+description = "App Store Connect-compatible portrait screenshot, 1242 × 2688 px."
+logical_id = "f93fe39b-667e-4d89-99f8-3b57836c88bc"
+content_hash = "sha256:b8bc866651e924e09e7717206fef559e67a34d514e6c5548d061fcdfebbe1c81"
+size = 2310149
+mtime_ms = 1789550037812
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/f93fe39b-667e-4d89-99f8-3b57836c88bc/5c186962-144c-45f1-b928-a759c65019bb"
+storage_version_token = "1789550063094035"
+content_type = "image/png"
+
+[[outputs]]
+id = "bnq0Dm3kmyYQ5mCQwDK4f"
+uri = "file://exports/app-store-connect-iphone-6.5.zip"
+type = "unspecified"
+title = "All App Store Screenshots"
+description = "ZIP containing all seven App Store Connect-compatible screenshots at 1242 × 2688 px."
+logical_id = "2de1192c-0837-4473-8f75-d55db3d2caa4"
+content_hash = "sha256:9d0570353cad7a9dbbe38e16de17f7d6e5a6db063891be649c3c7790502f04e0"
+size = 15843957
+mtime_ms = 1789550050116
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/2de1192c-0837-4473-8f75-d55db3d2caa4/b031539b-4902-4df2-831f-f82ecaebb6d6"
+storage_version_token = "1789550063733596"
+content_type = "application/octet-stream"
