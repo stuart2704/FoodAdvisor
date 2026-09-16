@@ -4,10 +4,12 @@ import { renewGmailWatch } from "../services/gmailWatch";
 import { sendAlert } from "../utils/alert";
 import { logger } from "../lib/logger";
 import { logEvent } from "../utils/eventLog";
+import { recordSchedulerRun } from "../dashboard/schedulerState";
 
 let task: ReturnType<typeof cron.schedule> | undefined;
 
 export async function checkWatchHealth(): Promise<void> {
+  const startedAt = new Date();
   logger.info("Running Gmail watch health check.");
   logEvent("info", "Renewal check triggered");
   try {
@@ -33,7 +35,21 @@ export async function checkWatchHealth(): Promise<void> {
       );
       await renewGmailWatch();
     }
+    recordSchedulerRun(
+      "gmail-watch-health-check",
+      startedAt,
+      "completed",
+      hoursLeft === null || !Number.isFinite(hoursLeft) || hoursLeft < 24
+        ? "Health check completed and watch renewal was requested."
+        : "Health check completed; no renewal was needed.",
+    );
   } catch {
+    recordSchedulerRun(
+      "gmail-watch-health-check",
+      startedAt,
+      "failed",
+      "Health check or renewal failed.",
+    );
     const nextRun = task?.getNextRun();
     logEvent(
       "error",
@@ -45,6 +61,17 @@ export async function checkWatchHealth(): Promise<void> {
       "Gmail watch renewal failed — manual intervention required.",
     );
   }
+}
+
+export function getWatchHealthSchedulerStatus() {
+  return {
+    name: "gmail-watch-health-check",
+    schedule: "0 * * * *",
+    timezone: "server",
+    enabled: process.env.GMAIL_WATCH_HEALTH_CHECK_ENABLED === "true",
+    running: task !== undefined,
+    nextRunAt: task?.getNextRun()?.toISOString() ?? null,
+  };
 }
 
 export function startWatchHealthCheck() {
