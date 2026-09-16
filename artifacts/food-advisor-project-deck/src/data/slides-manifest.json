@@ -27,7 +27,7 @@
     "id": "7d6b5d2a-1e11-4b9f-a101-000000000004",
     "position": 4,
     "filepath": "src/pages/slides/NearMe.tsx",
-    "title": "Near me is private and cost-controlled",
+    "title": "Near me uses live device location",
     "description": "Location policy",
     "speakerNotes": ""
   },
