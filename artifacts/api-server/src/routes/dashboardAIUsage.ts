@@ -2,16 +2,9 @@ import { aiUsageEventsTable, db } from "@workspace/db";
 import { desc, sql } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import { adminOnly } from "../middleware/adminOnly";
+import { getUsdToGbpRate } from "../services/aiUsage";
 
 const router: IRouter = Router();
-
-function usdToGbpRate(): { rate: number; source: "environment" | "fallback" } {
-  const configured = Number(process.env.USD_TO_GBP_RATE);
-  if (Number.isFinite(configured) && configured > 0) {
-    return { rate: configured, source: "environment" };
-  }
-  return { rate: 0.75, source: "fallback" };
-}
 
 router.get("/ai-usage", adminOnly, async (req, res) => {
   try {
@@ -45,7 +38,7 @@ router.get("/ai-usage", adminOnly, async (req, res) => {
         .orderBy(desc(sql<number>`count(*)`)),
     ]);
 
-    const conversion = usdToGbpRate();
+    const conversion = getUsdToGbpRate();
     const modelBreakdown = Object.fromEntries(
       models.map((model) => [model.model, model.calls]),
     );
@@ -61,6 +54,7 @@ router.get("/ai-usage", adminOnly, async (req, res) => {
       ]),
     );
 
+    const lastUpdated = totals?.lastUpdated;
     res.json({
       success: true,
       dailyCalls: totals?.dailyCalls ?? 0,
@@ -74,7 +68,7 @@ router.get("/ai-usage", adminOnly, async (req, res) => {
       exchangeRateSource: conversion.source,
       modelBreakdown,
       modelDetails,
-      lastUpdated: totals?.lastUpdated?.toISOString() ?? null,
+      lastUpdated: lastUpdated ? new Date(lastUpdated).toISOString() : null,
     });
   } catch (error) {
     req.log.error({ err: error }, "Dashboard AI usage query failed");

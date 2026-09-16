@@ -11,6 +11,7 @@ import { OutreachActivity } from '@/components/outreach-activity';
 import { SchedulerStatus } from '@/components/scheduler-status';
 import { AiUsage } from '@/components/ai-usage';
 import { ClaimAnalytics } from '@/components/claim-analytics';
+import { GlobalMetrics } from '@/components/global-metrics';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   useGetRestaurantImportStatus,
@@ -308,6 +309,8 @@ export default function Dashboard() {
         <AiUsage />
 
         <ClaimAnalytics />
+
+        <GlobalMetrics />
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">

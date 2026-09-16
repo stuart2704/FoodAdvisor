@@ -47,6 +47,17 @@ function pricingFor(model: string): TokenPricing | null {
   return PRICING.find(([prefix]) => model.startsWith(prefix))?.[1] ?? null;
 }
 
+export function getUsdToGbpRate(): {
+  rate: number;
+  source: "environment" | "fallback";
+} {
+  const configured = Number(process.env.USD_TO_GBP_RATE);
+  if (Number.isFinite(configured) && configured > 0) {
+    return { rate: configured, source: "environment" };
+  }
+  return { rate: 0.75, source: "fallback" };
+}
+
 export async function recordAiUsage(
   endpoint: string,
   model: string,
