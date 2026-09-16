@@ -30,6 +30,12 @@ function equalEmail(supplied: string, expected: string): boolean {
   return timingSafeEqual(suppliedHash, expectedHash);
 }
 
+function equalPassword(supplied: string, expected: string): boolean {
+  const suppliedHash = createHash("sha256").update(supplied).digest();
+  const expectedHash = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(suppliedHash, expectedHash);
+}
+
 router.post("/login", loginLimiter, async (req, res): Promise<void> => {
   res.set("Cache-Control", "no-store");
   const parsed = loginSchema.safeParse(req.body);
@@ -39,11 +45,12 @@ router.post("/login", loginLimiter, async (req, res): Promise<void> => {
   }
 
   const adminEmail = process.env.ADMIN_EMAIL;
+  const adminPassword = process.env.ADMIN_PASSWORD;
   const passwordHash = process.env.ADMIN_PASSWORD_HASH;
   const sessionSecret = process.env.SESSION_SECRET;
   if (
     !adminEmail ||
-    !passwordHash ||
+    (!adminPassword && !passwordHash) ||
     !sessionSecret ||
     sessionSecret.length < 32
   ) {
@@ -55,7 +62,9 @@ router.post("/login", loginLimiter, async (req, res): Promise<void> => {
   try {
     const [emailMatches, passwordMatches] = await Promise.all([
       Promise.resolve(equalEmail(parsed.data.email, adminEmail)),
-      bcrypt.compare(parsed.data.password, passwordHash),
+      adminPassword
+        ? Promise.resolve(equalPassword(parsed.data.password, adminPassword))
+        : bcrypt.compare(parsed.data.password, passwordHash!),
     ]);
     if (!emailMatches || !passwordMatches) {
       res.status(401).json({ success: false, error: "Invalid email or password." });
