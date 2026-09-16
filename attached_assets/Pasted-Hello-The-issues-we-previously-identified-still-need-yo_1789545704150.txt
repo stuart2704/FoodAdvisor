@@ -1,0 +1,46 @@
+Hello,
+
+The issues we previously identified still need your attention.
+
+If you have any questions, we are here to help. Reply to this message in App Store Connect and let us know.
+
+Review Environment
+Submission ID: 6dfb4aa6-4d38-4909-a1b0-f351c392384a
+Review date: September 15, 2026
+Review Device: iPad Air 11-inch (M3)
+Version reviewed: 1.1.0 (23)
+
+Guideline 2.1(b) - Performance - App Completeness
+Issue Description
+
+In-app purchase products associated with the app version submitted for review, such as "Premium" and "Pro ", could not be found in the submitted binary.
+
+Next Steps
+
+If these In-App Purchase products are not intended to be available at this time, remove them from App Store Connect before resubmitting.
+
+If these In-App Purchase products are intended to be available in the app, complete these steps:
+
+1. Ensure the products are active and that StoreKit is implemented in the app. If not, submit a new binary with these changes.
+2. Resubmit any rejected In-App Purchase products alongside the new binary. Rejected In-App Purchases can be found in App Store Connect in the sidebar under Monetization.
+3. Test your In-App Purchase products in the sandbox environment using the Sandbox Apple Account configured in App Store Connect to confirm they are active, correctly implemented, and completing successfully before resubmitting.
+
+After completing these steps, resubmit the app for review and attach a screen recording captured on a physical device in the Notes field of the App Review Information section in App Store Connect. The recording must:
+
+- Begin from the Home Screen, launch the app, and demonstrate the complete user flow through the app's core features using the demo account you provided in App Review Information.
+- Show a successful sandbox purchase demonstrating that the In-App Purchase products are active and completing as expected
+- Demonstrate all other purchase flows to access paid digital goods or services
+
+Resources
+
+- Learn how to implement In-App Purchase in the app in the In-App Purchase Programming Guide.
+- Learn more about offering In-App Purchases in App Store Connect Help.
+- Learn more about testing In-App Purchases in the sandbox environment.
+Guideline 1.5 - Safety
+Issue Description
+
+The Support URL provided in App Store Connect, http://www.thefoodadvisor.co.uk, is currently not functional and/or displays an error.
+
+Next Steps
+
+Update the specified Support URL to direct users to a functional webpage with support information.

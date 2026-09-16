@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Clock, Mail, UtensilsCrossed } from 'lucide-react';
+import { Clock, Mail, Presentation, UtensilsCrossed } from 'lucide-react';
 import { Link } from 'wouter';
 
 export default function Support() {
@@ -55,6 +55,29 @@ export default function Support() {
             If you need help with the app, your subscription, or your account, you’re in the right
             place. We’re here to make sure your experience is smooth and enjoyable.
           </p>
+        </section>
+
+        <section className="mb-12 rounded-2xl border border-primary/20 bg-primary/5 p-6 shadow-sm md:p-8">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-4">
+              <span className="rounded-xl bg-primary p-3 text-primary-foreground shadow-sm">
+                <Presentation className="h-6 w-6" />
+              </span>
+              <div>
+                <h2 className="text-2xl font-semibold">Project Presentation</h2>
+                <p className="mt-2 max-w-xl leading-7 text-muted-foreground">
+                  Explore the product vision, diner and restaurant-owner journeys, platform
+                  architecture, current status, and next milestones.
+                </p>
+              </div>
+            </div>
+            <a
+              href="/food-advisor-project-deck/"
+              className="inline-flex shrink-0 items-center justify-center rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition-opacity hover:opacity-90"
+            >
+              View presentation
+            </a>
+          </div>
         </section>
 
         <section className="mb-12 rounded-2xl border border-card-border bg-card p-6 shadow-sm md:p-8">

@@ -32,7 +32,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
-import { Check, Info, LayoutDashboard, MapPin, AlertCircle, Play, UtensilsCrossed, RefreshCw, XCircle } from 'lucide-react';
+ import { Check, Info, LayoutDashboard, MapPin, AlertCircle, Play, Presentation, UtensilsCrossed, RefreshCw, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Link } from 'wouter';
 
@@ -185,6 +185,13 @@ export default function Dashboard() {
           <h1 className="font-serif text-xl md:text-3xl font-semibold tracking-tight">The Food Advisor</h1>
         </div>
         <div className="hidden md:flex items-center gap-5 text-sm font-medium text-muted-foreground">
+          <a
+            href="/food-advisor-project-deck/"
+            className="flex items-center gap-2 transition-colors hover:text-primary"
+          >
+            <Presentation className="h-4 w-4" />
+            Project Presentation
+          </a>
           <Link href="/support" className="transition-colors hover:text-primary">
             Support
           </Link>
