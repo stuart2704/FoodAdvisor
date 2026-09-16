@@ -6,6 +6,7 @@ import StatusPanel from '@/components/status-panel';
 import ErrorPanel from '@/components/error-panel';
 import SummaryPanel from '@/components/summary-panel';
 import { DarkModeToggle } from '@/components/dark-mode-toggle';
+import { DashboardRestaurants } from '@/components/dashboard-restaurants';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   useGetRestaurantImportStatus,
@@ -32,7 +33,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
- import { Check, Info, LayoutDashboard, MapPin, AlertCircle, Play, Presentation, UtensilsCrossed, RefreshCw, XCircle } from 'lucide-react';
+import { Check, Info, LayoutDashboard, LogOut, MapPin, AlertCircle, Play, Presentation, UtensilsCrossed, RefreshCw, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Link } from 'wouter';
 
@@ -40,6 +41,14 @@ const DEFAULT_CITIES = ['London', 'Cardiff', 'Edinburgh', 'Glasgow', 'Manchester
 
 export default function Dashboard() {
   const queryClient = useQueryClient();
+
+  async function logout() {
+    await fetch('/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+    });
+    window.location.assign('/admin/login');
+  }
   
   // Queries
   const { data: healthData, isLoading: healthLoading, isError: healthError } = useHealthCheck();
@@ -199,6 +208,14 @@ export default function Dashboard() {
             <LayoutDashboard className="h-4 w-4" />
             Operator Dashboard
           </span>
+          <button
+            type="button"
+            onClick={() => void logout()}
+            className="flex items-center gap-2 transition-colors hover:text-primary"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign out
+          </button>
         </div>
       </header>
 
@@ -276,6 +293,8 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </section>
+
+        <DashboardRestaurants />
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">

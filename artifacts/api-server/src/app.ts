@@ -5,9 +5,12 @@ import express, {
   type Response,
 } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
+import session from "express-session";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import aiRoutes, { aiAutomationRouter } from "./routes/ai";
+import authRoutes from "./routes/auth";
 import adminRoutes from "./routes/admin";
 import statusRoutes from "./routes/status";
 import { dashboardRouter } from "./dashboard/dashboardAPI";
@@ -48,10 +51,30 @@ app.use("/api/webhooks", instantlyWebhookRouter);
 app.use("/webhooks", instantlyWebhookRouter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+const sessionSecret = process.env.SESSION_SECRET;
+if (!sessionSecret || sessionSecret.length < 32) {
+  throw new Error("SESSION_SECRET must contain at least 32 characters.");
+}
+app.use(
+  session({
+    name: "tfa_admin",
+    secret: sessionSecret,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 8 * 60 * 60 * 1000,
+    },
+  }),
+);
 
 app.use("/api", router);
 app.use("/ai", aiRoutes);
 app.use("/automation", aiAutomationRouter);
+app.use("/auth", authRoutes);
 app.use("/admin", adminRoutes);
 app.use("/status", statusRoutes);
 app.use("/dashboard", dashboardRouter);

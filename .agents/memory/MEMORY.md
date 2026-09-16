@@ -4,3 +4,4 @@
 - [Claim invitations](claim-invitations.md) — issuing an invitation is not a pending claim and must not suppress later outreach.
 - [Nearby location policy](nearby-location-policy.md) — no paid lookups on GPS requests or city-centre substitutes for missing restaurant coordinates.
 - [Secret-protected route checks](secret-route-checks.md) — shell checks can verify denial, but stored workflow secrets are not available for authenticated curl tests.
+- [Artifact route registration](artifact-route-registration.md) — exact API paths must be registered or the root SPA can return misleading 200 HTML.

@@ -8,6 +8,8 @@ import Dashboard from '@/pages/dashboard';
 import ClaimRestaurant from '@/pages/claim';
 import Unsubscribe from '@/pages/unsubscribe';
 import Support from '@/pages/support';
+import AdminLogin from '@/pages/admin-login';
+import { AdminGate } from '@/components/admin-gate';
 import {
   Route,
   Switch,
@@ -21,7 +23,13 @@ function Router() {
   return (
     <RoutedErrorBoundary>
       <Switch>
-        <Route path="/" component={Dashboard} />
+        <Route path="/admin/login" component={AdminLogin} />
+        <Route path="/admin/dashboard">
+          <AdminGate><Dashboard /></AdminGate>
+        </Route>
+        <Route path="/">
+          <AdminGate><Dashboard /></AdminGate>
+        </Route>
         <Route path="/claim/:placeId" component={ClaimRestaurant} />
         <Route path="/unsubscribe/:token" component={Unsubscribe} />
         <Route path="/support" component={Support} />

@@ -7,7 +7,7 @@ id = "3B4_FFSkEVBkAeYMFRJ2e"
 [[services]]
 localPort = 8080
 name = "API Server"
-paths = ["/api", "/ai", "/automation", "/webhooks/instantly", "/admin/activate-gmail-watch", "/admin/renew-gmail-watch", "/status/gmail-watch-status", "/dashboard/events", "/dashboard/health", "/dashboard/status", "/dashboard/errors", "/dashboard/summary"]
+paths = ["/api", "/ai", "/automation", "/auth", "/webhooks/instantly", "/admin/activate-gmail-watch", "/admin/renew-gmail-watch", "/status/gmail-watch-status", "/dashboard/events", "/dashboard/health", "/dashboard/status", "/dashboard/errors", "/dashboard/stats", "/dashboard/restaurants", "/dashboard/summary"]
 
 [services.development]
 run = "pnpm --filter @workspace/api-server run dev"

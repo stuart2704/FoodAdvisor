@@ -39,7 +39,7 @@ async function request<T>(endpoint: string, options: DashboardRequestOptions = {
     }
     // These exact cross-artifact paths are routed to the shared API server.
     const response = await fetch(`/dashboard/${endpoint}`, {
-      headers, signal: controller.signal, cache: 'no-store', credentials: 'same-origin',
+      headers, signal: controller.signal, cache: 'no-store', credentials: 'include',
     });
     if (response.status === 401 || response.status === 403) {
       throw new DashboardApiError('Dashboard access requires authorised admin credentials. Browser access has not been configured.', response.status);
@@ -65,4 +65,4 @@ export const getEvents = (options?: DashboardRequestOptions) => request<GetDashb
 export const getHealth = (options?: DashboardRequestOptions) => request<DashboardHealth>('health', options);
 export const getStatus = (options?: DashboardRequestOptions) => request<DashboardStatusCounts>('status', options);
 export const getErrors = (options?: DashboardRequestOptions) => request<GetDashboardErrors200>('errors', options);
-export const getSummary = (options?: DashboardRequestOptions) => request<GetDashboardSummary200>('summary', options);
+export const getSummary = (options?: DashboardRequestOptions) => request<GetDashboardSummary200>('stats', options);
