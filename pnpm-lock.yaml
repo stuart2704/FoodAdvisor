@@ -185,6 +185,9 @@ importers:
       '@workspace/db':
         specifier: workspace:*
         version: link:../../lib/db
+      bcrypt:
+        specifier: ^6.0.0
+        version: 6.0.0
       cookie-parser:
         specifier: ^1.4.7
         version: 1.4.7
@@ -219,6 +222,9 @@ importers:
         specifier: 'catalog:'
         version: 3.25.76
     devDependencies:
+      '@types/bcrypt':
+        specifier: ^6.0.0
+        version: 6.0.0
       '@types/cookie-parser':
         specifier: ^1.4.10
         version: 1.4.10(@types/express@5.0.6)
@@ -839,7 +845,7 @@ importers:
     devDependencies:
       orval:
         specifier: ^8.23.0
-        version: 8.23.0(prettier@3.9.6)(typescript@6.0.3)
+        version: 8.23.0(prettier@3.9.6)(typescript@5.9.3)
 
   lib/api-zod:
     dependencies:
@@ -2420,6 +2426,9 @@ packages:
   '@types/babel__traverse@7.28.0':
     resolution: {integrity: sha512-8PvcXf70gTDZBgt9ptxJ8elBeBjcLOAcOtoO/mPJjtji1+CdGbHgm77om1GrsPxsiE+uXIpNSK64UYaIwQXd4Q==}
 
+  '@types/bcrypt@6.0.0':
+    resolution: {integrity: sha512-/oJGukuH3D2+D+3H4JWLaAsJ/ji86dhRidzZ/Od7H/i8g+aCmvkeCc6Ni/f9uxGLSQVCRZkX2/lqEFG2BvWtlQ==}
+
   '@types/body-parser@1.19.6':
     resolution: {integrity: sha512-HLFeCYgz89uk22N5Qg3dvGvsv46B8GLvKKo1zKG4NybA8U2DiEO3w9lqGg29t/tfLRJpJ6iQxnVw4OnB7MoM9g==}
 
@@ -2686,6 +2695,10 @@ packages:
     resolution: {integrity: sha512-sbT0Ui/CZwyAyy7icT1Gw5P1LKRlFaHwaF6tDCW5YHq2X5SeeZFphBuIagopSfwSSZq3sQcbmEL072yphxm7ew==}
     engines: {node: '>=6.0.0'}
     hasBin: true
+
+  bcrypt@6.0.0:
+    resolution: {integrity: sha512-cU8v/EGSrnH+HnxV2z0J7/blxH8gq7Xh2JFT6Aroax7UohdmiJJlxApMxtKfuI7z68NvvVcmR78k2LbT6efhRg==}
+    engines: {node: '>= 18'}
 
   big-integer@1.6.52:
     resolution: {integrity: sha512-QxD8cf2eVqJOOz63z6JIN9BzvVs/dlySa5HGSBH5xtR8dPteIRQnBxxKqkNTiT6jbDTF6jAfrd4oMcND9RGbQg==}
@@ -4234,6 +4247,10 @@ packages:
       react: ^16.8 || ^17 || ^18 || ^19 || ^19.0.0-rc
       react-dom: ^16.8 || ^17 || ^18 || ^19 || ^19.0.0-rc
 
+  node-addon-api@8.9.2:
+    resolution: {integrity: sha512-VijLXbi3UACN69I0JVXJsX4tjACjNoQDgv2gTF6sx2wWEi8tkSg2eX8p5gSIFi8z2+DL3oHmY6OyKce38SDolg==}
+    engines: {node: ^18 || ^20 || >= 21}
+
   node-cron@4.6.0:
     resolution: {integrity: sha512-Si/bzYiKRHOB8/a99T2+SDGN582ONDMSTlJr5oCkT6GtnqPjZ2s10eoQRYkW9ZHwjVxONL+W8Fb+qR0AHMQsdg==}
     engines: {node: '>=20'}
@@ -4259,6 +4276,10 @@ packages:
   node-forge@1.4.0:
     resolution: {integrity: sha512-LarFH0+6VfriEhqMMcLX2F7SwSXeWwnEAJEsYm5QKWchiVYVvJyV9v7UDvUv+w5HO23ZpQTXDv/GxdDdMyOuoQ==}
     engines: {node: '>= 6.13.0'}
+
+  node-gyp-build@4.8.4:
+    resolution: {integrity: sha512-LA4ZjwlnUblHVgq0oBF3Jl/6h/Nvs5fzBLwdEF4nuxnFdsfajde4WfxtJr3CaiH+F6ewcIB/q4jQ4UzPyid+CQ==}
+    hasBin: true
 
   node-int64@0.4.0:
     resolution: {integrity: sha512-O5lz91xSOeoXP6DulyHfllpq+Eg00MWitZIbtPfoSEvqIHdl5gfcY6hYzDWnj0qD5tz52PI08u9qUvSVeUBeHw==}
@@ -6457,23 +6478,23 @@ snapshots:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.1
 
-  '@orval/angular@8.23.0(typescript@6.0.3)':
+  '@orval/angular@8.23.0(typescript@5.9.3)':
     dependencies:
-      '@orval/core': 8.23.0(typescript@6.0.3)
+      '@orval/core': 8.23.0(typescript@5.9.3)
     transitivePeerDependencies:
       - '@faker-js/faker'
       - supports-color
       - typescript
 
-  '@orval/axios@8.23.0(typescript@6.0.3)':
+  '@orval/axios@8.23.0(typescript@5.9.3)':
     dependencies:
-      '@orval/core': 8.23.0(typescript@6.0.3)
+      '@orval/core': 8.23.0(typescript@5.9.3)
     transitivePeerDependencies:
       - '@faker-js/faker'
       - supports-color
       - typescript
 
-  '@orval/core@8.23.0(typescript@6.0.3)':
+  '@orval/core@8.23.0(typescript@5.9.3)':
     dependencies:
       '@scalar/openapi-types': 0.8.0
       acorn: 8.17.0
@@ -6486,88 +6507,88 @@ snapshots:
       jsesc: 3.1.0
       remeda: 2.39.0
       tinyglobby: 0.2.17
-      typedoc: 0.28.20(typescript@6.0.3)
+      typedoc: 0.28.20(typescript@5.9.3)
     transitivePeerDependencies:
       - supports-color
       - typescript
 
-  '@orval/effect@8.23.0(typescript@6.0.3)':
+  '@orval/effect@8.23.0(typescript@5.9.3)':
     dependencies:
-      '@orval/core': 8.23.0(typescript@6.0.3)
+      '@orval/core': 8.23.0(typescript@5.9.3)
       remeda: 2.39.0
     transitivePeerDependencies:
       - '@faker-js/faker'
       - supports-color
       - typescript
 
-  '@orval/fetch@8.23.0(typescript@6.0.3)':
+  '@orval/fetch@8.23.0(typescript@5.9.3)':
     dependencies:
-      '@orval/core': 8.23.0(typescript@6.0.3)
+      '@orval/core': 8.23.0(typescript@5.9.3)
     transitivePeerDependencies:
       - '@faker-js/faker'
       - supports-color
       - typescript
 
-  '@orval/hono@8.23.0(typescript@6.0.3)':
+  '@orval/hono@8.23.0(typescript@5.9.3)':
     dependencies:
-      '@orval/core': 8.23.0(typescript@6.0.3)
-      '@orval/zod': 8.23.0(typescript@6.0.3)
+      '@orval/core': 8.23.0(typescript@5.9.3)
+      '@orval/zod': 8.23.0(typescript@5.9.3)
       fs-extra: 11.4.0
     optionalDependencies:
-      typescript: 6.0.3
+      typescript: 5.9.3
     transitivePeerDependencies:
       - '@faker-js/faker'
       - supports-color
 
-  '@orval/mcp@8.23.0(typescript@6.0.3)':
+  '@orval/mcp@8.23.0(typescript@5.9.3)':
     dependencies:
-      '@orval/core': 8.23.0(typescript@6.0.3)
-      '@orval/fetch': 8.23.0(typescript@6.0.3)
-      '@orval/zod': 8.23.0(typescript@6.0.3)
+      '@orval/core': 8.23.0(typescript@5.9.3)
+      '@orval/fetch': 8.23.0(typescript@5.9.3)
+      '@orval/zod': 8.23.0(typescript@5.9.3)
     transitivePeerDependencies:
       - '@faker-js/faker'
       - supports-color
       - typescript
 
-  '@orval/mock@8.23.0(typescript@6.0.3)':
+  '@orval/mock@8.23.0(typescript@5.9.3)':
     dependencies:
-      '@orval/core': 8.23.0(typescript@6.0.3)
+      '@orval/core': 8.23.0(typescript@5.9.3)
       remeda: 2.39.0
     transitivePeerDependencies:
       - '@faker-js/faker'
       - supports-color
       - typescript
 
-  '@orval/query@8.23.0(typescript@6.0.3)':
+  '@orval/query@8.23.0(typescript@5.9.3)':
     dependencies:
-      '@orval/core': 8.23.0(typescript@6.0.3)
-      '@orval/fetch': 8.23.0(typescript@6.0.3)
+      '@orval/core': 8.23.0(typescript@5.9.3)
+      '@orval/fetch': 8.23.0(typescript@5.9.3)
       remeda: 2.39.0
     transitivePeerDependencies:
       - '@faker-js/faker'
       - supports-color
       - typescript
 
-  '@orval/solid-start@8.23.0(typescript@6.0.3)':
+  '@orval/solid-start@8.23.0(typescript@5.9.3)':
     dependencies:
-      '@orval/core': 8.23.0(typescript@6.0.3)
+      '@orval/core': 8.23.0(typescript@5.9.3)
     transitivePeerDependencies:
       - '@faker-js/faker'
       - supports-color
       - typescript
 
-  '@orval/swr@8.23.0(typescript@6.0.3)':
+  '@orval/swr@8.23.0(typescript@5.9.3)':
     dependencies:
-      '@orval/core': 8.23.0(typescript@6.0.3)
-      '@orval/fetch': 8.23.0(typescript@6.0.3)
+      '@orval/core': 8.23.0(typescript@5.9.3)
+      '@orval/fetch': 8.23.0(typescript@5.9.3)
     transitivePeerDependencies:
       - '@faker-js/faker'
       - supports-color
       - typescript
 
-  '@orval/zod@8.23.0(typescript@6.0.3)':
+  '@orval/zod@8.23.0(typescript@5.9.3)':
     dependencies:
-      '@orval/core': 8.23.0(typescript@6.0.3)
+      '@orval/core': 8.23.0(typescript@5.9.3)
       jsesc: 3.1.0
       remeda: 2.39.0
     transitivePeerDependencies:
@@ -7684,6 +7705,10 @@ snapshots:
     dependencies:
       '@babel/types': 7.29.7
 
+  '@types/bcrypt@6.0.0':
+    dependencies:
+      '@types/node': 25.9.5
+
   '@types/body-parser@1.19.6':
     dependencies:
       '@types/connect': 3.4.38
@@ -8003,6 +8028,11 @@ snapshots:
   base64-js@1.5.1: {}
 
   baseline-browser-mapping@2.11.3: {}
+
+  bcrypt@6.0.0:
+    dependencies:
+      node-addon-api: 8.9.2
+      node-gyp-build: 4.8.4
 
   big-integer@1.6.52: {}
 
@@ -9690,6 +9720,8 @@ snapshots:
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
 
+  node-addon-api@8.9.2: {}
+
   node-cron@4.6.0: {}
 
   node-domexception@1.0.0: {}
@@ -9705,6 +9737,8 @@ snapshots:
       formdata-polyfill: 4.0.10
 
   node-forge@1.4.0: {}
+
+  node-gyp-build@4.8.4: {}
 
   node-int64@0.4.0: {}
 
@@ -9776,21 +9810,21 @@ snapshots:
 
   orderedmap@2.1.1: {}
 
-  orval@8.23.0(prettier@3.9.6)(typescript@6.0.3):
+  orval@8.23.0(prettier@3.9.6)(typescript@5.9.3):
     dependencies:
       '@commander-js/extra-typings': 15.0.0(commander@15.0.0)
-      '@orval/angular': 8.23.0(typescript@6.0.3)
-      '@orval/axios': 8.23.0(typescript@6.0.3)
-      '@orval/core': 8.23.0(typescript@6.0.3)
-      '@orval/effect': 8.23.0(typescript@6.0.3)
-      '@orval/fetch': 8.23.0(typescript@6.0.3)
-      '@orval/hono': 8.23.0(typescript@6.0.3)
-      '@orval/mcp': 8.23.0(typescript@6.0.3)
-      '@orval/mock': 8.23.0(typescript@6.0.3)
-      '@orval/query': 8.23.0(typescript@6.0.3)
-      '@orval/solid-start': 8.23.0(typescript@6.0.3)
-      '@orval/swr': 8.23.0(typescript@6.0.3)
-      '@orval/zod': 8.23.0(typescript@6.0.3)
+      '@orval/angular': 8.23.0(typescript@5.9.3)
+      '@orval/axios': 8.23.0(typescript@5.9.3)
+      '@orval/core': 8.23.0(typescript@5.9.3)
+      '@orval/effect': 8.23.0(typescript@5.9.3)
+      '@orval/fetch': 8.23.0(typescript@5.9.3)
+      '@orval/hono': 8.23.0(typescript@5.9.3)
+      '@orval/mcp': 8.23.0(typescript@5.9.3)
+      '@orval/mock': 8.23.0(typescript@5.9.3)
+      '@orval/query': 8.23.0(typescript@5.9.3)
+      '@orval/solid-start': 8.23.0(typescript@5.9.3)
+      '@orval/swr': 8.23.0(typescript@5.9.3)
+      '@orval/zod': 8.23.0(typescript@5.9.3)
       '@scalar/json-magic': 0.12.19
       '@scalar/openapi-parser': 0.28.10
       '@scalar/openapi-types': 0.8.0
@@ -9804,9 +9838,9 @@ snapshots:
       js-yaml: 4.3.0
       remeda: 2.39.0
       string-argv: 0.3.2
-      typedoc: 0.28.20(typescript@6.0.3)
-      typedoc-plugin-coverage: 4.0.3(typedoc@0.28.20(typescript@6.0.3))
-      typedoc-plugin-markdown: 4.12.0(typedoc@0.28.20(typescript@6.0.3))
+      typedoc: 0.28.20(typescript@5.9.3)
+      typedoc-plugin-coverage: 4.0.3(typedoc@0.28.20(typescript@5.9.3))
+      typedoc-plugin-markdown: 4.12.0(typedoc@0.28.20(typescript@5.9.3))
     optionalDependencies:
       prettier: 3.9.6
     transitivePeerDependencies:
@@ -10742,21 +10776,21 @@ snapshots:
       media-typer: 1.1.1
       mime-types: 3.0.2
 
-  typedoc-plugin-coverage@4.0.3(typedoc@0.28.20(typescript@6.0.3)):
+  typedoc-plugin-coverage@4.0.3(typedoc@0.28.20(typescript@5.9.3)):
     dependencies:
-      typedoc: 0.28.20(typescript@6.0.3)
+      typedoc: 0.28.20(typescript@5.9.3)
 
-  typedoc-plugin-markdown@4.12.0(typedoc@0.28.20(typescript@6.0.3)):
+  typedoc-plugin-markdown@4.12.0(typedoc@0.28.20(typescript@5.9.3)):
     dependencies:
-      typedoc: 0.28.20(typescript@6.0.3)
+      typedoc: 0.28.20(typescript@5.9.3)
 
-  typedoc@0.28.20(typescript@6.0.3):
+  typedoc@0.28.20(typescript@5.9.3):
     dependencies:
       '@gerrit0/mini-shiki': 3.23.0
       lunr: 2.3.9
       markdown-it: 14.3.0
       minimatch: 10.2.5
-      typescript: 6.0.3
+      typescript: 5.9.3
       yaml: 2.9.0
 
   typescript@5.9.3: {}
