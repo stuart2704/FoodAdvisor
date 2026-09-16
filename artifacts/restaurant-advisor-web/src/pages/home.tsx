@@ -66,6 +66,11 @@ function Section({
 export default function HomePage() {
   const [data, setData] = useState<HomepageData | null>(null);
   const [recommended, setRecommended] = useState<HomepageRestaurant[]>([]);
+  const [trendingNearby, setTrendingNearby] = useState<HomepageRestaurant[]>([]);
+  const [topCuisine, setTopCuisine] = useState<{
+    cuisine: string;
+    items: HomepageRestaurant[];
+  } | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -109,6 +114,45 @@ export default function HomePage() {
           }
         })
         .catch(() => undefined);
+      void fetch('/api/recommendations/trending', {
+        signal: controller.signal,
+        cache: 'no-store',
+        headers: { 'X-Visitor-Id': visitorId },
+      })
+        .then(async (response) => {
+          const payload = (await response.json()) as {
+            success: boolean;
+            data?: HomepageRestaurant[];
+          };
+          if (response.ok && payload.success && payload.data) {
+            setTrendingNearby(payload.data);
+          }
+        })
+        .catch(() => undefined);
+      void fetch('/api/recommendations/top-cuisine', {
+        signal: controller.signal,
+        cache: 'no-store',
+        headers: { 'X-Visitor-Id': visitorId },
+      })
+        .then(async (response) => {
+          const payload = (await response.json()) as {
+            success: boolean;
+            cuisine?: string;
+            data?: HomepageRestaurant[];
+          };
+          if (
+            response.ok &&
+            payload.success &&
+            payload.cuisine &&
+            payload.data
+          ) {
+            setTopCuisine({
+              cuisine: payload.cuisine,
+              items: payload.data,
+            });
+          }
+        })
+        .catch(() => undefined);
     }
     return () => controller.abort();
   }, []);
@@ -139,6 +183,13 @@ export default function HomePage() {
         </section>
         <Section title="Featured Restaurants" items={data.featured} />
         <Section title="Recommended for you" items={recommended} />
+        <Section title="Trending in your area" items={trendingNearby} />
+        {topCuisine ? (
+          <Section
+            title={`Top ${topCuisine.cuisine} picks`}
+            items={topCuisine.items}
+          />
+        ) : null}
         <Section title="Trending Now" items={data.trending} />
         <Section title="Premium Highlights" items={data.premium} />
         {Object.entries(data.cityHighlights).map(([city, items]) => (

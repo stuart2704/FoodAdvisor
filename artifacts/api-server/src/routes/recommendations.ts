@@ -3,6 +3,8 @@ import { z } from "zod";
 import {
   getRecommendedForVisitor,
   getSimilarRestaurants,
+  getTopCuisine,
+  getTrending,
 } from "../services/recommendationEngine";
 import { getVisitorProfile } from "../services/personalisationEngine";
 
@@ -67,6 +69,78 @@ router.get("/recommendations", async (req, res) => {
     res.status(503).json({
       success: false,
       error: "Visitor recommendations are temporarily unavailable.",
+    });
+  }
+});
+
+router.get("/recommendations/trending", async (req, res) => {
+  const visitorId = req.get("X-Visitor-Id");
+  if (!visitorId || !VisitorId.safeParse(visitorId).success) {
+    res.status(400).json({
+      success: false,
+      error: "A valid visitor profile is required for local trends.",
+    });
+    return;
+  }
+  try {
+    const profile = await getVisitorProfile(visitorId);
+    const city = profile?.preferredCities.at(-1);
+    if (!profile || !city) {
+      res.status(404).json({
+        success: false,
+        error: "No preferred city is available for this visitor profile.",
+      });
+      return;
+    }
+    const trending = await getTrending(city);
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("Vary", "X-Visitor-Id");
+    res.json({
+      success: true,
+      city,
+      data: trending.map(toPublicRestaurant),
+    });
+  } catch (error) {
+    req.log.error({ err: error }, "Local trending recommendations failed");
+    res.status(503).json({
+      success: false,
+      error: "Local trending restaurants are temporarily unavailable.",
+    });
+  }
+});
+
+router.get("/recommendations/top-cuisine", async (req, res) => {
+  const visitorId = req.get("X-Visitor-Id");
+  if (!visitorId || !VisitorId.safeParse(visitorId).success) {
+    res.status(400).json({
+      success: false,
+      error: "A valid visitor profile is required for cuisine picks.",
+    });
+    return;
+  }
+  try {
+    const profile = await getVisitorProfile(visitorId);
+    const cuisine = profile?.preferredCuisines.at(-1);
+    if (!profile || !cuisine) {
+      res.status(404).json({
+        success: false,
+        error: "No preferred cuisine is available for this visitor profile.",
+      });
+      return;
+    }
+    const topCuisine = await getTopCuisine(cuisine);
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("Vary", "X-Visitor-Id");
+    res.json({
+      success: true,
+      cuisine,
+      data: topCuisine.map(toPublicRestaurant),
+    });
+  } catch (error) {
+    req.log.error({ err: error }, "Top cuisine recommendations failed");
+    res.status(503).json({
+      success: false,
+      error: "Top cuisine picks are temporarily unavailable.",
     });
   }
 });

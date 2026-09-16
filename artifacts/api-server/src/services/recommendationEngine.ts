@@ -1,9 +1,10 @@
 import {
   db,
+  analyticsEventsTable,
   restaurantsTable,
   type RestaurantRecord,
 } from "@workspace/db";
-import { and, desc, eq, gt, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, ne, sql } from "drizzle-orm";
 import { calculateRanking } from "./rankingEngine";
 
 export interface VisitorRecommendationProfile {
@@ -163,4 +164,44 @@ export async function getTopCuisine(
         left.name.localeCompare(right.name),
     )
     .slice(0, 10);
+}
+
+export async function getOwnerCompetitors(
+  restaurantId: string,
+): Promise<RestaurantRecord[]> {
+  const relationships = await db
+    .select({
+      restaurantId: analyticsEventsTable.restaurantId,
+      views: sql<number>`count(*)`.mapWith(Number),
+    })
+    .from(analyticsEventsTable)
+    .where(
+      and(
+        eq(analyticsEventsTable.type, "profile_view"),
+        sql`${analyticsEventsTable.metadata} ->> 'viewedWith' = ${restaurantId}`,
+        sql`${analyticsEventsTable.metadata} ->> 'source' = 'server_profile'`,
+      ),
+    )
+    .groupBy(analyticsEventsTable.restaurantId)
+    .orderBy(desc(sql<number>`count(*)`))
+    .limit(20);
+  const ids = relationships
+    .map((relationship) => relationship.restaurantId)
+    .filter((id) => id !== restaurantId);
+  if (ids.length === 0) return [];
+  const restaurants = await db
+    .select()
+    .from(restaurantsTable)
+    .where(inArray(restaurantsTable.placeId, ids));
+  const relationshipOrder = new Map(
+    relationships.map((relationship, index) => [
+      relationship.restaurantId,
+      index,
+    ]),
+  );
+  return restaurants.sort(
+    (left, right) =>
+      (relationshipOrder.get(left.placeId) ?? Number.MAX_SAFE_INTEGER) -
+      (relationshipOrder.get(right.placeId) ?? Number.MAX_SAFE_INTEGER),
+  );
 }

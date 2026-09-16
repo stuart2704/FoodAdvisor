@@ -24,7 +24,13 @@ const EventBody = z.object({
       z.union([z.string(), z.number(), z.boolean(), z.null()]),
     )
     .optional(),
-});
+}).refine(
+  (value) =>
+    !value.metadata ||
+    (!Object.hasOwn(value.metadata, "viewedWith") &&
+      value.metadata.source !== "server_profile"),
+  { message: "Reserved analytics metadata is not accepted." },
+);
 
 router.post("/analytics/events", analyticsLimiter, async (req, res) => {
   const parsed = EventBody.safeParse(req.body);
