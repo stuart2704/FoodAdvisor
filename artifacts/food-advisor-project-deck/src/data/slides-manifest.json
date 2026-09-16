@@ -1,0 +1,82 @@
+[
+  {
+    "id": "7d6b5d2a-1e11-4b9f-a101-000000000001",
+    "position": 1,
+    "filepath": "src/pages/slides/Title.tsx",
+    "title": "The Food Advisor",
+    "description": "Project overview cover",
+    "speakerNotes": ""
+  },
+  {
+    "id": "7d6b5d2a-1e11-4b9f-a101-000000000002",
+    "position": 2,
+    "filepath": "src/pages/slides/Audiences.tsx",
+    "title": "One platform, two audiences",
+    "description": "Product model",
+    "speakerNotes": ""
+  },
+  {
+    "id": "7d6b5d2a-1e11-4b9f-a101-000000000003",
+    "position": 3,
+    "filepath": "src/pages/slides/Diner.tsx",
+    "title": "The diner experience",
+    "description": "Consumer experience",
+    "speakerNotes": ""
+  },
+  {
+    "id": "7d6b5d2a-1e11-4b9f-a101-000000000004",
+    "position": 4,
+    "filepath": "src/pages/slides/NearMe.tsx",
+    "title": "Near me is private and cost-controlled",
+    "description": "Location policy",
+    "speakerNotes": ""
+  },
+  {
+    "id": "7d6b5d2a-1e11-4b9f-a101-000000000005",
+    "position": 5,
+    "filepath": "src/pages/slides/Owner.tsx",
+    "title": "The restaurant-owner journey",
+    "description": "Owner experience",
+    "speakerNotes": ""
+  },
+  {
+    "id": "7d6b5d2a-1e11-4b9f-a101-000000000006",
+    "position": 6,
+    "filepath": "src/pages/slides/Architecture.tsx",
+    "title": "Built across four connected layers",
+    "description": "Platform architecture",
+    "speakerNotes": ""
+  },
+  {
+    "id": "7d6b5d2a-1e11-4b9f-a101-000000000007",
+    "position": 7,
+    "filepath": "src/pages/slides/Safeguards.tsx",
+    "title": "Operational safeguards are built in",
+    "description": "Operational controls",
+    "speakerNotes": ""
+  },
+  {
+    "id": "7d6b5d2a-1e11-4b9f-a101-000000000008",
+    "position": 8,
+    "filepath": "src/pages/slides/Status.tsx",
+    "title": "Current project status",
+    "description": "Delivery status",
+    "speakerNotes": ""
+  },
+  {
+    "id": "7d6b5d2a-1e11-4b9f-a101-000000000009",
+    "position": 9,
+    "filepath": "src/pages/slides/Inactive.tsx",
+    "title": "Deliberately not active yet",
+    "description": "Inactive modules",
+    "speakerNotes": ""
+  },
+  {
+    "id": "7d6b5d2a-1e11-4b9f-a101-000000000010",
+    "position": 10,
+    "filepath": "src/pages/slides/Next.tsx",
+    "title": "Next milestones",
+    "description": "Closing priorities",
+    "speakerNotes": ""
+  }
+]

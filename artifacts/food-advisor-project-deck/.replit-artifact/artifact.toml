@@ -1,0 +1,28 @@
+kind = "slides"
+previewPath = "/food-advisor-project-deck/"
+title = "The Food Advisor — Project Deck"
+description = "A professional 10-slide overview of The Food Advisor, covering the diner and restaurant-owner experiences, platform architecture, operational safeguards, current status, and next milestones."
+version = "1.0.0"
+id = "artifacts/food-advisor-project-deck"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/food-advisor-project-deck/" ]
+localPort = 22339
+
+[services.development]
+run = "pnpm --filter @workspace/food-advisor-project-deck run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/food-advisor-project-deck", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/food-advisor-project-deck/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22339"
+BASE_PATH = "/food-advisor-project-deck/"

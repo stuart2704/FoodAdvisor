@@ -1,0 +1,6 @@
+const base=import.meta.env.BASE_URL;
+export default function Title(){return <div className="w-screen h-screen overflow-hidden relative bg-bg font-body text-text">
+<div className="absolute inset-y-0 right-0 w-[47vw] bg-primary"></div><div className="absolute left-[6vw] top-[6vh] flex items-center gap-[1.2vw]"><img src={`${base}food-advisor-logo.png`} crossOrigin="anonymous" className="w-[4vw] h-[4vw] rounded-[0.7vw]"/><span className="font-body text-[1.5vw] font-bold tracking-[0.12em] uppercase">The Food Advisor</span></div>
+<div className="absolute left-[6vw] top-[27vh] w-[47vw]"><h1 className="font-display text-[6.2vw] leading-[0.94] tracking-[-0.04em]">The Food Advisor</h1><p className="mt-[4vh] text-[2vw] leading-[1.45] text-muted w-[42vw]">Restaurant discovery for diners. Digital growth tools for independent restaurants.</p></div>
+<img src={`${base}screens/02-Discover.png`} crossOrigin="anonymous" className="absolute right-[8vw] top-[6vh] h-[89vh] object-contain drop-shadow-2xl"/>
+<div className="absolute left-[6vw] bottom-[6vh] w-[34vw] h-[0.5vh] bg-primary"></div></div>}
