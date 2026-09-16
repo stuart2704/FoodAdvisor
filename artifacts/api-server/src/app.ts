@@ -13,7 +13,7 @@ import aiRoutes, { aiAutomationRouter } from "./routes/ai";
 import authRoutes from "./routes/auth";
 import adminRoutes from "./routes/admin";
 import statusRoutes from "./routes/status";
-import { dashboardRouter } from "./dashboard/dashboardAPI";
+import dashboardRoutes from "./routes/dashboard";
 import { logger } from "./lib/logger";
 import { instantlyWebhookRouter } from "./outreach/instantlyWebhook";
 
@@ -77,9 +77,9 @@ app.use("/automation", aiAutomationRouter);
 app.use("/auth", authRoutes);
 app.use("/admin", adminRoutes);
 app.use("/status", statusRoutes);
-app.use("/dashboard", dashboardRouter);
+app.use("/dashboard", dashboardRoutes);
 // Generated clients use the shared /api base; both aliases use identical auth.
-app.use("/api/dashboard", dashboardRouter);
+app.use("/api/dashboard", dashboardRoutes);
 
 app.use(
   (

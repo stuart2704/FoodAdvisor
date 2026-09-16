@@ -53,11 +53,11 @@ export function DashboardRestaurants() {
     })
       .then(async (response) => {
         const result = (await response.json()) as RestaurantsResponse;
-        if (response.status === 401) {
+        if (!result.success) {
           window.location.assign('/admin/login');
           return null;
         }
-        if (!response.ok || !result.success) {
+        if (!response.ok) {
           throw new Error(result.error ?? 'Restaurants could not be loaded.');
         }
         return result;

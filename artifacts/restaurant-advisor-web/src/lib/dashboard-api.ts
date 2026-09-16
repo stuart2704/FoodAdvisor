@@ -42,6 +42,7 @@ async function request<T>(endpoint: string, options: DashboardRequestOptions = {
       headers, signal: controller.signal, cache: 'no-store', credentials: 'include',
     });
     if (response.status === 401 || response.status === 403) {
+      window.location.assign('/admin/login');
       throw new DashboardApiError('Dashboard access requires authorised admin credentials. Browser access has not been configured.', response.status);
     }
     if (!response.ok) throw new DashboardApiError('The dashboard service is temporarily unavailable.', response.status);

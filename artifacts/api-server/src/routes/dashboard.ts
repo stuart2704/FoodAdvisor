@@ -1,30 +1,41 @@
-import { Router } from "express";
 import { db, restaurantsTable } from "@workspace/db";
 import { desc, sql } from "drizzle-orm";
+import { Router, type IRouter } from "express";
 import { z } from "zod";
+import { getErrorSummary } from "../dashboard/errorSummary";
+import { getStatusCounts } from "../dashboard/statusStats";
+import { getRecentHealth, computeDailyHealthScore } from "../health/scraperHealth";
 import { adminOnly } from "../middleware/adminOnly";
 import { getEvents } from "../utils/eventLog";
-import { getRecentHealth, computeDailyHealthScore } from "../health/scraperHealth";
-import { getStatusCounts } from "./statusStats";
-import { getErrorSummary } from "./errorSummary";
 
-export const dashboardRouter = Router();
-dashboardRouter.use(adminOnly);
+const router: IRouter = Router();
 
-// Preserve the existing raw {time,type,message,category?} events contract.
-dashboardRouter.get("/events", (_req, res) => { res.json(getEvents()); });
-dashboardRouter.get("/health", (_req, res) => {
+router.get("/events", adminOnly, (_req, res) => {
+  res.json(getEvents());
+});
+
+router.get("/health", adminOnly, (_req, res) => {
   res.json({
-    recent: getRecentHealth(), score: computeDailyHealthScore(),
-    scope: "current_process", scoringWindow: "last_10_samples_today_utc",
+    recent: getRecentHealth(),
+    score: computeDailyHealthScore(),
+    scope: "current_process",
+    scoringWindow: "last_10_samples_today_utc",
   });
 });
-dashboardRouter.get("/status", async (_req, res) => {
-  try { res.json(await getStatusCounts()); }
-  catch { res.status(503).json({ error: "Dashboard status counts are unavailable." }); }
+
+router.get("/status", adminOnly, async (_req, res) => {
+  try {
+    res.json(await getStatusCounts());
+  } catch {
+    res.status(503).json({ error: "Dashboard status counts are unavailable." });
+  }
 });
-dashboardRouter.get("/errors", (_req, res) => { res.json(getErrorSummary()); });
-dashboardRouter.get("/stats", async (_req, res) => {
+
+router.get("/errors", adminOnly, (_req, res) => {
+  res.json(getErrorSummary());
+});
+
+router.get("/stats", adminOnly, async (_req, res) => {
   try {
     const statusCounts = await getStatusCounts();
     res.json({
@@ -35,10 +46,14 @@ dashboardRouter.get("/stats", async (_req, res) => {
       healthScope: "current_process",
     });
   } catch {
-    res.status(503).json({ error: "Dashboard stats are unavailable." });
+    res.status(503).json({
+      success: false,
+      error: "Dashboard stats are unavailable.",
+    });
   }
 });
-dashboardRouter.get("/restaurants", async (req, res) => {
+
+router.get("/restaurants", adminOnly, async (req, res) => {
   const pagination = z
     .object({
       page: z.coerce.number().int().min(1).default(1),
@@ -90,12 +105,19 @@ dashboardRouter.get("/restaurants", async (req, res) => {
     });
   }
 });
-dashboardRouter.get("/summary", async (_req, res) => {
+
+router.get("/summary", adminOnly, async (_req, res) => {
   try {
     const statusCounts = await getStatusCounts();
     res.json({
-      statusCounts, healthScore: computeDailyHealthScore(), recentEvents: getEvents().slice(-10),
+      statusCounts,
+      healthScore: computeDailyHealthScore(),
+      recentEvents: getEvents().slice(-10),
       healthScope: "current_process",
     });
-  } catch { res.status(503).json({ error: "Dashboard summary is unavailable." }); }
+  } catch {
+    res.status(503).json({ error: "Dashboard summary is unavailable." });
+  }
 });
+
+export default router;
