@@ -1,5 +1,6 @@
 import Stripe from "stripe";
 import {
+  analyticsEventsTable,
   db,
   restaurantsTable,
   stripeProcessedEventsTable,
@@ -108,6 +109,15 @@ async function applyVerifiedEvent(event: Stripe.Event): Promise<void> {
       ) {
         throw new Error("Stripe checkout metadata was incomplete.");
       }
+      const [existing] = await tx
+        .select({
+          placeId: restaurantsTable.placeId,
+          premium: restaurantsTable.premium,
+        })
+        .from(restaurantsTable)
+        .where(eq(restaurantsTable.placeId, restaurantId))
+        .limit(1);
+      if (!existing) throw new Error("Stripe restaurant mapping was missing.");
       const [updated] = await tx
         .update(restaurantsTable)
         .set({
@@ -120,6 +130,13 @@ async function applyVerifiedEvent(event: Stripe.Event): Promise<void> {
         .where(eq(restaurantsTable.placeId, restaurantId))
         .returning({ placeId: restaurantsTable.placeId });
       if (!updated) throw new Error("Stripe restaurant mapping was missing.");
+      if (!existing.premium) {
+        await tx.insert(analyticsEventsTable).values({
+          restaurantId,
+          type: "premium_conversion",
+          metadata: {},
+        });
+      }
     }
 
     if (event.type === "customer.subscription.deleted") {

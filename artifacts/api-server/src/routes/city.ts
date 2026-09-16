@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { getCityPage } from "../services/cityPageEngine";
+import { cityPageViewEventsTable, db } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -16,6 +17,14 @@ router.get("/city/:city", async (req, res) => {
   }
   try {
     const data = await getCityPage(parsed.data.city);
+    try {
+      await db.insert(cityPageViewEventsTable).values({
+        city: data.city,
+        restaurantCount: data.restaurantCount,
+      });
+    } catch (error) {
+      req.log.warn({ err: error }, "City page metric could not be recorded");
+    }
     res.setHeader("Cache-Control", "public, max-age=300");
     res.json({ success: true, data });
   } catch (error) {

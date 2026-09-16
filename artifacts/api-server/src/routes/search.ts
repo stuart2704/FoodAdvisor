@@ -14,6 +14,11 @@ import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { scoreSearchRelevance } from "../services/searchRelevanceService";
 import { calculateRanking } from "../services/rankingEngine";
+import { logEvent } from "../services/analyticsEngine";
+import {
+  getVisitorProfile,
+  personaliseSearch,
+} from "../services/personalisationEngine";
 
 const router: IRouter = Router();
 
@@ -144,8 +149,22 @@ async function searchRestaurants(req: Request, res: Response): Promise<void> {
       .sort(
         (left, right) => right.rankingScore - left.rankingScore,
       );
+    const visitorId = req.get("X-Visitor-Id");
+    let personalisedResults = ranked;
+    if (visitorId) {
+      try {
+        const profile = await getVisitorProfile(visitorId);
+        if (profile) personalisedResults = personaliseSearch(ranked, profile);
+      } catch {
+        res.status(400).json({
+          success: false,
+          error: "The visitor profile identifier is invalid.",
+        });
+        return;
+      }
+    }
     const offset = (page - 1) * limit;
-    const results = ranked.slice(offset, offset + limit);
+    const results = personalisedResults.slice(offset, offset + limit);
 
     const aiScoredCount = [...aiBoosts.values()].filter(
       (value): value is number => value !== null,
@@ -164,8 +183,24 @@ async function searchRestaurants(req: Request, res: Response): Promise<void> {
     } catch (error) {
       req.log.warn({ err: error }, "Search metric could not be recorded");
     }
+    const impressionResults = await Promise.allSettled(
+      results.map((restaurant, index) =>
+        logEvent(restaurant.id, "search_impression", {
+          position: offset + index + 1,
+          queryProvided: Boolean(q),
+          cityFiltered: Boolean(city),
+          cuisineFiltered: Boolean(cuisine),
+          premiumOnly: premiumOnly === "true",
+        }),
+      ),
+    );
+    if (impressionResults.some((result) => result.status === "rejected")) {
+      req.log.warn("One or more search impressions could not be recorded");
+    }
 
     res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("Vary", "X-Visitor-Id");
+    res.setHeader("Cache-Control", visitorId ? "private, no-store" : "no-store");
     res.json({
       success: true,
       results,

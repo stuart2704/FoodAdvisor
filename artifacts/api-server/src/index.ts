@@ -5,6 +5,8 @@ import { startWatchHealthCheck } from "./cron/watchHealthCheck";
 import { startDailyOutreachScheduler } from "./cron/dailyOutreach";
 import { initializeStripe } from "./services/stripeClient";
 import { startDailyRankingScheduler } from "./cron/dailyRankings";
+import { startAnalyticsRollupScheduler } from "./cron/analyticsRollup";
+import { startGlobalMetricsScheduler } from "./cron/globalMetrics";
 
 const rawPort = process.env["PORT"];
 
@@ -31,6 +33,8 @@ app.listen(port, (err) => {
   startWatchHealthCheck();
   startDailyOutreachScheduler();
   startDailyRankingScheduler();
+  startAnalyticsRollupScheduler();
+  startGlobalMetricsScheduler();
   void initializeStripe().then(
     () => logger.info("Stripe connector initialized."),
     (error) =>

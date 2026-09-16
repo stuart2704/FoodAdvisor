@@ -1,27 +1,27 @@
 import { useEffect, useState } from 'react';
 import { Crown, Loader2, Search } from 'lucide-react';
-import { Link } from 'wouter';
+import { Link, useParams } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
-interface HomepageRestaurant {
+interface CuisineRestaurant {
   id: string;
   name: string;
   city: string;
   country: string;
   cuisine: string | null;
-  tags: string[];
   rating: number | null;
   premium: boolean;
 }
 
-interface HomepageData {
-  featured: HomepageRestaurant[];
-  trending: HomepageRestaurant[];
-  premium: HomepageRestaurant[];
-  cityHighlights: Record<string, HomepageRestaurant[]>;
-  cuisineHighlights: Record<string, HomepageRestaurant[]>;
-  globalDiscovery: HomepageRestaurant[];
+interface CuisineData {
+  cuisine: string;
+  restaurantCount: number;
+  top: CuisineRestaurant[];
+  premium: CuisineRestaurant[];
+  trending: CuisineRestaurant[];
+  citySections: Record<string, CuisineRestaurant[]>;
+  discovery: CuisineRestaurant[];
 }
 
 function Section({
@@ -29,7 +29,7 @@ function Section({
   items,
 }: {
   title: string;
-  items: HomepageRestaurant[];
+  items: CuisineRestaurant[];
 }) {
   if (items.length === 0) return null;
   return (
@@ -51,7 +51,7 @@ function Section({
                 {restaurant.cuisine ?? 'Restaurant'} · {restaurant.city}
               </p>
               {restaurant.rating !== null && (
-                <p className="mt-3 text-sm font-medium" aria-label={`${restaurant.rating} out of 5 stars`}>
+                <p className="mt-3 text-sm font-medium">
                   <span className="text-amber-500">★</span> {restaurant.rating.toFixed(1)}
                 </p>
               )}
@@ -63,55 +63,38 @@ function Section({
   );
 }
 
-export default function HomePage() {
-  const [data, setData] = useState<HomepageData | null>(null);
-  const [recommended, setRecommended] = useState<HomepageRestaurant[]>([]);
+export default function CuisinePage() {
+  const { cuisine = '' } = useParams<{ cuisine: string }>();
+  const [data, setData] = useState<CuisineData | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    document.title = 'The Food Advisor | Discover Restaurants';
     const controller = new AbortController();
-    const visitorId = window.localStorage.getItem('foodAdvisorVisitorId');
-    void fetch('/homepage', {
+    setData(null);
+    setError('');
+    void fetch(`/api/cuisine/${encodeURIComponent(cuisine)}`, {
       signal: controller.signal,
       cache: 'no-store',
-      ...(visitorId ? { headers: { 'X-Visitor-Id': visitorId } } : {}),
     })
       .then(async (response) => {
         const payload = (await response.json()) as {
           success: boolean;
-          data?: HomepageData;
+          data?: CuisineData;
           error?: string;
         };
         if (!response.ok || !payload.success || !payload.data) {
-          throw new Error(payload.error ?? 'Homepage recommendations are unavailable.');
+          throw new Error(payload.error ?? 'Cuisine recommendations are unavailable.');
         }
+        document.title = `Best ${payload.data.cuisine} Restaurants | The Food Advisor`;
         setData(payload.data);
       })
       .catch((failure: unknown) => {
         if (!(failure instanceof DOMException && failure.name === 'AbortError')) {
-          setError(failure instanceof Error ? failure.message : 'Homepage recommendations are unavailable.');
+          setError(failure instanceof Error ? failure.message : 'Cuisine recommendations are unavailable.');
         }
       });
-    if (visitorId) {
-      void fetch('/api/recommendations', {
-        signal: controller.signal,
-        cache: 'no-store',
-        headers: { 'X-Visitor-Id': visitorId },
-      })
-        .then(async (response) => {
-          const payload = (await response.json()) as {
-            success: boolean;
-            data?: HomepageRestaurant[];
-          };
-          if (response.ok && payload.success && payload.data) {
-            setRecommended(payload.data);
-          }
-        })
-        .catch(() => undefined);
-    }
     return () => controller.abort();
-  }, []);
+  }, [cuisine]);
 
   if (error) {
     return <div className="flex min-h-screen items-center justify-center p-6 text-destructive" role="alert">{error}</div>;
@@ -131,23 +114,19 @@ export default function HomePage() {
         </div>
       </header>
       <main className="mx-auto max-w-7xl space-y-12 px-6 py-10 md:px-12 md:py-14">
-        <section className="max-w-3xl">
-          <p className="text-sm font-semibold text-primary">Restaurant discovery, ranked intelligently</p>
-          <h1 className="mt-3 font-serif text-4xl font-semibold leading-tight md:text-6xl">
-            Find your next great restaurant
+        <header>
+          <p className="text-sm font-semibold text-primary">{data.restaurantCount} restaurants ranked</p>
+          <h1 className="mt-3 font-serif text-4xl font-semibold md:text-6xl">
+            Best {data.cuisine} Restaurants
           </h1>
-        </section>
-        <Section title="Featured Restaurants" items={data.featured} />
-        <Section title="Recommended for you" items={recommended} />
-        <Section title="Trending Now" items={data.trending} />
+        </header>
+        <Section title="Top Restaurants" items={data.top} />
         <Section title="Premium Highlights" items={data.premium} />
-        {Object.entries(data.cityHighlights).map(([city, items]) => (
-          <Section key={city} title={`Top in ${city}`} items={items} />
+        <Section title="Trending Now" items={data.trending} />
+        {Object.entries(data.citySections).map(([city, items]) => (
+          <Section key={city} title={`Top ${data.cuisine} in ${city}`} items={items} />
         ))}
-        {Object.entries(data.cuisineHighlights).map(([cuisine, items]) => (
-          <Section key={cuisine} title={`Best ${cuisine}`} items={items} />
-        ))}
-        <Section title="Global Discovery" items={data.globalDiscovery} />
+        <Section title="Discover More" items={data.discovery} />
       </main>
     </div>
   );

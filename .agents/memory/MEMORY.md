@@ -7,3 +7,5 @@
 - [Artifact route registration](artifact-route-registration.md) — exact API paths must be registered or the root SPA can return misleading 200 HTML.
 - [Owner portal security](owner-portal-security.md) — hash bearer tokens, keep reply bodies out of dashboard storage, and accept escalation signals only from verified flows.
 - [Discovery ranking policy](discovery-ranking-policy.md) — AI search scoring is opt-in and bounded; analytics stores aggregates, not raw diner queries.
+- [Analytics aggregation](analytics-aggregation.md) — dashboards compute live totals; scheduled global rows are append-only snapshots, and event metadata excludes sensitive/raw input.
+- [Personalization privacy](personalization-privacy.md) — personalize only for consented pseudonymous IDs; store structured preferences, preserve Premium tiers, and keep private fields out of AI.

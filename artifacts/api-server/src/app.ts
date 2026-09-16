@@ -28,6 +28,12 @@ import dashboardSearchMetrics from "./routes/dashboardSearchMetrics";
 import dashboardRanking from "./routes/dashboardRanking";
 import homepageRouter from "./routes/homepage";
 import dashboardHomepageMetrics from "./routes/dashboardHomepageMetrics";
+import dashboardCityMetrics from "./routes/dashboardCityMetrics";
+import dashboardCuisineMetrics from "./routes/dashboardCuisineMetrics";
+import dashboardDirectoryMetrics from "./routes/dashboardDirectoryMetrics";
+import dashboardProfileMetrics from "./routes/dashboardProfileMetrics";
+import dashboardClaimPageMetrics from "./routes/dashboardClaimPageMetrics";
+import dashboardAnalytics from "./routes/dashboardAnalytics";
 import { logger } from "./lib/logger";
 import { instantlyWebhookRouter } from "./outreach/instantlyWebhook";
 import { handleWebhook as handleStripeWebhook } from "./services/stripeService";
@@ -126,6 +132,12 @@ app.use("/dashboard", dashboardSearchMetrics);
 app.use("/dashboard", dashboardRanking);
 app.use(homepageRouter);
 app.use("/dashboard", dashboardHomepageMetrics);
+app.use("/dashboard", dashboardCityMetrics);
+app.use("/dashboard", dashboardCuisineMetrics);
+app.use("/dashboard", dashboardDirectoryMetrics);
+app.use("/dashboard", dashboardProfileMetrics);
+app.use("/dashboard", dashboardClaimPageMetrics);
+app.use("/dashboard", dashboardAnalytics);
 // Generated clients use the shared /api base; both aliases use identical auth.
 app.use("/api/dashboard", dashboardRoutes);
 

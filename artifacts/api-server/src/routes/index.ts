@@ -11,6 +11,12 @@ import premiumRouter from "./premium";
 import searchRouter from "./search";
 import homepageRouter from "./homepage";
 import cityRouter from "./city";
+import cuisineRouter from "./cuisine";
+import directoryRouter from "./directory";
+import restaurantRouter from "./restaurant";
+import claimRouter from "./claim";
+import analyticsRouter from "./analytics";
+import recommendationsRouter from "./recommendations";
 
 const router: IRouter = Router();
 
@@ -26,5 +32,11 @@ router.use(premiumRouter);
 router.use(searchRouter);
 router.use(homepageRouter);
 router.use(cityRouter);
+router.use(cuisineRouter);
+router.use(directoryRouter);
+router.use(restaurantRouter);
+router.use(claimRouter);
+router.use(analyticsRouter);
+router.use(recommendationsRouter);
 
 export default router;

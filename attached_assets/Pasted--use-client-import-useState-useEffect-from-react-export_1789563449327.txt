@@ -1,0 +1,65 @@
+"use client";
+
+import { useState, useEffect } from "react";
+
+export default function ClaimPage({ params }) {
+  const [restaurant, setRestaurant] = useState(null);
+
+  useEffect(() => {
+    fetch(`/claim/${params.id}`)
+      .then(res => res.json())
+      .then(data => setRestaurant(data.data));
+  }, []);
+
+  async function submit(e) {
+    e.preventDefault();
+
+    const form = {
+      name: e.target.name.value,
+      email: e.target.email.value,
+      role: e.target.role.value,
+      phone: e.target.phone.value,
+      brandStyle: e.target.brandStyle.value,
+      openingHours: e.target.openingHours.value,
+      deliveryPlatforms: e.target.deliveryPlatforms.value.split(","),
+      website: e.target.website.value,
+      socialLinks: e.target.socialLinks.value.split(",")
+    };
+
+    await fetch(`/claim/${params.id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form)
+    });
+
+    window.location.href = `/claim/${params.id}/success`;
+  }
+
+  if (!restaurant) return <div>Loading…</div>;
+
+  return (
+    <div>
+      <h1>Claim {restaurant.name}</h1>
+
+      <form onSubmit={submit}>
+        <input name="name" placeholder="Your Name" required />
+        <input name="email" placeholder="Your Email" required />
+        <input name="role" placeholder="Your Role" required />
+        <input name="phone" placeholder="Phone (optional)" />
+
+        <select name="brandStyle">
+          <option value="modern">Modern</option>
+          <option value="classic">Classic</option>
+          <option value="rustic">Rustic</option>
+        </select>
+
+        <textarea name="openingHours" placeholder="Opening Hours"></textarea>
+        <input name="deliveryPlatforms" placeholder="UberEats, Deliveroo" />
+        <input name="website" placeholder="Website URL" />
+        <input name="socialLinks" placeholder="Instagram, Facebook" />
+
+        <button type="submit">Complete Claim</button>
+      </form>
+    </div>
+  );
+}

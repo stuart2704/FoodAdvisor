@@ -20,6 +20,12 @@ import { PremiumClients } from '@/components/premium-clients';
 import { SearchEngineMetrics } from '@/components/search-engine-metrics';
 import { RankingEngine } from '@/components/ranking-engine';
 import { HomepageMetrics } from '@/components/homepage-metrics';
+import { CityPageMetrics } from '@/components/city-page-metrics';
+import { CuisinePageMetrics } from '@/components/cuisine-page-metrics';
+import { DirectoryMetrics } from '@/components/directory-metrics';
+import { RestaurantProfileMetrics } from '@/components/restaurant-profile-metrics';
+import { ClaimPageMetrics } from '@/components/claim-page-metrics';
+import { GlobalAnalytics } from '@/components/global-analytics';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   useGetRestaurantImportStatus,
@@ -327,6 +333,18 @@ export default function Dashboard() {
         <RankingEngine />
 
         <HomepageMetrics />
+
+        <CityPageMetrics />
+
+        <CuisinePageMetrics />
+
+        <DirectoryMetrics />
+
+        <RestaurantProfileMetrics />
+
+        <ClaimPageMetrics />
+
+        <GlobalAnalytics />
 
         <SchedulerStatus />
 

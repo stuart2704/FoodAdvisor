@@ -12,12 +12,19 @@ import { getDailyOutreachSchedulerStatus } from "../cron/dailyOutreach";
 import { computeDailyHealthScore } from "../health/scraperHealth";
 import { adminOnly } from "../middleware/adminOnly";
 import { getUsdToGbpRate } from "../services/aiUsage";
+import { getGlobalMetrics } from "../automation/globalMetrics";
 
 const router: IRouter = Router();
 
 router.get("/global", adminOnly, async (req, res) => {
   try {
-    const [[restaurantTotals], [outreachTotals], [aiTotals], cities] =
+    const [
+      [restaurantTotals],
+      [outreachTotals],
+      [aiTotals],
+      cities,
+      globalMetrics,
+    ] =
       await Promise.all([
         db
           .select({
@@ -35,6 +42,10 @@ router.get("/global", adminOnly, async (req, res) => {
             )`.mapWith(Number),
             completedClaims:
               sql<number>`count(*) filter (where ${restaurantsTable.claimedAt} is not null)`.mapWith(Number),
+            clients:
+              sql<number>`count(*) filter (where ${restaurantsTable.claimStatus} is not null)`.mapWith(Number),
+            premiumClients:
+              sql<number>`count(*) filter (where ${restaurantsTable.premium})`.mapWith(Number),
             lastUpdated: sql<Date | null>`max(${restaurantsTable.importedAt})`,
           })
           .from(restaurantsTable),
@@ -69,6 +80,7 @@ router.get("/global", adminOnly, async (req, res) => {
           .groupBy(restaurantsTable.city)
           .orderBy(desc(sql<number>`count(*)`), restaurantsTable.city)
           .limit(50),
+        getGlobalMetrics(),
       ]);
 
     const schedulers = [
@@ -88,9 +100,12 @@ router.get("/global", adminOnly, async (req, res) => {
     const lastUpdatedIso = lastUpdated
       ? new Date(lastUpdated).toISOString()
       : null;
+    const generatedAt = new Date().toISOString();
 
     res.json({
       success: true,
+      globalMetrics,
+      ...globalMetrics,
       totalRestaurants: restaurants,
       countries: restaurants > 0 ? 1 : 0,
       cities: restaurantTotals?.cities ?? 0,
@@ -139,7 +154,7 @@ router.get("/global", adminOnly, async (req, res) => {
             ? "Converted using the configured USD to GBP rate."
             : "Converted using the fallback USD to GBP estimate.",
       },
-      generatedAt: new Date().toISOString(),
+      generatedAt,
     });
   } catch (error) {
     req.log.error({ err: error }, "Global dashboard query failed");

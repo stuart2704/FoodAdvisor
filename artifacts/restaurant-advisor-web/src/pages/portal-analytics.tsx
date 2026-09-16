@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'wouter';
-import { ArrowLeft, BarChart3, Crown, Loader2 } from 'lucide-react';
+import { ArrowLeft, BarChart3, Crown, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -9,9 +9,44 @@ interface PortalResponse {
   restaurant?: { name: string; premium: boolean };
 }
 
+interface InsightResponse {
+  success: boolean;
+  insight?: { summary: string; nextAction: string };
+  error?: string;
+}
+
 export default function PortalAnalyticsPage() {
   const { token = '' } = useParams<{ token: string }>();
   const [portal, setPortal] = useState<PortalResponse | null>(null);
+  const [insight, setInsight] = useState<InsightResponse['insight']>();
+  const [insightError, setInsightError] = useState('');
+  const [loadingInsight, setLoadingInsight] = useState(false);
+
+  async function loadInsight() {
+    setLoadingInsight(true);
+    setInsightError('');
+    try {
+      const response = await fetch(
+        `/api/portal/${encodeURIComponent(token)}/analytics-insight`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}',
+          cache: 'no-store',
+          referrerPolicy: 'no-referrer',
+        },
+      );
+      const result = (await response.json()) as InsightResponse;
+      if (!response.ok || !result.success || !result.insight) {
+        throw new Error(result.error || 'Your analytics insight is unavailable.');
+      }
+      setInsight(result.insight);
+    } catch (error) {
+      setInsightError(error instanceof Error ? error.message : 'Your analytics insight is unavailable.');
+    } finally {
+      setLoadingInsight(false);
+    }
+  }
 
   useEffect(() => {
     void fetch(`/api/portal/${encodeURIComponent(token)}`, {
@@ -46,6 +81,23 @@ export default function PortalAnalyticsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="rounded-xl border border-border bg-secondary/30 p-4">
+              <div className="flex items-center gap-2 font-semibold">
+                <Sparkles className="h-4 w-4 text-primary" /> AI analytics insight
+              </div>
+              {insight ? (
+                <div className="mt-3 space-y-3 text-sm">
+                  <p>{insight.summary}</p>
+                  <p><strong>Next action:</strong> {insight.nextAction}</p>
+                </div>
+              ) : (
+                <Button className="mt-3" onClick={loadInsight} disabled={loadingInsight}>
+                  {loadingInsight ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Generate insight
+                </Button>
+              )}
+              {insightError ? <p role="alert" className="mt-3 text-sm text-destructive">{insightError}</p> : null}
+            </div>
             {!portal.restaurant.premium ? (
               <>
                 <p className="text-muted-foreground">

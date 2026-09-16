@@ -4,7 +4,12 @@ import {
   ClaimRestaurantParams,
   ClaimRestaurantResponse,
 } from "@workspace/api-zod";
-import { db, restaurantsTable } from "@workspace/db";
+import {
+  analyticsEventsTable,
+  claimPageEventsTable,
+  db,
+  restaurantsTable,
+} from "@workspace/db";
 import { and, eq, isNull } from "drizzle-orm";
 import {
   withInstantlyRestaurantLock,
@@ -36,6 +41,15 @@ router.post("/restaurants/:placeId/claim-click", async (req, res): Promise<void>
     if (!updated) {
       res.status(404).json({ success: false, error: "Restaurant not found." });
       return;
+    }
+    try {
+      await db.insert(analyticsEventsTable).values({
+        restaurantId: params.data.placeId,
+        type: "claim_click",
+        metadata: {},
+      });
+    } catch (error) {
+      req.log.warn({ err: error }, "Claim click analytics could not be recorded");
     }
     res.json({ success: true });
   } catch {
@@ -118,6 +132,17 @@ router.post("/restaurants/:placeId/claim", async (req, res): Promise<void> => {
     }
     const onboarding =
       result.kind === "basic" ? await startOnboarding(result.placeId) : null;
+    if (result.kind === "basic") {
+      try {
+        await db.insert(claimPageEventsTable).values({
+          placeId: result.placeId,
+          eventType: "completed",
+          alreadyClaimed: false,
+        });
+      } catch (error) {
+        req.log.warn({ err: error }, "Claim completion metric could not be recorded");
+      }
+    }
     const claimResponse = ClaimRestaurantResponse.parse({
         placeId: result.placeId,
         status: result.kind,

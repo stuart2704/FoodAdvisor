@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Crown, Loader2, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
+import { Link } from 'wouter';
+import { recordRestaurantClick } from '@/lib/analytics';
 
 interface SearchResult {
   id: string;
@@ -88,21 +90,28 @@ export default function SearchPage() {
         )}
         <div className="grid gap-4 sm:grid-cols-2">
           {results.map((restaurant) => (
-            <Card key={restaurant.id}>
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <h2 className="font-serif text-xl font-semibold">{restaurant.name}</h2>
-                  {restaurant.premium && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
-                      <Crown className="h-3.5 w-3.5" /> Premium
-                    </span>
-                  )}
-                </div>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {restaurant.cuisine ?? 'Restaurant'} · {restaurant.city}
-                </p>
-              </CardContent>
-            </Card>
+            <Link
+              key={restaurant.id}
+              href={`/restaurant/${encodeURIComponent(restaurant.id)}`}
+              onClick={() => recordRestaurantClick(restaurant.id)}
+              className="block"
+            >
+              <Card className="h-full transition-shadow hover:shadow-md">
+                <CardContent className="p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <h2 className="font-serif text-xl font-semibold">{restaurant.name}</h2>
+                    {restaurant.premium && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                        <Crown className="h-3.5 w-3.5" /> Premium
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {restaurant.cuisine ?? 'Restaurant'} · {restaurant.city}
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
       </main>

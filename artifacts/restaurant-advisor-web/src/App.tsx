@@ -16,6 +16,11 @@ import PortalAnalyticsPage from '@/pages/portal-analytics';
 import PortalUpgradePage from '@/pages/portal-upgrade';
 import SearchPage from '@/pages/search';
 import HomePage from '@/pages/home';
+import CityPage from '@/pages/city';
+import CuisinePage from '@/pages/cuisine';
+import DirectoryPage from '@/pages/directory';
+import RestaurantPage from '@/pages/restaurant';
+import ClaimSuccessPage from '@/pages/claim-success';
 import { AdminGate } from '@/components/admin-gate';
 import {
   Route,
@@ -32,6 +37,11 @@ function Router() {
       <Switch>
         <Route path="/admin/login" component={AdminLogin} />
         <Route path="/search" component={SearchPage} />
+        <Route path="/city/:city" component={CityPage} />
+        <Route path="/cuisine/:cuisine" component={CuisinePage} />
+        <Route path="/restaurants" component={DirectoryPage} />
+        <Route path="/restaurant/:id" component={RestaurantPage} />
+        <Route path="/claim/:id/success" component={ClaimSuccessPage} />
         <Route path="/admin/dashboard">
           <AdminGate><Dashboard /></AdminGate>
         </Route>

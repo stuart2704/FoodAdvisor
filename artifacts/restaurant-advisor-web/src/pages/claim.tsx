@@ -35,6 +35,10 @@ export default function ClaimRestaurant() {
     }
     meta.setAttribute('content', 'Claim your restaurant listing on The Food Advisor to update menus, photographs, reviews information, and special offers.');
     if (claimToken && placeId) {
+      void fetch(
+        `/api/claim/${encodeURIComponent(placeId)}?token=${encodeURIComponent(claimToken)}`,
+        { cache: 'no-store' },
+      );
       void fetch(`/api/restaurants/${encodeURIComponent(placeId)}/claim-click`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -62,6 +66,12 @@ export default function ClaimRestaurant() {
       const portalToken = (claimResult as typeof claimResult & { portalToken?: string }).portalToken;
       if (portalToken) {
         window.location.assign(`/portal/${encodeURIComponent(portalToken)}`);
+        return;
+      }
+      if (claimResult.status === 'basic') {
+        window.location.assign(
+          `/claim/${encodeURIComponent(placeId)}/success`,
+        );
         return;
       }
       setClaimStatus(claimResult.status);

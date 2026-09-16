@@ -1,7 +1,10 @@
 import {
   boolean,
+  date,
   doublePrecision,
   integer,
+  index,
+  jsonb,
   pgTable,
   real,
   serial,
@@ -24,6 +27,7 @@ export const restaurantsTable = pgTable(
     latitude: doublePrecision("latitude"),
     longitude: doublePrecision("longitude"),
     rating: real("rating"),
+    priceLevel: text("price_level"),
     website: text("website"),
     websiteTitle: text("website_title"),
     websiteDescription: text("website_description"),
@@ -51,6 +55,16 @@ export const restaurantsTable = pgTable(
     suppressedAt: timestamp("suppressed_at", { withTimezone: true }),
     suppressionReason: text("suppression_reason"),
     claimEmail: text("claim_email"),
+    ownerName: text("owner_name"),
+    ownerRole: text("owner_role"),
+    ownerPhone: text("owner_phone"),
+    brandStyle: text("brand_style"),
+    openingHours: text("opening_hours").array().notNull().default([]),
+    deliveryPlatforms: text("delivery_platforms").array().notNull().default([]),
+    socialLinks: jsonb("social_links")
+      .$type<Record<string, string>>()
+      .notNull()
+      .default({}),
     claimStatus: text("claim_status"),
     claimAttemptId: text("claim_attempt_id"),
     claimedAt: timestamp("claimed_at", { withTimezone: true }),
@@ -112,6 +126,231 @@ export const homepageViewEventsTable = pgTable("homepage_view_events", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+});
+
+export const cityPageViewEventsTable = pgTable("city_page_view_events", {
+  id: serial("id").primaryKey(),
+  city: text("city").notNull(),
+  restaurantCount: integer("restaurant_count").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const cuisinePageViewEventsTable = pgTable("cuisine_page_view_events", {
+  id: serial("id").primaryKey(),
+  cuisine: text("cuisine").notNull(),
+  restaurantCount: integer("restaurant_count").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const directoryViewEventsTable = pgTable("directory_view_events", {
+  id: serial("id").primaryKey(),
+  page: integer("page").notNull(),
+  resultCount: integer("result_count").notNull(),
+  cityFiltered: boolean("city_filtered").notNull(),
+  cuisineFiltered: boolean("cuisine_filtered").notNull(),
+  priceFiltered: boolean("price_filtered").notNull(),
+  premiumOnly: boolean("premium_only").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const restaurantProfileViewEventsTable = pgTable(
+  "restaurant_profile_view_events",
+  {
+    id: serial("id").primaryKey(),
+    placeId: text("place_id")
+      .notNull()
+      .references(() => restaurantsTable.placeId),
+    premium: boolean("premium").notNull(),
+    claimed: boolean("claimed").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+);
+
+export const claimPageEventsTable = pgTable("claim_page_events", {
+  id: serial("id").primaryKey(),
+  placeId: text("place_id")
+    .notNull()
+    .references(() => restaurantsTable.placeId),
+  eventType: text("event_type").notNull(),
+  alreadyClaimed: boolean("already_claimed").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const analyticsEventsTable = pgTable(
+  "analytics_events",
+  {
+    id: serial("id").primaryKey(),
+    restaurantId: text("restaurant_id")
+      .notNull()
+      .references(() => restaurantsTable.placeId),
+    type: text("type").notNull(),
+    metadata: jsonb("metadata")
+      .$type<Record<string, string | number | boolean | null>>()
+      .notNull()
+      .default({}),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("analytics_events_restaurant_type_created_idx").on(
+      table.restaurantId,
+      table.type,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const dailyAnalyticsTable = pgTable("daily_analytics", {
+  date: date("date").primaryKey(),
+  profileViews: integer("profile_views").notNull().default(0),
+  menuViews: integer("menu_views").notNull().default(0),
+  photoViews: integer("photo_views").notNull().default(0),
+  searchImpressions: integer("search_impressions").notNull().default(0),
+  clicks: integer("clicks").notNull().default(0),
+  claimClicks: integer("claim_clicks").notNull().default(0),
+  premiumConversions: integer("premium_conversions").notNull().default(0),
+});
+
+export const globalMetricsSnapshotsTable = pgTable(
+  "global_metrics_snapshots",
+  {
+    id: serial("id").primaryKey(),
+    totalRestaurants: integer("total_restaurants").notNull(),
+    totalClients: integer("total_clients").notNull(),
+    totalPremiumClients: integer("total_premium_clients").notNull(),
+    totalVisits: integer("total_visits").notNull(),
+    totalClicks: integer("total_clicks").notNull(),
+    totalSearchImpressions: integer("total_search_impressions")
+      .notNull()
+      .default(0),
+    totalClaimConversions: integer("total_claim_conversions")
+      .notNull()
+      .default(0),
+    totalOnboardingCompletions: integer("total_onboarding_completions")
+      .notNull()
+      .default(0),
+    totalPremiumConversions: integer("total_premium_conversions")
+      .notNull()
+      .default(0),
+    funnelOutreach: integer("funnel_outreach").notNull().default(0),
+    funnelFollowUp: integer("funnel_follow_up").notNull().default(0),
+    funnelEscalation: integer("funnel_escalation").notNull().default(0),
+    funnelClaim: integer("funnel_claim").notNull().default(0),
+    funnelOnboarding: integer("funnel_onboarding").notNull().default(0),
+    funnelPortalLogin: integer("funnel_portal_login").notNull().default(0),
+    funnelPremium: integer("funnel_premium").notNull().default(0),
+    topCities: jsonb("top_cities")
+      .$type<Record<string, number>>()
+      .notNull()
+      .default({}),
+    topCuisines: jsonb("top_cuisines")
+      .$type<Record<string, number>>()
+      .notNull()
+      .default({}),
+    mrr: integer("mrr").notNull().default(0),
+    arr: integer("arr").notNull().default(0),
+    churnRate: real("churn_rate").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+);
+
+export interface RecentProfileSearch {
+  city?: string;
+  cuisine?: string;
+  priceLevel?: string;
+  searchedAt: string;
+}
+
+export const userProfilesTable = pgTable(
+  "user_profiles",
+  {
+    id: text("id").primaryKey(),
+    type: text("type").notNull(),
+    preferredCities: text("preferred_cities").array().notNull().default([]),
+    preferredCuisines: text("preferred_cuisines")
+      .array()
+      .notNull()
+      .default([]),
+    preferredPriceLevels: text("preferred_price_levels")
+      .array()
+      .notNull()
+      .default([]),
+    recentClicks: text("recent_clicks").array().notNull().default([]),
+    recentSearches: jsonb("recent_searches")
+      .$type<RecentProfileSearch[]>()
+      .notNull()
+      .default([]),
+    lastSeenSections: text("last_seen_sections")
+      .array()
+      .notNull()
+      .default([]),
+  },
+  (table) => [index("user_profiles_type_idx").on(table.type)],
+);
+
+export const visitorProfilesTable = pgTable("visitor_profiles", {
+  id: text("id").primaryKey(),
+  preferredCities: text("preferred_cities").array().notNull().default([]),
+  preferredCuisines: text("preferred_cuisines")
+    .array()
+    .notNull()
+    .default([]),
+  preferredPriceLevels: text("preferred_price_levels")
+    .array()
+    .notNull()
+    .default([]),
+  recentSearches: jsonb("recent_searches")
+    .$type<RecentProfileSearch[]>()
+    .notNull()
+    .default([]),
+  recentClicks: text("recent_clicks").array().notNull().default([]),
+  lastSeenSections: text("last_seen_sections")
+    .array()
+    .notNull()
+    .default([]),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export const ownerProfilesTable = pgTable("owner_profiles", {
+  restaurantId: text("restaurant_id")
+    .primaryKey()
+    .references(() => restaurantsTable.placeId),
+  mostViewedAnalytics: jsonb("most_viewed_analytics")
+    .$type<Record<string, number>>()
+    .notNull()
+    .default({}),
+  weakAreas: text("weak_areas").array().notNull().default([]),
+  strongAreas: text("strong_areas").array().notNull().default([]),
+  premiumReadinessScore: integer("premium_readiness_score")
+    .notNull()
+    .default(0),
+  onboardingCompletionScore: integer("onboarding_completion_score")
+    .notNull()
+    .default(0),
+  lastLogin: timestamp("last_login", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
 });
 
 export const restaurantPortalTokensTable = pgTable(

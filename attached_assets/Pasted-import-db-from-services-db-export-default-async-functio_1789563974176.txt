@@ -1,0 +1,76 @@
+import db from "../services/db";
+
+export default async function updateGlobalMetrics() {
+  const totalRestaurants = await db.restaurant.count();
+  const totalClaimed = await db.restaurant.count({ where: { claimed: true } });
+  const totalPremium = await db.restaurant.count({ where: { premium: true } });
+
+  const totalVisits = await db.analyticsEvent.count({ where: { type: "profile_view" } });
+  const totalClicks = await db.analyticsEvent.count({ where: { type: "click" } });
+  const totalSearchImpressions = await db.analyticsEvent.count({ where: { type: "search_impression" } });
+  const totalClaimConversions = await db.analyticsEvent.count({ where: { type: "claim_click" } });
+  const totalOnboardingCompletions = await db.analyticsEvent.count({ where: { type: "onboarding_complete" } });
+  const totalPremiumConversions = await db.analyticsEvent.count({ where: { type: "premium_conversion" } });
+
+  // Funnel counts
+  const funnelOutreach = await db.restaurant.count({ where: { outreachSent: true } });
+  const funnelFollowUp = await db.restaurant.count({ where: { followUpAttempt: { gt: 0 } } });
+  const funnelEscalation = await db.restaurant.count({ where: { leadStatus: "HOT" } });
+  const funnelClaim = await db.restaurant.count({ where: { claimed: true } });
+  const funnelOnboarding = await db.restaurant.count({ where: { onboardedAt: { not: null } } });
+  const funnelPortalLogin = await db.restaurant.count({ where: { loginToken: { not: null } } });
+  const funnelPremium = totalPremium;
+
+  // Top cities
+  const topCities = await db.restaurant.groupBy({
+    by: ["city"],
+    _count: { id: true },
+    orderBy: { _count: { id: "desc" } },
+    take: 10
+  });
+
+  // Top cuisines
+  const topCuisines = await db.restaurant.groupBy({
+    by: ["cuisine"],
+    _count: { id: true },
+    orderBy: { _count: { id: "desc" } },
+    take: 10
+  });
+
+  // Premium revenue
+  const mrr = totalPremium * 29; // £29/mo
+  const arr = mrr * 12;
+
+  // Churn rate (simple version)
+  const churnRate = await db.restaurant.count({
+    where: { premiumCancelledAt: { not: null } }
+  });
+
+  await db.globalMetrics.update({
+    where: { id: 1 },
+    data: {
+      totalRestaurants,
+      totalClaimed,
+      totalPremium,
+      totalVisits,
+      totalClicks,
+      totalSearchImpressions,
+      totalClaimConversions,
+      totalOnboardingCompletions,
+      totalPremiumConversions,
+      funnelOutreach,
+      funnelFollowUp,
+      funnelEscalation,
+      funnelClaim,
+      funnelOnboarding,
+      funnelPortalLogin,
+      funnelPremium,
+      topCities,
+      topCuisines,
+      mrr,
+      arr,
+      churnRate,
+      updatedAt: new Date()
+    }
+  });
+}

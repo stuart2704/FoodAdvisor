@@ -16,6 +16,8 @@ const table = (columns) => Object.fromEntries(
   columns.map((column) => [column, { column }]),
 );
 export const restaurantsTable = table(["placeId", "claimStatus", "claimAttemptId"]);
+export const claimPageEventsTable = table(["placeId", "eventType", "alreadyClaimed"]);
+export const analyticsEventsTable = table(["restaurantId", "type", "metadata"]);
 const state = () => globalThis.__claimRouteState;
 const value = (column, row) => row[column.column];
 const matches = (condition, row) => {
@@ -66,6 +68,13 @@ const transaction = {
   },
 };
 export const db = {
+  insert() {
+    return {
+      async values() {
+        return [];
+      },
+    };
+  },
   async transaction(operation) {
     const current = state();
     const snapshot = structuredClone(current.restaurant);
