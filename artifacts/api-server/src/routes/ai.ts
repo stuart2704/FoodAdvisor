@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { Router, type IRouter } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
+import { recordAiUsage, type OpenAiUsage } from "../services/aiUsage";
 
 const router: IRouter = Router();
 export const aiAutomationRouter: IRouter = Router();
@@ -86,6 +87,7 @@ aiAutomationRouter.post(
     const timeout = setTimeout(() => controller.abort(), 15_000);
 
     try {
+      const model = process.env.OPENAI_MODEL ?? "gpt-5-mini";
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -93,7 +95,7 @@ aiAutomationRouter.post(
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: process.env.OPENAI_MODEL ?? "gpt-5-mini",
+          model,
           max_completion_tokens: 30,
           messages: [
             {
@@ -123,7 +125,13 @@ aiAutomationRouter.post(
 
       const completion = (await response.json()) as {
         choices?: Array<{ message?: { content?: string | null } }>;
+        usage?: OpenAiUsage;
       };
+      try {
+        await recordAiUsage("/automation/test-ai", model, completion.usage);
+      } catch (error) {
+        req.log.warn({ err: error }, "AI usage record could not be stored");
+      }
       const content = completion.choices?.[0]?.message?.content?.trim();
       if (content !== "OK") {
         res.status(502).json({
@@ -180,6 +188,7 @@ router.post(
     const timeout = setTimeout(() => controller.abort(), 25_000);
 
     try {
+      const model = process.env.OPENAI_MODEL ?? "gpt-5-mini";
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -187,7 +196,7 @@ router.post(
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: process.env.OPENAI_MODEL ?? "gpt-5-mini",
+          model,
           max_completion_tokens: 700,
           response_format: {
             type: "json_schema",
@@ -235,7 +244,13 @@ router.post(
 
       const completion = (await response.json()) as {
         choices?: Array<{ message?: { content?: string | null } }>;
+        usage?: OpenAiUsage;
       };
+      try {
+        await recordAiUsage("/ai/generate-outreach", model, completion.usage);
+      } catch (error) {
+        req.log.warn({ err: error }, "AI usage record could not be stored");
+      }
       const content = completion.choices?.[0]?.message?.content;
       if (!content) {
         res.status(502).json({ error: "AI drafting returned no content." });
