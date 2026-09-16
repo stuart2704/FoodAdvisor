@@ -25,6 +25,7 @@ import dashboardFollowups from "./routes/dashboardFollowups";
 import dashboardEscalation from "./routes/dashboardEscalation";
 import { logger } from "./lib/logger";
 import { instantlyWebhookRouter } from "./outreach/instantlyWebhook";
+import { handleWebhook as handleStripeWebhook } from "./services/stripeService";
 
 const app: Express = express();
 
@@ -58,6 +59,25 @@ app.use(cors());
 // same handler; neither path registers a provider webhook or sends mail.
 app.use("/api/webhooks", instantlyWebhookRouter);
 app.use("/webhooks", instantlyWebhookRouter);
+app.post(
+  "/api/stripe/webhook",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
+    const header = req.headers["stripe-signature"];
+    const signature = Array.isArray(header) ? header[0] : header;
+    if (!signature) {
+      res.status(400).json({ error: "Missing Stripe signature." });
+      return;
+    }
+    try {
+      await handleStripeWebhook(req.body as Buffer, signature);
+      res.json({ received: true });
+    } catch (error) {
+      req.log.error({ err: error }, "Stripe webhook processing failed");
+      res.status(400).json({ error: "Invalid Stripe webhook." });
+    }
+  },
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());

@@ -65,6 +65,9 @@ export const restaurantsTable = pgTable(
     onboardingStatus: text("onboarding_status"),
     stripeCustomerId: text("stripe_customer_id"),
     stripeSubscriptionId: text("stripe_subscription_id"),
+    premium: boolean("premium").notNull().default(false),
+    premiumSince: timestamp("premium_since", { withTimezone: true }),
+    premiumCancelledAt: timestamp("premium_cancelled_at", { withTimezone: true }),
   },
   (table) => [
     uniqueIndex("restaurants_unsubscribe_token_hash_unique").on(
@@ -72,6 +75,14 @@ export const restaurantsTable = pgTable(
     ),
   ],
 );
+
+export const stripeProcessedEventsTable = pgTable("stripe_processed_events", {
+  eventId: text("event_id").primaryKey(),
+  eventType: text("event_type").notNull(),
+  processedAt: timestamp("processed_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
 
 export const restaurantPortalTokensTable = pgTable(
   "restaurant_portal_tokens",

@@ -115,6 +115,18 @@ export async function enqueueAllInstantlyCancellationIntents() {
 }
 `;
 
+const onboardingMock = String.raw`
+export async function startOnboarding(placeId) {
+  return { placeId, portalToken: "test-portal-token" };
+}
+`;
+
+const escalationMock = String.raw`
+export async function escalateClaimClick() {
+  return { escalationStatus: "WARM" };
+}
+`;
+
 const expressMock = String.raw`
 export function Router() {
   const router = {
@@ -141,6 +153,8 @@ async function loadRouter() {
     ["@workspace/api-zod", zodMock],
     ["instantly-service", lockMock],
     ["cancellation-intents", cancellationMock],
+    ["onboarding-service", onboardingMock],
+    ["escalation-service", escalationMock],
     ["express", expressMock],
   ]);
   await build({
@@ -166,6 +180,14 @@ async function loadRouter() {
         }));
         pluginBuild.onResolve({ filter: /services\/instantly\/cancellationIntents$/ }, () => ({
           path: "cancellation-intents",
+          namespace: "claim-mock",
+        }));
+        pluginBuild.onResolve({ filter: /services\/onboardingService$/ }, () => ({
+          path: "onboarding-service",
+          namespace: "claim-mock",
+        }));
+        pluginBuild.onResolve({ filter: /services\/leadEscalationService$/ }, () => ({
+          path: "escalation-service",
           namespace: "claim-mock",
         }));
         pluginBuild.onLoad({ filter: /.*/, namespace: "claim-mock" }, (args) => ({

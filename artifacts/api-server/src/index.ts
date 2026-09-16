@@ -3,6 +3,7 @@ import { logger } from "./lib/logger";
 import { startWatchRenewal } from "./cron/watchRenewal";
 import { startWatchHealthCheck } from "./cron/watchHealthCheck";
 import { startDailyOutreachScheduler } from "./cron/dailyOutreach";
+import { initializeStripe } from "./services/stripeClient";
 
 const rawPort = process.env["PORT"];
 
@@ -28,4 +29,9 @@ app.listen(port, (err) => {
   startWatchRenewal();
   startWatchHealthCheck();
   startDailyOutreachScheduler();
+  void initializeStripe().then(
+    () => logger.info("Stripe connector initialized."),
+    (error) =>
+      logger.error({ err: error }, "Stripe connector initialization failed."),
+  );
 });
