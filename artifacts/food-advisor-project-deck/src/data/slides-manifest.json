@@ -48,16 +48,8 @@
     "speakerNotes": ""
   },
   {
-    "id": "7d6b5d2a-1e11-4b9f-a101-000000000007",
-    "position": 7,
-    "filepath": "src/pages/slides/Safeguards.tsx",
-    "title": "Operational safeguards are built in",
-    "description": "Operational controls",
-    "speakerNotes": ""
-  },
-  {
     "id": "7d6b5d2a-1e11-4b9f-a101-000000000008",
-    "position": 8,
+    "position": 7,
     "filepath": "src/pages/slides/Status.tsx",
     "title": "Current project status",
     "description": "Delivery status",
@@ -65,7 +57,7 @@
   },
   {
     "id": "7d6b5d2a-1e11-4b9f-a101-000000000009",
-    "position": 9,
+    "position": 8,
     "filepath": "src/pages/slides/Inactive.tsx",
     "title": "Deliberately not active yet",
     "description": "Inactive modules",
@@ -73,7 +65,7 @@
   },
   {
     "id": "7d6b5d2a-1e11-4b9f-a101-000000000010",
-    "position": 10,
+    "position": 9,
     "filepath": "src/pages/slides/Next.tsx",
     "title": "Next milestones",
     "description": "Closing priorities",
