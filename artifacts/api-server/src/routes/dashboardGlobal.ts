@@ -8,6 +8,7 @@ import { desc, eq, sql } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import { getWatchHealthSchedulerStatus } from "../cron/watchHealthCheck";
 import { getWatchRenewalSchedulerStatus } from "../cron/watchRenewal";
+import { getDailyOutreachSchedulerStatus } from "../cron/dailyOutreach";
 import { computeDailyHealthScore } from "../health/scraperHealth";
 import { adminOnly } from "../middleware/adminOnly";
 import { getUsdToGbpRate } from "../services/aiUsage";
@@ -71,6 +72,7 @@ router.get("/global", adminOnly, async (req, res) => {
       ]);
 
     const schedulers = [
+      getDailyOutreachSchedulerStatus(),
       getWatchHealthSchedulerStatus(),
       getWatchRenewalSchedulerStatus(),
     ];

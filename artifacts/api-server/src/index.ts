@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { startWatchRenewal } from "./cron/watchRenewal";
 import { startWatchHealthCheck } from "./cron/watchHealthCheck";
+import { startDailyOutreachScheduler } from "./cron/dailyOutreach";
 
 const rawPort = process.env["PORT"];
 
@@ -26,4 +27,5 @@ app.listen(port, (err) => {
   logger.info({ port }, "Server listening");
   startWatchRenewal();
   startWatchHealthCheck();
+  startDailyOutreachScheduler();
 });

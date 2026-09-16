@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { getWatchHealthSchedulerStatus } from "../cron/watchHealthCheck";
 import { getWatchRenewalSchedulerStatus } from "../cron/watchRenewal";
+import { getDailyOutreachSchedulerStatus } from "../cron/dailyOutreach";
 import { getSchedulerRuns } from "../dashboard/schedulerState";
 import { adminOnly } from "../middleware/adminOnly";
 
@@ -9,6 +10,7 @@ const router: IRouter = Router();
 
 router.get("/scheduler", adminOnly, (_req, res) => {
   const schedulers = [
+    getDailyOutreachSchedulerStatus(),
     getWatchHealthSchedulerStatus(),
     getWatchRenewalSchedulerStatus(),
   ];
@@ -29,7 +31,7 @@ router.get("/scheduler", adminOnly, (_req, res) => {
       .map((run) => run.message),
     scope: "current_process",
     metricsNote:
-      "The current schedulers maintain Gmail watch health; they do not process restaurants, call AI, or send outreach email.",
+      "Daily outreach runs at 08:00 local server time. Gmail watch schedulers maintain inbound reply delivery.",
     deploymentNote:
       "In-process schedules require an always-running server. Autoscale should invoke protected endpoints from an external scheduler.",
     schedulers,

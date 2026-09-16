@@ -1,0 +1,95 @@
+// src/automation/runDailyCycle.ts
+
+import cityService from "./cityService";
+import scraperService from "./scraperService";
+import restaurantService from "./restaurantService";
+import outreachService from "./outreachService";
+import replyService from "./replyService";
+import schedulerStatus from "./schedulerStatus";
+import aiUsageService from "./aiUsageService";
+
+export default async function runDailyCycle() {
+  const cycleLog = {
+    startedAt: new Date(),
+    cities: [],
+    restaurantsAdded: 0,
+    outreachSent: 0,
+    repliesProcessed: 0,
+    aiCalls: 0,
+    errors: []
+  };
+
+  try {
+    // 1️⃣ Select cities for today
+    const cities = await cityService.pickCitiesForToday();
+    cycleLog.cities = cities;
+
+    // 2️⃣ Scrape restaurants for each city
+    for (const city of cities) {
+      try {
+        const scraped = await scraperService.scrapeCity(city);
+        const inserted = await restaurantService.insertBatch(scraped);
+
+        cycleLog.restaurantsAdded += inserted.length;
+      } catch (err) {
+        cycleLog.errors.push(`Scrape error in ${city}: ${err.message}`);
+      }
+    }
+
+    // 3️⃣ Generate outreach for new restaurants
+    const newRestaurants = await restaurantService.getNotContacted();
+    for (const r of newRestaurants) {
+      try {
+        const outreach = await outreachService.generate(r);
+        await outreachService.send(r, outreach);
+
+        cycleLog.outreachSent++;
+        cycleLog.aiCalls += outreach.aiCalls;
+      } catch (err) {
+        cycleLog.errors.push(`Outreach error for ${r.id}: ${err.message}`);
+      }
+    }
+
+    // 4️⃣ Process replies
+    const replies = await replyService.fetchNewReplies();
+    for (const reply of replies) {
+      try {
+        await replyService.classifyAndHandle(reply);
+        cycleLog.repliesProcessed++;
+      } catch (err) {
+        cycleLog.errors.push(`Reply error: ${err.message}`);
+      }
+    }
+
+    // 5️⃣ Update AI usage
+    await aiUsageService.record({
+      calls: cycleLog.aiCalls,
+      cycle: cycleLog.startedAt
+    });
+
+    // 6️⃣ Update scheduler dashboard
+    await schedulerStatus.update({
+      lastRun: cycleLog.startedAt,
+      nextRun: schedulerStatus.nextRunTime(),
+      processed: cycleLog.restaurantsAdded,
+      aiCalls: cycleLog.aiCalls,
+      emailsSent: cycleLog.outreachSent,
+      errors: cycleLog.errors
+    });
+
+    cycleLog.finishedAt = new Date();
+    return cycleLog;
+
+  } catch (fatal) {
+    cycleLog.errors.push(`Fatal cycle error: ${fatal.message}`);
+    await schedulerStatus.update({
+      lastRun: cycleLog.startedAt,
+      nextRun: schedulerStatus.nextRunTime(),
+      processed: cycleLog.restaurantsAdded,
+      aiCalls: cycleLog.aiCalls,
+      emailsSent: cycleLog.outreachSent,
+      errors: cycleLog.errors
+    });
+    return cycleLog;
+  }
+}
