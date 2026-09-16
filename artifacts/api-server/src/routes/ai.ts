@@ -4,6 +4,7 @@ import rateLimit from "express-rate-limit";
 import { z } from "zod";
 
 const router: IRouter = Router();
+export const aiAutomationRouter: IRouter = Router();
 
 const singleLine = (maximum: number) =>
   z
@@ -47,6 +48,13 @@ const draftLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const testLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 5,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+});
+
 function validAutomationToken(header: string | undefined): boolean {
   const expected = process.env.AUTOMATION_TOKEN;
   const supplied = header?.match(/^Bearer (.+)$/i)?.[1];
@@ -55,6 +63,91 @@ function validAutomationToken(header: string | undefined): boolean {
   const suppliedHash = createHash("sha256").update(supplied).digest();
   return timingSafeEqual(expectedHash, suppliedHash);
 }
+
+aiAutomationRouter.post(
+  "/test-ai",
+  testLimiter,
+  async (req, res): Promise<void> => {
+    if (!validAutomationToken(req.header("authorization"))) {
+      res.status(401).json({ error: "Invalid automation credential." });
+      return;
+    }
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      res.status(503).json({
+        ok: false,
+        error: "AI is not configured.",
+      });
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15_000);
+
+    try {
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: process.env.OPENAI_MODEL ?? "gpt-5-mini",
+          max_completion_tokens: 30,
+          messages: [
+            {
+              role: "system",
+              content: "Reply with exactly: OK",
+            },
+            {
+              role: "user",
+              content: "Connection test",
+            },
+          ],
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        req.log.warn(
+          { openAiStatus: response.status },
+          "OpenAI connection test failed",
+        );
+        res.status(502).json({
+          ok: false,
+          error: "OpenAI connection test failed.",
+        });
+        return;
+      }
+
+      const completion = (await response.json()) as {
+        choices?: Array<{ message?: { content?: string | null } }>;
+      };
+      const content = completion.choices?.[0]?.message?.content?.trim();
+      if (content !== "OK") {
+        res.status(502).json({
+          ok: false,
+          error: "OpenAI returned an unexpected test response.",
+        });
+        return;
+      }
+
+      res.json({
+        ok: true,
+        message: "OpenAI connection is working.",
+      });
+    } catch (error) {
+      req.log.warn({ err: error }, "OpenAI connection test failed");
+      res.status(502).json({
+        ok: false,
+        error: "OpenAI connection test failed.",
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  },
+);
 
 router.post(
   "/generate-outreach",
