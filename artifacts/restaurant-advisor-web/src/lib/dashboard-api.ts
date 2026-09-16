@@ -29,6 +29,51 @@ export interface PremiumClientsResponse {
   }>;
 }
 
+export interface SearchMetricsResponse {
+  success: boolean;
+  periodDays: number;
+  searches: number;
+  searchesToday: number;
+  zeroResultSearches: number;
+  zeroResultRate: number;
+  aiSearches: number;
+  aiScoredRestaurants: number;
+  averageResults: number;
+  averageDurationMs: number;
+  generatedAt: string;
+}
+
+export interface RankingMetricsResponse {
+  success: boolean;
+  count: number;
+  rankedRestaurants: number;
+  averagePremiumScore: number;
+  averageBasicScore: number;
+  lastUpdate: string | null;
+  lastUpdated: string | null;
+  premiumBoostActive: boolean;
+  topRestaurants: Array<{
+    placeId: string;
+    name: string;
+    city: string;
+    cuisine: string | null;
+    premium: boolean;
+    rankingScore: number;
+  }>;
+}
+
+export interface HomepageMetricsResponse {
+  success: boolean;
+  periodDays: number;
+  loads: number;
+  loadsToday: number;
+  averageFeatured: number;
+  averageTrending: number;
+  averagePremium: number;
+  averageDiscovery: number;
+  generatedAt: string;
+}
+
 export class DashboardApiError extends Error {
   constructor(message: string, public readonly status: number | null) {
     super(message);
@@ -86,3 +131,9 @@ export const getErrors = (options?: DashboardRequestOptions) => request<GetDashb
 export const getSummary = (options?: DashboardRequestOptions) => request<DashboardStats>('stats', options);
 export const getPremiumClients = (options?: DashboardRequestOptions) =>
   request<PremiumClientsResponse>('premium', options);
+export const getSearchMetrics = (options?: DashboardRequestOptions) =>
+  request<SearchMetricsResponse>('search-metrics', options);
+export const getRankingMetrics = (options?: DashboardRequestOptions) =>
+  request<RankingMetricsResponse>('ranking', options);
+export const getHomepageMetrics = (options?: DashboardRequestOptions) =>
+  request<HomepageMetricsResponse>('homepage-metrics', options);

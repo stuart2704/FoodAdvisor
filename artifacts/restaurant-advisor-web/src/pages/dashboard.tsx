@@ -17,6 +17,9 @@ import { LeadQualification } from '@/components/lead-qualification';
 import { FollowUpActivity } from '@/components/follow-up-activity';
 import { LeadEscalation } from '@/components/lead-escalation';
 import { PremiumClients } from '@/components/premium-clients';
+import { SearchEngineMetrics } from '@/components/search-engine-metrics';
+import { RankingEngine } from '@/components/ranking-engine';
+import { HomepageMetrics } from '@/components/homepage-metrics';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   useGetRestaurantImportStatus,
@@ -318,6 +321,12 @@ export default function Dashboard() {
         <LeadEscalation />
 
         <PremiumClients />
+
+        <SearchEngineMetrics />
+
+        <RankingEngine />
+
+        <HomepageMetrics />
 
         <SchedulerStatus />
 

@@ -6,3 +6,4 @@
 - [Secret-protected route checks](secret-route-checks.md) — shell checks can verify denial, but stored workflow secrets are not available for authenticated curl tests.
 - [Artifact route registration](artifact-route-registration.md) — exact API paths must be registered or the root SPA can return misleading 200 HTML.
 - [Owner portal security](owner-portal-security.md) — hash bearer tokens, keep reply bodies out of dashboard storage, and accept escalation signals only from verified flows.
+- [Discovery ranking policy](discovery-ranking-policy.md) — AI search scoring is opt-in and bounded; analytics stores aggregates, not raw diner queries.

@@ -24,6 +24,10 @@ import dashboardLeadQualification from "./routes/dashboardLeadQualification";
 import dashboardFollowups from "./routes/dashboardFollowups";
 import dashboardEscalation from "./routes/dashboardEscalation";
 import dashboardPremium from "./routes/dashboardPremium";
+import dashboardSearchMetrics from "./routes/dashboardSearchMetrics";
+import dashboardRanking from "./routes/dashboardRanking";
+import homepageRouter from "./routes/homepage";
+import dashboardHomepageMetrics from "./routes/dashboardHomepageMetrics";
 import { logger } from "./lib/logger";
 import { instantlyWebhookRouter } from "./outreach/instantlyWebhook";
 import { handleWebhook as handleStripeWebhook } from "./services/stripeService";
@@ -118,6 +122,10 @@ app.use("/dashboard", dashboardLeadQualification);
 app.use("/dashboard", dashboardFollowups);
 app.use("/dashboard", dashboardEscalation);
 app.use("/dashboard", dashboardPremium);
+app.use("/dashboard", dashboardSearchMetrics);
+app.use("/dashboard", dashboardRanking);
+app.use(homepageRouter);
+app.use("/dashboard", dashboardHomepageMetrics);
 // Generated clients use the shared /api base; both aliases use identical auth.
 app.use("/api/dashboard", dashboardRoutes);
 

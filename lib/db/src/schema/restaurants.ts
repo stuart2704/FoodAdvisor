@@ -58,6 +58,10 @@ export const restaurantsTable = pgTable(
     qualificationTier: text("qualification_tier"),
     qualificationReason: text("qualification_reason"),
     qualifiedAt: timestamp("qualified_at", { withTimezone: true }),
+    popularity: real("popularity").notNull().default(0),
+    aiRelevanceBoost: real("ai_relevance_boost"),
+    rankingScore: real("ranking_score").notNull().default(0),
+    rankingUpdatedAt: timestamp("ranking_updated_at", { withTimezone: true }),
     leadStatus: text("lead_status"),
     escalatedAt: timestamp("escalated_at", { withTimezone: true }),
     claimClickedAt: timestamp("claim_clicked_at", { withTimezone: true }),
@@ -80,6 +84,32 @@ export const stripeProcessedEventsTable = pgTable("stripe_processed_events", {
   eventId: text("event_id").primaryKey(),
   eventType: text("event_type").notNull(),
   processedAt: timestamp("processed_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const restaurantSearchEventsTable = pgTable("restaurant_search_events", {
+  id: serial("id").primaryKey(),
+  queryProvided: boolean("query_provided").notNull(),
+  cityFiltered: boolean("city_filtered").notNull(),
+  cuisineFiltered: boolean("cuisine_filtered").notNull(),
+  premiumOnly: boolean("premium_only").notNull(),
+  aiRequested: boolean("ai_requested").notNull(),
+  aiScoredCount: integer("ai_scored_count").notNull().default(0),
+  resultCount: integer("result_count").notNull(),
+  durationMs: integer("duration_ms").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const homepageViewEventsTable = pgTable("homepage_view_events", {
+  id: serial("id").primaryKey(),
+  featuredCount: integer("featured_count").notNull(),
+  trendingCount: integer("trending_count").notNull(),
+  premiumCount: integer("premium_count").notNull(),
+  discoveryCount: integer("discovery_count").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
 });

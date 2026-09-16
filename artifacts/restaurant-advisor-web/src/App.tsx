@@ -14,6 +14,8 @@ import PortalMenuPage from '@/pages/portal-menu';
 import PortalPhotosPage from '@/pages/portal-photos';
 import PortalAnalyticsPage from '@/pages/portal-analytics';
 import PortalUpgradePage from '@/pages/portal-upgrade';
+import SearchPage from '@/pages/search';
+import HomePage from '@/pages/home';
 import { AdminGate } from '@/components/admin-gate';
 import {
   Route,
@@ -29,11 +31,12 @@ function Router() {
     <RoutedErrorBoundary>
       <Switch>
         <Route path="/admin/login" component={AdminLogin} />
+        <Route path="/search" component={SearchPage} />
         <Route path="/admin/dashboard">
           <AdminGate><Dashboard /></AdminGate>
         </Route>
         <Route path="/">
-          <AdminGate><Dashboard /></AdminGate>
+          <HomePage />
         </Route>
         <Route path="/claim/:placeId" component={ClaimRestaurant} />
         <Route path="/portal/:token/menu" component={PortalMenuPage} />
