@@ -12,9 +12,24 @@ router.get("/scheduler", adminOnly, (_req, res) => {
     getWatchHealthSchedulerStatus(),
     getWatchRenewalSchedulerStatus(),
   ];
+  const runs = getSchedulerRuns(100);
+  const nextRuns = schedulers
+    .map((scheduler) => scheduler.nextRunAt)
+    .filter((value): value is string => value !== null)
+    .sort();
   res.json({
     success: true,
+    lastRun: runs[0]?.completedAt ?? null,
+    nextRun: nextRuns[0] ?? null,
+    processed: 0,
+    aiCalls: 0,
+    emailsSent: 0,
+    errors: runs
+      .filter((run) => run.outcome === "failed")
+      .map((run) => run.message),
     scope: "current_process",
+    metricsNote:
+      "The current schedulers maintain Gmail watch health; they do not process restaurants, call AI, or send outreach email.",
     deploymentNote:
       "In-process schedules require an always-running server. Autoscale should invoke protected endpoints from an external scheduler.",
     schedulers,
