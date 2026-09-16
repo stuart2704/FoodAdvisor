@@ -12,6 +12,12 @@ export interface DashboardRequestOptions {
   token?: string;
 }
 
+export type DashboardStats = GetDashboardSummary200 & {
+  totalRestaurants: number;
+  outreachSent: number;
+  claims: number;
+};
+
 export class DashboardApiError extends Error {
   constructor(message: string, public readonly status: number | null) {
     super(message);
@@ -66,4 +72,4 @@ export const getEvents = (options?: DashboardRequestOptions) => request<GetDashb
 export const getHealth = (options?: DashboardRequestOptions) => request<DashboardHealth>('health', options);
 export const getStatus = (options?: DashboardRequestOptions) => request<DashboardStatusCounts>('status', options);
 export const getErrors = (options?: DashboardRequestOptions) => request<GetDashboardErrors200>('errors', options);
-export const getSummary = (options?: DashboardRequestOptions) => request<GetDashboardSummary200>('stats', options);
+export const getSummary = (options?: DashboardRequestOptions) => request<DashboardStats>('stats', options);

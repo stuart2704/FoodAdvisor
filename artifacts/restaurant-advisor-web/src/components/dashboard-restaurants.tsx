@@ -15,6 +15,7 @@ interface DashboardRestaurant {
   name: string;
   address: string;
   city: string;
+  country: string;
   rating: number | null;
   website: string | null;
   publicBusinessEmail: string | null;
@@ -128,7 +129,7 @@ export function DashboardRestaurants() {
                           {restaurant.address}
                         </div>
                       </TableCell>
-                      <TableCell>{restaurant.city}</TableCell>
+                      <TableCell>{restaurant.city}, {restaurant.country}</TableCell>
                       <TableCell>{restaurant.rating?.toFixed(1) ?? '—'}</TableCell>
                       <TableCell className="capitalize">
                         {restaurant.outreachStatus.replaceAll('_', ' ')}

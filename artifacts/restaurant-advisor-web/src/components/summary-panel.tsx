@@ -1,12 +1,14 @@
-import type { GetDashboardSummary200 } from '@workspace/api-client-react';
-import { getSummary } from '@/lib/dashboard-api';
+import { getSummary, type DashboardStats } from '@/lib/dashboard-api';
 import { useDashboardResource } from '@/hooks/use-dashboard-resource';
 import { DashboardPanel } from './dashboard-panel';
 
-function isSummary(value: unknown): value is GetDashboardSummary200 {
+function isSummary(value: unknown): value is DashboardStats {
   if (!value || typeof value !== 'object') return false;
-  const data = value as GetDashboardSummary200;
-  return (data.healthScore === null || (Number.isInteger(data.healthScore) && data.healthScore >= 0 && data.healthScore <= 100))
+  const data = value as DashboardStats;
+  return Number.isSafeInteger(data.totalRestaurants) && data.totalRestaurants >= 0
+    && Number.isSafeInteger(data.outreachSent) && data.outreachSent >= 0
+    && Number.isSafeInteger(data.claims) && data.claims >= 0
+    && (data.healthScore === null || (Number.isInteger(data.healthScore) && data.healthScore >= 0 && data.healthScore <= 100))
     && Array.isArray(data.statusCounts) && data.statusCounts.every((row) => row
       && typeof row.status === 'string' && Number.isSafeInteger(row.count) && row.count >= 0)
     && Array.isArray(data.recentEvents) && data.recentEvents.length <= 10
@@ -20,6 +22,20 @@ export default function SummaryPanel() {
   const summary = state.data;
   return (
     <DashboardPanel title="Operations Summary" description="Today's health score (UTC), current status totals, and recent process-local events." {...state}>
+      <div className="mb-5 grid grid-cols-3 gap-3">
+        <div className="rounded-xl bg-secondary/50 p-3">
+          <p className="text-xs text-muted-foreground">Restaurants</p>
+          <p className="text-xl font-bold">{summary?.totalRestaurants.toLocaleString() ?? '—'}</p>
+        </div>
+        <div className="rounded-xl bg-secondary/50 p-3">
+          <p className="text-xs text-muted-foreground">Outreach sent</p>
+          <p className="text-xl font-bold">{summary?.outreachSent.toLocaleString() ?? '—'}</p>
+        </div>
+        <div className="rounded-xl bg-secondary/50 p-3">
+          <p className="text-xs text-muted-foreground">Claims</p>
+          <p className="text-xl font-bold">{summary?.claims.toLocaleString() ?? '—'}</p>
+        </div>
+      </div>
       <div className="mb-5">
         <h3 className="text-sm font-semibold">Health Score</h3>
         <p className="text-3xl font-bold">{summary?.healthScore == null ? 'No data' : `${summary.healthScore}/100`}</p>

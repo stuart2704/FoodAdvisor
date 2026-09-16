@@ -37,9 +37,23 @@ router.get("/errors", adminOnly, (_req, res) => {
 
 router.get("/stats", adminOnly, async (_req, res) => {
   try {
-    const statusCounts = await getStatusCounts();
+    const [statusCounts, [totals]] = await Promise.all([
+      getStatusCounts(),
+      db
+        .select({
+          totalRestaurants: sql<number>`count(*)`.mapWith(Number),
+          outreachSent:
+            sql<number>`coalesce(sum(${restaurantsTable.outreachCount}), 0)`.mapWith(Number),
+          claims:
+            sql<number>`count(*) filter (where ${restaurantsTable.claimStatus} is not null)`.mapWith(Number),
+        })
+        .from(restaurantsTable),
+    ]);
     res.json({
       success: true,
+      totalRestaurants: totals?.totalRestaurants ?? 0,
+      outreachSent: totals?.outreachSent ?? 0,
+      claims: totals?.claims ?? 0,
       statusCounts,
       healthScore: computeDailyHealthScore(),
       recentEvents: getEvents().slice(-10),
@@ -78,6 +92,7 @@ router.get("/restaurants", adminOnly, async (req, res) => {
           name: restaurantsTable.name,
           address: restaurantsTable.address,
           city: restaurantsTable.city,
+          country: sql<string>`'United Kingdom'`,
           rating: restaurantsTable.rating,
           website: restaurantsTable.website,
           publicBusinessEmail: restaurantsTable.publicBusinessEmail,

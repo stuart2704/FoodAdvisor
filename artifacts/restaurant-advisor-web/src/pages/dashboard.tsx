@@ -209,6 +209,7 @@ export default function Dashboard() {
             Operator Dashboard
           </span>
           <button
+            id="logout"
             type="button"
             onClick={() => void logout()}
             className="flex items-center gap-2 transition-colors hover:text-primary"
