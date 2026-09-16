@@ -1,0 +1,233 @@
+⭐ THE FOOD ADVISOR — SUPPORT PAGE
+Welcome to The Food Advisor Support
+If you need help with the app, your subscription, or your account, you’re in the right place.
+We’re here to make sure your experience is smooth and enjoyable.
+
+📩 Contact Us
+Email: stuart@thefoodadvisor.co.uk
+Hours: Monday–Friday, 9am–5pm (UK time)
+We aim to respond within 24 hours.
+
+📘 Frequently Asked Questions
+How do I access Premium features?
+Premium features unlock automatically once your subscription is active.
+If you don’t see them:
+
+Restart the app
+
+Restore purchases from the Settings menu
+
+Ensure you’re logged into the correct Apple ID
+
+How do I restore my subscription?
+If you reinstall the app or switch devices:
+
+Open The Food Advisor
+
+Go to Settings
+
+Tap Restore Purchases
+
+My payment didn’t go through
+Check:
+
+Your Apple ID payment method
+
+Internet connection
+
+Try again in a few minutes
+
+If issues continue, email us.
+
+How do I report incorrect restaurant information?
+Email us with:
+
+Restaurant name
+
+Location
+
+What needs updating
+
+We’ll verify and update the listing.
+
+🔒 Privacy & Data
+Your privacy matters.
+Read our policies:
+
+Privacy Policy
+
+Terms of Service
+
+📱 App Support
+If you’re experiencing issues:
+
+Update the app
+
+Restart your device
+
+Check your internet connection
+
+If the problem continues, email us with:
+
+Device model
+
+iOS version
+
+Description of the issue
+
+Screenshots if possible
+
+⭐ THE FOOD ADVISOR — PRIVACY POLICY
+Last updated: September 2026
+
+The Food Advisor (“we”, “us”, “our”) operates The Food Advisor mobile application and website.
+This Privacy Policy explains how we collect, use, and protect your information.
+
+1. Information We Collect
+Account Information
+Email address, name (if provided), and basic profile details.
+
+Usage Data
+Screens visited, features used, search queries, restaurant interactions.
+
+Device Information
+Device model, OS version, app version, and general technical data.
+
+Subscription & Transaction Data
+Information about your in‑app purchases and subscription status (via Apple or Stripe).
+We do not receive full payment card numbers.
+
+Support Communications
+Emails and messages you send to stuart@thefoodadvisor.co.uk.
+
+We do not intentionally collect sensitive personal data.
+
+2. How We Use Your Information
+Operate and improve the service
+
+Verify subscription access
+
+Provide customer support
+
+Analyse performance and usage
+
+Comply with legal obligations
+
+Prevent fraud and misuse
+
+3. Legal Bases (UK/EU)
+Contract – to provide the service
+
+Legitimate interests – improve and secure the app
+
+Consent – where required
+
+4. Sharing Your Information
+We may share limited data with:
+
+Hosting providers
+
+Analytics services
+
+Payment processors (Apple, Stripe)
+
+Legal authorities when required
+
+We do not sell your personal data.
+
+5. Data Retention
+We keep data as long as necessary to provide the service and meet legal obligations.
+You may request deletion.
+
+6. Your Rights (UK/EU)
+You may request:
+
+Access
+
+Correction
+
+Deletion
+
+Restriction
+
+Objection
+
+Data portability
+
+Contact: stuart@thefoodadvisor.co.uk
+
+7. Security
+We use reasonable technical and organisational measures to protect your data.
+
+8. Children
+The Food Advisor is not directed to children under 16.
+We do not knowingly collect data from children under 16.
+
+9. Changes
+We may update this Privacy Policy.
+Updates will be posted here.
+
+10. Contact
+Email: stuart@thefoodadvisor.co.uk
+Address: The Food Advisor, Cardiff, United Kingdom
+
+⭐ THE FOOD ADVISOR — TERMS OF SERVICE
+Last updated: September 2026
+
+These Terms govern your use of The Food Advisor app and website.
+
+1. Use of the Service
+You must be legally able to enter into a contract.
+We grant you a limited, non‑exclusive licence for personal use.
+
+You agree not to:
+
+Disrupt the service
+
+Scrape or copy large amounts of data
+
+Use the app unlawfully
+
+2. Accounts & Subscriptions
+Account
+You are responsible for your login credentials.
+
+Subscription
+Premium access (£99/month) renews automatically unless cancelled.
+
+Cancellation
+You can cancel via:
+
+Apple ID subscription settings
+
+Stripe/website account settings
+
+Premium access continues until the end of the billing period.
+
+3. Restaurant Listings
+Restaurant information may come from third parties.
+We do not guarantee accuracy or availability.
+
+4. Intellectual Property
+The Food Advisor name, logo, design, and content are owned by us or our licensors.
+
+5. Disclaimers
+The service is provided “as is” without warranties.
+We do not guarantee uninterrupted availability.
+
+6. Limitation of Liability
+We are not liable for indirect or consequential damages.
+Our total liability is limited to the amount paid in the last 12 months.
+
+7. Indemnity
+You agree to indemnify The Food Advisor against claims arising from your use of the service.
+
+8. Changes
+We may modify the service or update these Terms.
+Continued use means acceptance.
+
+9. Governing Law
+These Terms are governed by the laws of England and Wales.
+
+10. Contact
+Email: stuart@thefoodadvisor.co.uk
