@@ -7,6 +7,7 @@ import NotFound from '@/pages/not-found';
 import Dashboard from '@/pages/dashboard';
 import ClaimRestaurant from '@/pages/claim';
 import Unsubscribe from '@/pages/unsubscribe';
+import Support from '@/pages/support';
 import {
   Route,
   Switch,
@@ -23,6 +24,7 @@ function Router() {
         <Route path="/" component={Dashboard} />
         <Route path="/claim/:placeId" component={ClaimRestaurant} />
         <Route path="/unsubscribe/:token" component={Unsubscribe} />
+        <Route path="/support" component={Support} />
         <Route component={NotFound} />
       </Switch>
     </RoutedErrorBoundary>

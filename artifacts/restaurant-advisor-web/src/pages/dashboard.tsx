@@ -34,6 +34,7 @@ import {
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { Check, Info, LayoutDashboard, MapPin, AlertCircle, Play, UtensilsCrossed, RefreshCw, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { Link } from 'wouter';
 
 const DEFAULT_CITIES = ['London', 'Cardiff', 'Edinburgh', 'Glasgow', 'Manchester', 'Liverpool', 'Belfast'];
 
@@ -183,9 +184,14 @@ export default function Dashboard() {
           </div>
           <h1 className="font-serif text-xl md:text-3xl font-semibold tracking-tight">The Food Advisor</h1>
         </div>
-        <div className="hidden md:flex items-center gap-2 text-sm font-medium text-muted-foreground">
-          <LayoutDashboard className="h-4 w-4" />
-          <span>Operator Dashboard</span>
+        <div className="hidden md:flex items-center gap-5 text-sm font-medium text-muted-foreground">
+          <Link href="/support" className="transition-colors hover:text-primary">
+            Support
+          </Link>
+          <span className="flex items-center gap-2">
+            <LayoutDashboard className="h-4 w-4" />
+            Operator Dashboard
+          </span>
         </div>
       </header>
 
