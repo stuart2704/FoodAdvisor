@@ -14,6 +14,7 @@ import authRoutes from "./routes/auth";
 import adminRoutes from "./routes/admin";
 import statusRoutes from "./routes/status";
 import dashboardRoutes from "./routes/dashboard";
+import dashboardOutreachRoutes from "./routes/dashboardOutreach";
 import { logger } from "./lib/logger";
 import { instantlyWebhookRouter } from "./outreach/instantlyWebhook";
 
@@ -78,6 +79,7 @@ app.use("/auth", authRoutes);
 app.use("/admin", adminRoutes);
 app.use("/status", statusRoutes);
 app.use("/dashboard", dashboardRoutes);
+app.use("/dashboard", dashboardOutreachRoutes);
 // Generated clients use the shared /api base; both aliases use identical auth.
 app.use("/api/dashboard", dashboardRoutes);
 
