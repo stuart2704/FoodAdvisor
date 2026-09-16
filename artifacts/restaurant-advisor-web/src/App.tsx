@@ -9,6 +9,11 @@ import ClaimRestaurant from '@/pages/claim';
 import Unsubscribe from '@/pages/unsubscribe';
 import Support from '@/pages/support';
 import AdminLogin from '@/pages/admin-login';
+import PortalPage from '@/pages/portal';
+import PortalMenuPage from '@/pages/portal-menu';
+import PortalPhotosPage from '@/pages/portal-photos';
+import PortalAnalyticsPage from '@/pages/portal-analytics';
+import PortalUpgradePage from '@/pages/portal-upgrade';
 import { AdminGate } from '@/components/admin-gate';
 import {
   Route,
@@ -31,6 +36,11 @@ function Router() {
           <AdminGate><Dashboard /></AdminGate>
         </Route>
         <Route path="/claim/:placeId" component={ClaimRestaurant} />
+        <Route path="/portal/:token/menu" component={PortalMenuPage} />
+        <Route path="/portal/:token/photos" component={PortalPhotosPage} />
+        <Route path="/portal/:token/analytics" component={PortalAnalyticsPage} />
+        <Route path="/portal/:token/upgrade" component={PortalUpgradePage} />
+        <Route path="/portal/:token" component={PortalPage} />
         <Route path="/unsubscribe/:token" component={Unsubscribe} />
         <Route path="/support" component={Support} />
         <Route component={NotFound} />

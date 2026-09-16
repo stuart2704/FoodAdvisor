@@ -62,6 +62,7 @@ export const restaurantsTable = pgTable(
     escalatedAt: timestamp("escalated_at", { withTimezone: true }),
     claimClickedAt: timestamp("claim_clicked_at", { withTimezone: true }),
     onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
+    onboardingStatus: text("onboarding_status"),
     stripeCustomerId: text("stripe_customer_id"),
     stripeSubscriptionId: text("stripe_subscription_id"),
   },
@@ -70,6 +71,22 @@ export const restaurantsTable = pgTable(
       table.unsubscribeTokenHash,
     ),
   ],
+);
+
+export const restaurantPortalTokensTable = pgTable(
+  "restaurant_portal_tokens",
+  {
+    tokenHash: text("token_hash").primaryKey(),
+    placeId: text("place_id")
+      .notNull()
+      .unique()
+      .references(() => restaurantsTable.placeId),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
 );
 
 export const restaurantImportRunsTable = pgTable("restaurant_import_runs", {

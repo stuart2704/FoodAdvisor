@@ -10,6 +10,7 @@ interface EscalationItem {
   escalatedAt: string | null;
   claimClickedAt: string | null;
   onboardedAt: string | null;
+  onboardingStatus: string | null;
 }
 
 interface EscalationResponse {
@@ -105,6 +106,11 @@ export function LeadEscalation() {
                   <div>Claim clicked: {timestamp(item.claimClickedAt)}</div>
                   <div>Onboarded: {timestamp(item.onboardedAt)}</div>
                 </dl>
+                {item.onboardingStatus ? (
+                  <p className="mt-2 text-xs font-semibold text-primary">
+                    Onboarding: {item.onboardingStatus}
+                  </p>
+                ) : null}
                 <p className="mt-2 text-xs text-muted-foreground">
                   Reply bodies are not retained in dashboard storage.
                 </p>

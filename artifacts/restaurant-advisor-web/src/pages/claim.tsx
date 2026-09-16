@@ -34,7 +34,14 @@ export default function ClaimRestaurant() {
       document.head.appendChild(meta);
     }
     meta.setAttribute('content', 'Claim your restaurant listing on The Food Advisor to update menus, photographs, reviews information, and special offers.');
-  }, []);
+    if (claimToken && placeId) {
+      void fetch(`/api/restaurants/${encodeURIComponent(placeId)}/claim-click`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ claimToken }),
+      });
+    }
+  }, [claimToken, placeId]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -52,6 +59,11 @@ export default function ClaimRestaurant() {
         placeId,
         data: { email: values.email, claimToken }
       });
+      const portalToken = (claimResult as typeof claimResult & { portalToken?: string }).portalToken;
+      if (portalToken) {
+        window.location.assign(`/portal/${encodeURIComponent(portalToken)}`);
+        return;
+      }
       setClaimStatus(claimResult.status);
     } catch (err: any) {
       const msg = err?.error || err?.response?.data?.error || err?.message || "An unexpected error occurred.";

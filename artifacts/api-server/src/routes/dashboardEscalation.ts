@@ -15,6 +15,7 @@ router.get("/escalation", adminOnly, async (req, res) => {
         escalatedAt: restaurantsTable.escalatedAt,
         claimClickedAt: restaurantsTable.claimClickedAt,
         onboardedAt: restaurantsTable.onboardedAt,
+        onboardingStatus: restaurantsTable.onboardingStatus,
       })
       .from(restaurantsTable)
       .where(inArray(restaurantsTable.leadStatus, ["HOT", "WARM", "CLIENT"]))

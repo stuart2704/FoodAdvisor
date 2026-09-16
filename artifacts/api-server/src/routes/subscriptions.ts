@@ -14,9 +14,34 @@ import {
   ClaimLinkConfigurationError,
   verifyClaimLink,
 } from "../lib/claim-link";
-import { escalateOnboardingComplete } from "../services/leadEscalationService";
+import { startOnboarding } from "../services/onboardingService";
+import { escalateClaimClick } from "../services/leadEscalationService";
+import { z } from "zod";
 
 const router: IRouter = Router();
+
+router.post("/restaurants/:placeId/claim-click", async (req, res): Promise<void> => {
+  const params = ClaimRestaurantParams.safeParse(req.params);
+  const body = z.object({ claimToken: z.string().min(40).max(2048) }).safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ success: false, error: "Invalid claim link." });
+    return;
+  }
+  try {
+    if (!verifyClaimLink(body.data.claimToken, params.data.placeId)) {
+      res.status(403).json({ success: false, error: "Invalid claim link." });
+      return;
+    }
+    const updated = await escalateClaimClick(params.data.placeId);
+    if (!updated) {
+      res.status(404).json({ success: false, error: "Restaurant not found." });
+      return;
+    }
+    res.json({ success: true });
+  } catch {
+    res.status(503).json({ success: false, error: "Claim activity is unavailable." });
+  }
+});
 
 router.get("/checkout-completion/:sessionId", async (req, res): Promise<void> => {
   res.status(503).json({
@@ -91,13 +116,16 @@ router.post("/restaurants/:placeId/claim", async (req, res): Promise<void> => {
       res.status(403).json({ error: "This claim link is invalid or has expired." });
       return;
     }
-    await escalateOnboardingComplete(result.placeId);
-    res.json(
-      ClaimRestaurantResponse.parse({
+    const onboarding =
+      result.kind === "basic" ? await startOnboarding(result.placeId) : null;
+    const claimResponse = ClaimRestaurantResponse.parse({
         placeId: result.placeId,
         status: result.kind,
-      }),
-    );
+      });
+    res.json({
+      ...claimResponse,
+      ...(onboarding ? { portalToken: onboarding.portalToken } : {}),
+    });
   } catch {
     res.status(503).json({ error: "Claims are temporarily unavailable." });
   }
