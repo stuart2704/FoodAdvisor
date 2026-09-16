@@ -109,7 +109,7 @@ export function ClaimAnalytics() {
               <div className="rounded-xl bg-secondary/50 p-4">
                 <p className="text-xs text-muted-foreground">Conversion rate</p>
                 <p className="mt-1 text-2xl font-bold">
-                  {claims ? `${claims.conversionRate.toFixed(1)}%` : '—'}
+                  {claims ? `${claims.conversionRate.toFixed(2)}%` : '—'}
                 </p>
               </div>
             </div>
