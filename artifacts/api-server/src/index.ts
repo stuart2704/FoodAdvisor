@@ -36,8 +36,8 @@ app.listen(port, (err) => {
   startAnalyticsRollupScheduler();
   startGlobalMetricsScheduler();
   void initializeStripe().then(
-    () => logger.info("Stripe connector initialized."),
+    () => logger.info("Stripe access initialized."),
     (error) =>
-      logger.error({ err: error }, "Stripe connector initialization failed."),
+      logger.error({ err: error }, "Stripe access initialization failed."),
   );
 });

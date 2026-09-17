@@ -12,3 +12,4 @@
 - [Verification and rewards authority](verification-rewards-authority.md) — derive verification and rewards from protected server events; never accept browser-selected status, user IDs, or point amounts.
 - [Stripe environment separation](stripe-environment-separation.md) — keep sandbox prices development-only; production Stripe setup must create and configure its own live price.
 - [GitHub push authentication](github-push-authentication.md) — OAuth may work through the connector while Git CLI stays unauthorized; never force-push as a workaround.
+- [External hosting connectors](external-hosting-connectors.md) — Replit connector clients need direct provider-credential fallbacks on non-Replit hosts.
