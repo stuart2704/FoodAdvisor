@@ -11,3 +11,4 @@
 - [Personalization privacy](personalization-privacy.md) — personalize only for consented pseudonymous IDs; store structured preferences, preserve Premium tiers, and keep private fields out of AI.
 - [Verification and rewards authority](verification-rewards-authority.md) — derive verification and rewards from protected server events; never accept browser-selected status, user IDs, or point amounts.
 - [Stripe environment separation](stripe-environment-separation.md) — keep sandbox prices development-only; production Stripe setup must create and configure its own live price.
+- [GitHub push authentication](github-push-authentication.md) — OAuth may work through the connector while Git CLI stays unauthorized; never force-push as a workaround.
