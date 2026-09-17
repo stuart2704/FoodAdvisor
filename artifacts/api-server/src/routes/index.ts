@@ -32,6 +32,10 @@ import rewardsRouter from "./rewards";
 import rankRouter from "./rank";
 import qrRouter from "./qr";
 import brandRouter from "./brand";
+import aiPhotoRouter from "./ai-photo";
+import menuScanRouter from "./menu-scan";
+import heatmapRouter from "./heatmap";
+import forecastRouter from "./forecast";
 
 const router: IRouter = Router();
 
@@ -68,5 +72,9 @@ router.use(rewardsRouter);
 router.use(rankRouter);
 router.use(qrRouter);
 router.use(brandRouter);
+router.use(aiPhotoRouter);
+router.use(menuScanRouter);
+router.use(heatmapRouter);
+router.use(forecastRouter);
 
 export default router;

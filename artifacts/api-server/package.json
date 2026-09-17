@@ -25,12 +25,14 @@
     "express-session": "^1.19.0",
     "google-auth-library": "^11.0.2",
     "http-proxy-middleware": "^4.2.0",
+    "multer": "^2.0.2",
     "node-cron": "^4.6.0",
     "node-cache": "^5.1.2",
     "pino": "^9.14.0",
     "pino-http": "^10.5.0",
     "playwright": "^1.63.0",
     "qrcode": "^1.5.4",
+    "tesseract.js": "^6.0.1",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -40,6 +42,7 @@
     "@types/express": "^5.0.6",
     "@types/express-session": "^1.19.0",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.0.0",
     "@types/node": "catalog:",
     "@types/qrcode": "^1.5.6",
     "esbuild": "0.27.3",

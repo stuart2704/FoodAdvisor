@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useParams } from 'wouter';
 import { ArrowLeft, UtensilsCrossed } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,6 +21,8 @@ export default function PortalMenuPage() {
   });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [ocrText, setOcrText] = useState('');
 
   useEffect(() => {
     const controller = new AbortController();
@@ -90,6 +92,41 @@ export default function PortalMenuPage() {
       setSaving(false);
     }
   }
+
+  async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setScanning(true);
+    setError('');
+    setOcrText('');
+    try {
+      const form = new FormData();
+      form.append('menu', file);
+      const response = await fetch('/api/menu-ocr', {
+        method: 'POST',
+        headers: { 'X-Portal-Token': token },
+        body: form,
+      });
+      const payload = (await response.json()) as {
+        success?: boolean;
+        text?: string;
+        error?: string;
+      };
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error ?? 'The menu image could not be read.');
+      }
+      setOcrText(payload.text ?? '');
+    } catch (failure: unknown) {
+      setError(
+        failure instanceof Error
+          ? failure.message
+          : 'The menu image could not be read.',
+      );
+    } finally {
+      setScanning(false);
+    }
+  }
   return (
     <div className="min-h-screen bg-background p-6 text-foreground md:p-12">
       <main className="mx-auto max-w-3xl">
@@ -103,6 +140,36 @@ export default function PortalMenuPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
+            <section className="mb-8 rounded-lg border border-border bg-muted/20 p-4">
+              <h2 className="font-semibold">Scan a menu image</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Upload a JPEG, PNG, or WebP image up to 8 MB to extract its text.
+              </p>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                disabled={scanning}
+                onChange={handleUpload}
+                className="mt-4 block w-full text-sm"
+              />
+              {scanning && (
+                <p className="mt-3 text-sm text-muted-foreground" aria-live="polite">
+                  Reading menu image…
+                </p>
+              )}
+              {ocrText && (
+                <label className="mt-4 block">
+                  <span className="mb-1 block text-sm font-semibold">
+                    Extracted menu text
+                  </span>
+                  <textarea
+                    value={ocrText}
+                    onChange={(event) => setOcrText(event.target.value)}
+                    className="min-h-48 w-full rounded-md border border-input bg-background p-3"
+                  />
+                </label>
+              )}
+            </section>
             <form onSubmit={addItem} className="grid gap-4 sm:grid-cols-2">
               {(['name', 'price', 'category'] as const).map((field) => (
                 <label key={field}>

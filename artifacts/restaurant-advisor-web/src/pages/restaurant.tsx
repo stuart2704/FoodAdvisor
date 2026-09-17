@@ -69,6 +69,7 @@ export default function RestaurantPage() {
   const [aiDescription, setAiDescription] = useState<string | null>(null);
   const [menuCuisine, setMenuCuisine] = useState<string | null>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
+  const [cuisineImage, setCuisineImage] = useState<string | null>(null);
   const galleryRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -80,6 +81,7 @@ export default function RestaurantPage() {
     setAiDescription(null);
     setMenuCuisine(null);
     setQrCode(null);
+    setCuisineImage(null);
     void fetch(
       usesSlug
         ? `/api/restaurants/${encodeURIComponent(id)}`
@@ -128,6 +130,25 @@ export default function RestaurantPage() {
       .catch(() => undefined);
     return () => controller.abort();
   }, [data?.id]);
+
+  useEffect(() => {
+    if (!data?.cuisine) return;
+    const controller = new AbortController();
+    void fetch(`/api/ai-photo/${encodeURIComponent(data.cuisine)}`, {
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const payload = (await response.json()) as {
+          success?: boolean;
+          url?: string;
+        };
+        if (response.ok && payload.success && payload.url) {
+          setCuisineImage(payload.url);
+        }
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [data?.cuisine]);
 
   useEffect(() => {
     if (!data?.id) return;
@@ -232,6 +253,13 @@ export default function RestaurantPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <main className="mx-auto max-w-6xl space-y-8 px-6 py-10 md:px-12 md:py-14">
+        {cuisineImage && (
+          <img
+            src={cuisineImage}
+            alt={`${data.cuisine ?? 'Restaurant'} cuisine`}
+            className="h-64 w-full rounded-xl object-cover md:h-80"
+          />
+        )}
         <header className="max-w-3xl">
           <div className="flex flex-wrap items-center gap-3">
             <p className="text-sm font-semibold text-primary">

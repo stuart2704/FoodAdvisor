@@ -49,6 +49,9 @@ import TrendsPage from '@/pages/trends';
 import ProPage from '@/pages/pro';
 import RankingsPage from '@/pages/rankings';
 import FranchisePage from '@/pages/franchise';
+import HeatmapPage from '@/pages/heatmap';
+import ApiDocsPage from '@/pages/api-docs';
+import PitchPage from '@/pages/pitch';
 import { NavBar } from '@/components/nav-bar';
 import { Footer } from '@/components/footer';
 import { AdminGate } from '@/components/admin-gate';
@@ -196,6 +199,9 @@ function Router() {
         <Route path="/pro" component={ProPage} />
         <Route path="/rankings" component={RankingsPage} />
         <Route path="/franchise/:brand" component={FranchisePage} />
+        <Route path="/heatmap" component={HeatmapPage} />
+        <Route path="/api-docs" component={ApiDocsPage} />
+        <Route path="/pitch" component={PitchPage} />
         <Route path="/countries/:slug" component={CountryPage} />
         <Route path="/countries" component={CountriesPage} />
         <Route path="/cuisine/:cuisine" component={CuisinePage} />

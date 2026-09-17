@@ -18,6 +18,9 @@ const links = [
   { href: '/trends', label: 'Trends' },
   { href: '/pro', label: 'Premium' },
   { href: '/rankings', label: 'Rankings' },
+  { href: '/heatmap', label: 'Heatmap' },
+  { href: '/api-docs', label: 'API' },
+  { href: '/pitch', label: 'Pitch' },
 ];
 
 export function NavBar() {
