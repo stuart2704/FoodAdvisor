@@ -1,4 +1,7 @@
 import { Link } from 'wouter';
+import { Show, UserButton } from '@clerk/react';
+import { LanguageSwitcher } from '@/components/language-switcher';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 const links = [
   { href: '/', label: 'Home' },
@@ -6,6 +9,7 @@ const links = [
   { href: '/regions', label: 'Regions' },
   { href: '/countries', label: 'Countries' },
   { href: '/search', label: 'Search' },
+  { href: '/match', label: 'Match' },
 ];
 
 export function NavBar() {
@@ -30,6 +34,19 @@ export function NavBar() {
             {link.label}
           </Link>
         ))}
+        <div className="ml-auto flex items-center gap-4">
+          <LanguageSwitcher />
+          <ThemeToggle />
+          <Show when="signed-out">
+            <Link href="/sign-in" className="hover:underline">Log in</Link>
+            <Link href="/sign-up" className="rounded bg-fa-red px-3 py-2 text-sm font-semibold text-white">
+              Sign up
+            </Link>
+          </Show>
+          <Show when="signed-in">
+            <UserButton />
+          </Show>
+        </div>
       </div>
     </nav>
   );

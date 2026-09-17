@@ -11,6 +11,17 @@ interface PortalResponse {
 
 interface InsightResponse {
   success: boolean;
+  analytics?: {
+    profileViews: number;
+    menuViews: number;
+    photoViews: number;
+    searchImpressions: number;
+    clicks: number;
+    claimClicks: number;
+    premiumConversions: number;
+    bookings: number;
+    reviews: number;
+  };
   insight?: { summary: string; nextAction: string };
   error?: string;
 }
@@ -21,6 +32,7 @@ export default function PortalAnalyticsPage() {
   const [insight, setInsight] = useState<InsightResponse['insight']>();
   const [insightError, setInsightError] = useState('');
   const [loadingInsight, setLoadingInsight] = useState(false);
+  const [analytics, setAnalytics] = useState<InsightResponse['analytics']>();
 
   async function loadInsight() {
     setLoadingInsight(true);
@@ -41,6 +53,7 @@ export default function PortalAnalyticsPage() {
         throw new Error(result.error || 'Your analytics insight is unavailable.');
       }
       setInsight(result.insight);
+      setAnalytics(result.analytics);
     } catch (error) {
       setInsightError(error instanceof Error ? error.message : 'Your analytics insight is unavailable.');
     } finally {
@@ -49,16 +62,32 @@ export default function PortalAnalyticsPage() {
   }
 
   useEffect(() => {
-    void fetch(`/api/portal/${encodeURIComponent(token)}`, {
-      cache: 'no-store',
-      referrerPolicy: 'no-referrer',
-    })
-      .then(async (response) => {
-        if (!response.ok) throw new Error();
-        return (await response.json()) as PortalResponse;
+    const controller = new AbortController();
+    void Promise.all([
+      fetch(`/api/portal/${encodeURIComponent(token)}`, {
+        signal: controller.signal,
+        cache: 'no-store',
+        referrerPolicy: 'no-referrer',
+      }),
+      fetch(`/api/portal/${encodeURIComponent(token)}/analytics`, {
+        signal: controller.signal,
+        cache: 'no-store',
+        referrerPolicy: 'no-referrer',
+      }),
+    ])
+      .then(async ([portalResponse, analyticsResponse]) => {
+        if (!portalResponse.ok || !analyticsResponse.ok) throw new Error();
+        const portalPayload = (await portalResponse.json()) as PortalResponse;
+        const analyticsPayload = (await analyticsResponse.json()) as InsightResponse;
+        setPortal(portalPayload);
+        setAnalytics(analyticsPayload.analytics);
       })
-      .then(setPortal)
-      .catch(() => setPortal({ success: false }));
+      .catch((failure: unknown) => {
+        if (!(failure instanceof DOMException && failure.name === 'AbortError')) {
+          setPortal({ success: false });
+        }
+      });
+    return () => controller.abort();
   }, [token]);
 
   if (!portal) {
@@ -81,6 +110,23 @@ export default function PortalAnalyticsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {analytics && (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {[
+                  ['Profile views', analytics.profileViews],
+                  ['Bookings', analytics.bookings],
+                  ['Reviews', analytics.reviews],
+                  ['Search impressions', analytics.searchImpressions],
+                  ['Clicks', analytics.clicks],
+                  ['Menu views', analytics.menuViews],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-xl border border-border p-4">
+                    <p className="text-2xl font-semibold">{value}</p>
+                    <p className="text-sm text-muted-foreground">{label}</p>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="rounded-xl border border-border bg-secondary/30 p-4">
               <div className="flex items-center gap-2 font-semibold">
                 <Sparkles className="h-4 w-4 text-primary" /> AI analytics insight

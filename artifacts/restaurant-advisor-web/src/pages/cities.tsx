@@ -15,6 +15,11 @@ export default function CitiesPage() {
 
   useEffect(() => {
     document.title = 'Cities | The Food Advisor';
+    const description =
+      document.querySelector<HTMLMetaElement>('meta[name="description"]');
+    if (description) {
+      description.content = 'Browse restaurants by city worldwide.';
+    }
     const controller = new AbortController();
     void fetch('/api/cities', {
       signal: controller.signal,

@@ -3,6 +3,11 @@ import { Crown, ExternalLink, Loader2, MapPin, Search } from 'lucide-react';
 import { Link, useParams } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { RestaurantMap } from '@/components/restaurant-map';
+import { Reviews } from '@/components/reviews';
+import { BookingForm } from '@/components/booking-form';
+import { FavouriteButton } from '@/components/favourite-button';
+import { ShareButtons } from '@/components/share-buttons';
 
 interface RestaurantProfile {
   id: string;
@@ -20,11 +25,14 @@ interface RestaurantProfile {
   phone: string | null;
   address: string;
   website: string | null;
+  deliveryUrl: string | null;
   googleMapsUrl: string;
   rating: number | null;
+  lat: number | null;
+  lng: number | null;
   deliveryPlatforms: string[];
   openingHours: string[] | null;
-  menu: Array<{ id?: string; name?: string; description?: string; price?: string }>;
+  menu: Array<{ id?: number; name?: string; description?: string | null; price?: string | null; category?: string }>;
   photos: Array<{ id?: string; url?: string; alt?: string }>;
   analytics: Record<string, unknown> | null;
   claimed: boolean;
@@ -56,6 +64,7 @@ export default function RestaurantPage() {
   const [data, setData] = useState<RestaurantProfile | null>(null);
   const [error, setError] = useState('');
   const [similar, setSimilar] = useState<SimilarRestaurant[]>([]);
+  const [aiDescription, setAiDescription] = useState<string | null>(null);
   const galleryRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -64,6 +73,7 @@ export default function RestaurantPage() {
     setData(null);
     setError('');
     setSimilar([]);
+    setAiDescription(null);
     void fetch(
       usesSlug
         ? `/api/restaurants/${encodeURIComponent(id)}`
@@ -107,6 +117,25 @@ export default function RestaurantPage() {
         };
         if (response.ok && payload.success && payload.data) {
           setSimilar(payload.data);
+        }
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [data?.id]);
+
+  useEffect(() => {
+    if (!data?.id) return;
+    const controller = new AbortController();
+    void fetch(`/api/ai/${encodeURIComponent(data.id)}`, {
+      signal: controller.signal,
+      cache: 'no-store',
+    })
+      .then(async (response) => {
+        const payload = (await response.json()) as {
+          description?: string | null;
+        };
+        if (response.ok && payload.description) {
+          setAiDescription(payload.description);
         }
       })
       .catch(() => undefined);
@@ -158,12 +187,6 @@ export default function RestaurantPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b border-border">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5 md:px-12">
-          <Link href="/" className="font-serif text-2xl font-semibold">The Food Advisor</Link>
-          <Button asChild><Link href="/search"><Search className="mr-2 h-4 w-4" /> Search</Link></Button>
-        </div>
-      </header>
       <main className="mx-auto max-w-6xl space-y-8 px-6 py-10 md:px-12 md:py-14">
         <header className="max-w-3xl">
           <div className="flex flex-wrap items-center gap-3">
@@ -179,7 +202,13 @@ export default function RestaurantPage() {
             )}
           </div>
           <h1 className="mt-3 font-serif text-4xl font-semibold md:text-6xl">{data.name}</h1>
-          {data.description && <p className="mt-5 text-lg leading-8 text-muted-foreground">{data.description}</p>}
+          {(aiDescription ?? data.description) && (
+            <p className="mt-5 text-lg leading-8 text-muted-foreground">
+              {aiDescription ?? data.description}
+            </p>
+          )}
+          <FavouriteButton restaurantId={data.id} />
+          {data.slug && <ShareButtons slug={data.slug} />}
           {data.rating !== null && (
             <p className="mt-4 font-medium"><span className="text-amber-500">★</span> {data.rating.toFixed(1)}</p>
           )}
@@ -204,8 +233,9 @@ export default function RestaurantPage() {
                 <div className="divide-y divide-border">
                   {data.menu.map((item, index) => (
                     <div key={item.id ?? `${item.name}-${index}`} className="py-3 first:pt-0">
-                      <div className="flex justify-between gap-4"><span className="font-medium">{item.name ?? 'Menu item'}</span><span>{item.price}</span></div>
+                       <div className="flex justify-between gap-4"><span className="font-medium">{item.name ?? 'Menu item'}</span><span>{item.price ? `£${item.price}` : ''}</span></div>
                       {item.description && <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>}
+                       {item.category && <p className="mt-1 text-xs text-muted-foreground">{item.category}</p>}
                     </div>
                   ))}
                 </div>
@@ -220,6 +250,11 @@ export default function RestaurantPage() {
         </div>
 
         <Section title="Location">
+          {data.lat !== null && data.lng !== null ? (
+            <div className="mb-5">
+              <RestaurantMap lat={data.lat} lng={data.lng} />
+            </div>
+          ) : null}
           <div className="flex items-start gap-3">
             <MapPin className="mt-0.5 h-5 w-5 text-primary" />
             <div>
@@ -229,7 +264,19 @@ export default function RestaurantPage() {
               </a>
             </div>
           </div>
+          {data.deliveryUrl && (
+            <a
+              href={data.deliveryUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-5 inline-block rounded bg-fa-gold px-4 py-2 font-semibold text-fa-black"
+            >
+              Order Delivery
+            </a>
+          )}
         </Section>
+        <Reviews restaurantId={data.id} />
+        <BookingForm restaurantId={data.id} />
 
         {!data.claimed && data.claimUrl && (
           <Button asChild size="lg">

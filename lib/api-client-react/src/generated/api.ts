@@ -22,6 +22,7 @@ import type {
 import type {
   AdminActivateGmailWatch200,
   AdminRenewGmailWatch200,
+  CitySummary,
   DashboardHealth,
   DashboardStatusCounts,
   ErrorResponse,
@@ -77,6 +78,83 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getListCitiesUrl = () => {
+
+
+
+
+  return `/api/cities`
+}
+
+/**
+ * @summary List canonical restaurant cities
+ */
+export const listCities = async ( options?: Parameters<typeof customFetch>[1]): Promise<CitySummary[]> => {
+
+  return customFetch<CitySummary[]>(getListCitiesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCitiesQueryKey = () => {
+    return [
+    `/api/cities`
+    ] as const;
+    }
+
+
+export const getListCitiesQueryOptions = <TData = Awaited<ReturnType<typeof listCities>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCities>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCitiesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCities>>> = ({ signal }) => listCities({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCities>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCitiesQueryResult = NonNullable<Awaited<ReturnType<typeof listCities>>>
+export type ListCitiesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List canonical restaurant cities
+ */
+
+export function useListCities<TData = Awaited<ReturnType<typeof listCities>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCities>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCitiesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetDashboardHealthUrl = () => {
 

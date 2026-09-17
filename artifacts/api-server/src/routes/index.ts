@@ -19,6 +19,12 @@ import restaurantRouter from "./restaurant";
 import claimRouter from "./claim";
 import analyticsRouter from "./analytics";
 import recommendationsRouter from "./recommendations";
+import reviewsRouter from "./reviews";
+import autocompleteRouter from "./autocomplete";
+import menusRouter from "./menus";
+import bookingsRouter from "./bookings";
+import matchRouter from "./match";
+import favouritesRouter from "./favourites";
 
 const router: IRouter = Router();
 
@@ -42,5 +48,11 @@ router.use(restaurantRouter);
 router.use(claimRouter);
 router.use(analyticsRouter);
 router.use(recommendationsRouter);
+router.use(reviewsRouter);
+router.use(autocompleteRouter);
+router.use(menusRouter);
+router.use(bookingsRouter);
+router.use(matchRouter);
+router.use(favouritesRouter);
 
 export default router;

@@ -1,4 +1,9 @@
-import { analyticsEventsTable, db } from "@workspace/db";
+import {
+  analyticsEventsTable,
+  db,
+  restaurantBookingsTable,
+  restaurantReviewsTable,
+} from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
@@ -44,6 +49,8 @@ export interface RestaurantAnalytics {
   clicks: number;
   claimClicks: number;
   premiumConversions: number;
+  bookings: number;
+  reviews: number;
 }
 
 export async function logEvent(
@@ -65,7 +72,8 @@ export async function getRestaurantAnalytics(
   id: string,
 ): Promise<RestaurantAnalytics> {
   const restaurantId = z.string().trim().min(1).max(512).parse(id);
-  const [totals] = await db
+  const [[totals], [bookingTotals], [reviewTotals]] = await Promise.all([
+    db
     .select({
       profileViews: sql<number>`count(*) filter (
         where ${analyticsEventsTable.type} = 'profile_view'
@@ -90,7 +98,16 @@ export async function getRestaurantAnalytics(
       )`.mapWith(Number),
     })
     .from(analyticsEventsTable)
-    .where(eq(analyticsEventsTable.restaurantId, restaurantId));
+      .where(eq(analyticsEventsTable.restaurantId, restaurantId)),
+    db
+      .select({ count: sql<number>`count(*)`.mapWith(Number) })
+      .from(restaurantBookingsTable)
+      .where(eq(restaurantBookingsTable.restaurantId, restaurantId)),
+    db
+      .select({ count: sql<number>`count(*)`.mapWith(Number) })
+      .from(restaurantReviewsTable)
+      .where(eq(restaurantReviewsTable.restaurantId, restaurantId)),
+  ]);
 
   return {
     profileViews: totals?.profileViews ?? 0,
@@ -100,6 +117,8 @@ export async function getRestaurantAnalytics(
     clicks: totals?.clicks ?? 0,
     claimClicks: totals?.claimClicks ?? 0,
     premiumConversions: totals?.premiumConversions ?? 0,
+    bookings: bookingTotals?.count ?? 0,
+    reviews: reviewTotals?.count ?? 0,
   };
 }
 

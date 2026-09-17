@@ -3,6 +3,7 @@ import { Router, type IRouter } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { recordAiUsage, type OpenAiUsage } from "../services/aiUsage";
+import { getRestaurantProfile } from "../services/restaurantProfileEngine";
 
 const router: IRouter = Router();
 export const aiAutomationRouter: IRouter = Router();
@@ -54,6 +55,26 @@ const testLimiter = rateLimit({
   limit: 5,
   standardHeaders: "draft-7",
   legacyHeaders: false,
+});
+
+router.get("/:id", async (req, res): Promise<void> => {
+  const id = z.string().trim().min(1).max(512).safeParse(req.params.id);
+  if (!id.success) {
+    res.status(400).json({ error: "Invalid restaurant ID." });
+    return;
+  }
+  try {
+    const restaurant = await getRestaurantProfile(id.data);
+    if (!restaurant) {
+      res.status(404).json({ error: "Restaurant not found." });
+      return;
+    }
+    res.setHeader("Cache-Control", "public, max-age=300");
+    res.json({ description: restaurant.description });
+  } catch (error) {
+    req.log.error({ err: error }, "Restaurant description failed");
+    res.status(503).json({ error: "Restaurant description is unavailable." });
+  }
 });
 
 function validAutomationToken(header: string | undefined): boolean {

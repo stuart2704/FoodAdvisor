@@ -94,4 +94,31 @@ router.post("/portal/:token/analytics-insight", async (req, res) => {
   }
 });
 
+router.get("/portal/:token/analytics", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store, private");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  const params = z
+    .object({ token: z.string().regex(/^[A-Za-z0-9_-]{43}$/) })
+    .safeParse(req.params);
+  if (!params.success) {
+    res.status(404).json({ success: false, error: "Invalid or expired login link." });
+    return;
+  }
+  const placeId = await validateToken(params.data.token);
+  if (!placeId) {
+    res.status(404).json({ success: false, error: "Invalid or expired login link." });
+    return;
+  }
+  try {
+    const analytics = await getRestaurantAnalytics(placeId);
+    res.json({ success: true, analytics });
+  } catch (error) {
+    req.log.error({ err: error }, "Owner analytics failed");
+    res.status(503).json({
+      success: false,
+      error: "Restaurant analytics are temporarily unavailable.",
+    });
+  }
+});
+
 export default router;

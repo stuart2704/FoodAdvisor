@@ -5,6 +5,8 @@ import express, {
   type Response,
 } from "express";
 import cors from "cors";
+import { clerkMiddleware } from "@clerk/express";
+import { publishableKeyFromHost } from "@clerk/shared/keys";
 import cookieParser from "cookie-parser";
 import session from "express-session";
 import pinoHttp from "pino-http";
@@ -37,6 +39,11 @@ import dashboardAnalytics from "./routes/dashboardAnalytics";
 import { logger } from "./lib/logger";
 import { instantlyWebhookRouter } from "./outreach/instantlyWebhook";
 import { handleWebhook as handleStripeWebhook } from "./services/stripeService";
+import {
+  CLERK_PROXY_PATH,
+  clerkProxyMiddleware,
+  getClerkProxyHost,
+} from "./middlewares/clerkProxyMiddleware";
 
 const app: Express = express();
 
@@ -64,7 +71,8 @@ app.use(
     },
   }),
 );
-app.use(cors());
+app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
+app.use(cors({ credentials: true, origin: true }));
 // Instantly webhook authentication/body limits are owned by this router and
 // must run before the global JSON parser. Keep both documented aliases on the
 // same handler; neither path registers a provider webhook or sends mail.
@@ -92,6 +100,14 @@ app.post(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use(
+  clerkMiddleware((req) => ({
+    publishableKey: publishableKeyFromHost(
+      getClerkProxyHost(req) ?? "",
+      process.env.CLERK_PUBLISHABLE_KEY,
+    ),
+  })),
+);
 const sessionSecret = process.env.SESSION_SECRET;
 if (!sessionSecret || sessionSecret.length < 32) {
   throw new Error("SESSION_SECRET must contain at least 32 characters.");
@@ -113,6 +129,7 @@ app.use(
 
 app.use("/api", router);
 app.use("/ai", aiRoutes);
+app.use("/api/ai", aiRoutes);
 app.use("/automation", aiAutomationRouter);
 app.use("/auth", authRoutes);
 app.use("/admin", adminRoutes);

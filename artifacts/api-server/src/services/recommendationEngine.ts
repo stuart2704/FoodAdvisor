@@ -97,7 +97,7 @@ export async function getSimilarRestaurants(
       and(
         ne(restaurantsTable.placeId, restaurantId),
         eq(restaurantsTable.city, restaurant.city),
-        sql`${restaurantsTable.cuisineTags} && ${restaurant.cuisineTags}`,
+        sql`${restaurantsTable.cuisineTags} && ARRAY[${restaurant.cuisineTags[0]}]::text[]`,
       ),
     )
     .orderBy(

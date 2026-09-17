@@ -25,6 +25,10 @@ function NativeTabLayout() {
         <NativeTabs.Trigger.Icon sf={{ default: 'map', selected: 'map.fill' }} />
         <NativeTabs.Trigger.Label>Map</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="cities">
+        <NativeTabs.Trigger.Icon sf={{ default: 'building.2', selected: 'building.2.fill' }} />
+        <NativeTabs.Trigger.Label>Cities</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="search">
         <NativeTabs.Trigger.Icon sf={{ default: 'magnifyingglass', selected: 'magnifyingglass' }} />
         <NativeTabs.Trigger.Label>Search</NativeTabs.Trigger.Label>
@@ -88,6 +92,7 @@ function ClassicTabLayout() {
         }}
       />
       <Tabs.Screen name="map" options={{ title: 'Map', tabBarIcon: ({ color }) => <Feather name="map" size={21} color={color} /> }} />
+      <Tabs.Screen name="cities" options={{ title: 'Cities', tabBarIcon: ({ color }) => <Feather name="map-pin" size={21} color={color} /> }} />
       <Tabs.Screen name="search" options={{ title: 'Search', tabBarIcon: ({ color }) => <Feather name="search" size={21} color={color} /> }} />
       <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: ({ color }) => <Feather name="user" size={21} color={color} /> }} />
     </Tabs>

@@ -9,6 +9,21 @@ import * as zod from 'zod';
 
 
 /**
+ * @summary List canonical restaurant cities
+ */
+export const listCitiesResponseCountMin = 0;
+
+
+
+export const ListCitiesResponseItem = zod.object({
+  "city": zod.string(),
+  "slug": zod.string(),
+  "count": zod.number().int().min(listCitiesResponseCountMin)
+})
+export const ListCitiesResponse = zod.array(ListCitiesResponseItem)
+
+
+/**
  * @summary Read bounded process-local scraper health without launching scans
  */
 export const getDashboardHealthResponseScoreMin = 0;

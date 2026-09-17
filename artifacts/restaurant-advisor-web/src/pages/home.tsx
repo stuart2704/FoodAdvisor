@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Crown, Loader2 } from 'lucide-react';
 import { Link } from 'wouter';
 import { Card, CardContent } from '@/components/ui/card';
+import { Newsletter } from '@/components/newsletter';
 
 interface HomepageRestaurant {
   id: string;
@@ -225,6 +226,7 @@ export default function HomePage() {
           <Section key={cuisine} title={`Best ${cuisine}`} items={items} />
         ))}
         <Section title="Global Discovery" items={data.globalDiscovery} />
+        <Newsletter />
       </main>
     </div>
   );

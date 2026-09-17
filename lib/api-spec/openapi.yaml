@@ -19,6 +19,20 @@ tags:
   - name: gmail
     description: Gmail watch renewal and authenticated Pub/Sub push
 paths:
+  /cities:
+    get:
+      operationId: listCities
+      tags: [restaurants]
+      summary: List canonical restaurant cities
+      responses:
+        "200":
+          description: Cities ordered by restaurant count
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CitySummary"
   /dashboard/health:
     servers: [{ url: / }]
     get:
@@ -643,6 +657,17 @@ components:
         type: string
         minLength: 1
   schemas:
+    CitySummary:
+      type: object
+      required: [city, slug, count]
+      properties:
+        city:
+          type: string
+        slug:
+          type: string
+        count:
+          type: integer
+          minimum: 0
     DashboardStatusCounts:
       type: array
       items:

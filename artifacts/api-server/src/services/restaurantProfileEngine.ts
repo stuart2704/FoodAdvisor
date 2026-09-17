@@ -1,5 +1,5 @@
-import { db, restaurantsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, restaurantMenuItemsTable, restaurantsTable } from "@workspace/db";
+import { asc, eq } from "drizzle-orm";
 import { calculateRanking } from "./rankingEngine";
 
 export interface RestaurantProfile {
@@ -18,11 +18,20 @@ export interface RestaurantProfile {
   phone: null;
   address: string;
   website: string | null;
+  deliveryUrl: string | null;
   googleMapsUrl: string;
   rating: number | null;
+  lat: number | null;
+  lng: number | null;
   deliveryPlatforms: string[];
   openingHours: null;
-  menu: [];
+  menu: Array<{
+    id: number;
+    name: string;
+    price: string | null;
+    description: string | null;
+    category: string;
+  }>;
   photos: [];
   analytics: null;
   claimed: boolean;
@@ -40,6 +49,20 @@ export async function getRestaurantProfile(
     .where(eq(restaurantsTable.placeId, placeId))
     .limit(1);
   if (!restaurant) return null;
+  const menu = await db
+    .select({
+      id: restaurantMenuItemsTable.id,
+      name: restaurantMenuItemsTable.name,
+      price: restaurantMenuItemsTable.price,
+      description: restaurantMenuItemsTable.description,
+      category: restaurantMenuItemsTable.category,
+    })
+    .from(restaurantMenuItemsTable)
+    .where(eq(restaurantMenuItemsTable.restaurantId, restaurant.placeId))
+    .orderBy(
+      asc(restaurantMenuItemsTable.category),
+      asc(restaurantMenuItemsTable.name),
+    );
   const cuisine = restaurant.cuisineTags[0] ?? null;
 
   return {
@@ -62,15 +85,26 @@ export async function getRestaurantProfile(
       country: restaurant.country ?? "",
       cuisine,
     }),
-    description: restaurant.websiteDescription,
+    description:
+      restaurant.websiteDescription ??
+      `${restaurant.name} is a ${cuisine ?? "restaurant"} in ${[
+        restaurant.city,
+        restaurant.region,
+        restaurant.country,
+      ]
+        .filter(Boolean)
+        .join(", ")}.`,
     phone: null,
     address: restaurant.address,
     website: restaurant.website,
+    deliveryUrl: restaurant.deliveryUrl,
     googleMapsUrl: restaurant.googleMapsUrl,
     rating: restaurant.rating,
+    lat: restaurant.latitude,
+    lng: restaurant.longitude,
     deliveryPlatforms: [],
     openingHours: null,
-    menu: [],
+    menu,
     photos: [],
     analytics: null,
     claimed: restaurant.claimStatus !== null,

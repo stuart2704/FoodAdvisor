@@ -5,6 +5,13 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface CitySummary {
+  city: string;
+  slug: string;
+  /** @minimum 0 */
+  count: number;
+}
+
 export type DashboardStatusCountsItem = {
   /** Workflow label, or sending/out_of_office/unmapped where no workflow label exists */
   status: string;

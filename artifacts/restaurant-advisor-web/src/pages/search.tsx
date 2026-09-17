@@ -17,16 +17,57 @@ interface SearchResult {
   slug: string | null;
 }
 
+interface AutocompleteResult {
+  id: string;
+  name: string;
+  slug: string | null;
+  city: string;
+}
+
 export default function SearchPage() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
+  const [autocomplete, setAutocomplete] = useState<AutocompleteResult[]>([]);
 
   useEffect(() => {
     document.title = 'Search Restaurants | The Food Advisor';
   }, []);
+
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) {
+      setAutocomplete([]);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      const params = new URLSearchParams({ q });
+      void fetch(`/api/autocomplete?${params.toString()}`, {
+        signal: controller.signal,
+      })
+        .then(async (response) => {
+          const payload = (await response.json()) as {
+            success?: boolean;
+            results?: AutocompleteResult[];
+          };
+          if (response.ok && payload.success) {
+            setAutocomplete(payload.results ?? []);
+          }
+        })
+        .catch((failure: unknown) => {
+          if (!(failure instanceof DOMException && failure.name === 'AbortError')) {
+            setAutocomplete([]);
+          }
+        });
+    }, 250);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [query]);
 
   async function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -77,10 +118,37 @@ export default function SearchPage() {
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search by city…"
+              placeholder="Search by city or restaurant…"
               className="h-12 pl-12 text-base"
-              aria-label="Search by city"
+              aria-label="Search by city or restaurant"
+              aria-autocomplete="list"
+              aria-controls="restaurant-autocomplete"
             />
+            {autocomplete.length > 0 && (
+              <ul
+                id="restaurant-autocomplete"
+                className="absolute z-20 mt-2 w-full overflow-hidden rounded-lg border border-border bg-white p-2 shadow-lg"
+              >
+                {autocomplete.map((item) => (
+                  <li key={item.id}>
+                    <Link
+                      href={
+                        item.slug
+                          ? `/restaurants/${item.slug}`
+                          : `/restaurant/${encodeURIComponent(item.id)}`
+                      }
+                      onClick={() => setAutocomplete([])}
+                      className="block rounded-md px-3 py-2 hover:bg-muted"
+                    >
+                      <span className="font-medium">{item.name}</span>
+                      <span className="ml-2 text-sm text-muted-foreground">
+                        {item.city}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           <button
             type="submit"

@@ -8,6 +8,7 @@
 
 export * from './adminActivateGmailWatch200';
 export * from './adminRenewGmailWatch200';
+export * from './citySummary';
 export * from './dashboardHealth';
 export * from './dashboardHealthRecentItem';
 export * from './dashboardHealthRecentItemProxyUsed';

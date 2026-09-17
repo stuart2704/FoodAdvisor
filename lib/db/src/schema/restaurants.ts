@@ -33,6 +33,7 @@ export const restaurantsTable = pgTable(
     rating: real("rating"),
     priceLevel: text("price_level"),
     website: text("website"),
+    deliveryUrl: text("delivery_url"),
     websiteTitle: text("website_title"),
     websiteDescription: text("website_description"),
     googleMapsUrl: text("google_maps_url").notNull(),
@@ -95,6 +96,96 @@ export const restaurantsTable = pgTable(
     uniqueIndex("restaurants_slug_unique").on(table.slug),
     uniqueIndex("restaurants_unsubscribe_token_hash_unique").on(
       table.unsubscribeTokenHash,
+    ),
+  ],
+);
+
+export const restaurantReviewsTable = pgTable(
+  "restaurant_reviews",
+  {
+    id: serial("id").primaryKey(),
+    restaurantId: text("restaurant_id")
+      .notNull()
+      .references(() => restaurantsTable.placeId, { onDelete: "cascade" }),
+    clerkUserId: text("clerk_user_id").notNull(),
+    rating: integer("rating").notNull(),
+    review: text("review").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("restaurant_reviews_restaurant_created_idx").on(
+      table.restaurantId,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const restaurantFavouritesTable = pgTable(
+  "restaurant_favourites",
+  {
+    id: serial("id").primaryKey(),
+    clerkUserId: text("clerk_user_id").notNull(),
+    restaurantId: text("restaurant_id")
+      .notNull()
+      .references(() => restaurantsTable.placeId, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("restaurant_favourites_user_restaurant_unique").on(
+      table.clerkUserId,
+      table.restaurantId,
+    ),
+  ],
+);
+
+export const restaurantMenuItemsTable = pgTable(
+  "restaurant_menu_items",
+  {
+    id: serial("id").primaryKey(),
+    restaurantId: text("restaurant_id")
+      .notNull()
+      .references(() => restaurantsTable.placeId, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    price: text("price"),
+    description: text("description"),
+    category: text("category").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("restaurant_menu_restaurant_category_idx").on(
+      table.restaurantId,
+      table.category,
+    ),
+  ],
+);
+
+export const restaurantBookingsTable = pgTable(
+  "restaurant_bookings",
+  {
+    id: serial("id").primaryKey(),
+    restaurantId: text("restaurant_id")
+      .notNull()
+      .references(() => restaurantsTable.placeId, { onDelete: "cascade" }),
+    guestName: text("guest_name").notNull(),
+    guestEmail: text("guest_email").notNull(),
+    bookingDate: date("booking_date").notNull(),
+    bookingTime: text("booking_time").notNull(),
+    guests: integer("guests").notNull(),
+    status: text("status").notNull().default("requested"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("restaurant_bookings_restaurant_date_idx").on(
+      table.restaurantId,
+      table.bookingDate,
     ),
   ],
 );
