@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Crown, Loader2, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -22,50 +22,47 @@ export default function SearchPage() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [hasSearched, setHasSearched] = useState(false);
 
   useEffect(() => {
     document.title = 'Search Restaurants | The Food Advisor';
-    const trimmed = query.trim();
-    if (!trimmed) {
-      setResults([]);
-      setError('');
-      setLoading(false);
-      return;
-    }
+  }, []);
+
+  async function handleSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const city = query.trim();
+    setHasSearched(true);
+    setResults([]);
+    setError('');
+    if (!city) return;
+
     const controller = new AbortController();
-    const timer = window.setTimeout(() => {
-      setLoading(true);
-      setError('');
-      const params = new URLSearchParams({ q: trimmed });
-      void fetch(`/api/search?${params.toString()}`, {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ city });
+      const response = await fetch(`/api/search?${params.toString()}`, {
         signal: controller.signal,
         cache: 'no-store',
-      })
-        .then(async (response) => {
-          const data = (await response.json()) as {
-            success: boolean;
-            results?: SearchResult[];
-            error?: string;
-          };
-          if (!response.ok || !data.success) {
-            throw new Error(data.error ?? 'Search is temporarily unavailable.');
-          }
-          setResults(data.results ?? []);
-        })
-        .catch((failure: unknown) => {
-          if (!(failure instanceof DOMException && failure.name === 'AbortError')) {
-            setError(failure instanceof Error ? failure.message : 'Search is temporarily unavailable.');
-          }
-        })
-        .finally(() => {
-          if (!controller.signal.aborted) setLoading(false);
-        });
-    }, 350);
-    return () => {
-      window.clearTimeout(timer);
-      controller.abort();
-    };
-  }, [query]);
+      });
+      const data = (await response.json()) as {
+        success: boolean;
+        results?: SearchResult[];
+        error?: string;
+      };
+      if (!response.ok || !data.success) {
+        throw new Error(data.error ?? 'Search is temporarily unavailable.');
+      }
+      setResults(data.results ?? []);
+    } catch (failure: unknown) {
+      setError(
+        failure instanceof Error
+          ? failure.message
+          : 'Search is temporarily unavailable.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background p-6 text-foreground md:p-12">
@@ -74,19 +71,28 @@ export default function SearchPage() {
           <p className="text-sm font-semibold text-primary">The Food Advisor</p>
           <h1 className="mt-2 font-serif text-4xl font-semibold">Search restaurants</h1>
         </header>
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search restaurants…"
-            className="h-12 pl-12 text-base"
-            aria-label="Search restaurants"
-          />
-        </div>
+        <form onSubmit={handleSearch} className="flex flex-col gap-3 sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search by city…"
+              className="h-12 pl-12 text-base"
+              aria-label="Search by city"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading || !query.trim()}
+            className="inline-flex h-12 items-center justify-center rounded-md bg-primary px-6 font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {loading ? 'Searching…' : 'Search'}
+          </button>
+        </form>
         {loading && <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Searching…</p>}
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-        {!loading && query.trim() && !error && results.length === 0 && (
+        {!loading && hasSearched && !error && results.length === 0 && (
           <p className="text-sm text-muted-foreground">No matching restaurants found.</p>
         )}
         <div className="grid gap-4 sm:grid-cols-2">

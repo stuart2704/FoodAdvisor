@@ -10,6 +10,7 @@ interface CityDirectoryData {
     id: string;
     slug: string | null;
     name: string;
+    address: string;
     city: string;
     region: string | null;
     country: string | null;
@@ -72,6 +73,13 @@ export default function CityDirectoryPage() {
                   <p className="mt-2 text-sm text-muted-foreground">
                     {restaurant.cuisineTags[0] ?? 'Restaurant'}
                     {restaurant.rating !== null ? ` · ★ ${restaurant.rating.toFixed(1)}` : ''}
+                  </p>
+                  <p className="mt-4 text-sm text-foreground/80">
+                    {restaurant.address}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {restaurant.city}
+                    {restaurant.region ? `, ${restaurant.region}` : ''}
                   </p>
                 </CardContent>
               </Card>

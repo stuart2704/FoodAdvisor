@@ -24,6 +24,9 @@ import ClaimSuccessPage from '@/pages/claim-success';
 import CountriesPage from '@/pages/countries';
 import CountryPage from '@/pages/country';
 import CityDirectoryPage from '@/pages/city-directory';
+import CitiesPage from '@/pages/cities';
+import RegionsPage from '@/pages/regions';
+import RegionPage from '@/pages/region';
 import { AdminGate } from '@/components/admin-gate';
 import {
   Route,
@@ -42,6 +45,9 @@ function Router() {
         <Route path="/search" component={SearchPage} />
         <Route path="/city/:city" component={CityPage} />
         <Route path="/cities/:slug" component={CityDirectoryPage} />
+        <Route path="/cities" component={CitiesPage} />
+        <Route path="/regions/:slug" component={RegionPage} />
+        <Route path="/regions" component={RegionsPage} />
         <Route path="/countries/:slug" component={CountryPage} />
         <Route path="/countries" component={CountriesPage} />
         <Route path="/cuisine/:cuisine" component={CuisinePage} />
