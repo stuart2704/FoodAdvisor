@@ -35,3 +35,6 @@ INSTANTLY_CAMPAIGN_ACTIVATION_ENABLED = "true"
 INSTANTLY_CAMPAIGN_CREATION_ENABLED = "true"
 INSTANTLY_EACCOUNT = "stuart.cornelius@emailfoodadvisor.com"
 OUTREACH_ENABLED = "true"
+
+[userenv.development]
+STRIPE_PREMIUM_PRICE_ID = "price_1UGcbNLlQZ1xACZup6fdLSok"
