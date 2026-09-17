@@ -14,6 +14,7 @@ interface SearchResult {
   tags: string[];
   premium: boolean;
   rankingScore: number;
+  slug: string | null;
 }
 
 export default function SearchPage() {
@@ -92,7 +93,11 @@ export default function SearchPage() {
           {results.map((restaurant) => (
             <Link
               key={restaurant.id}
-              href={`/restaurant/${encodeURIComponent(restaurant.id)}`}
+              href={
+                restaurant.slug
+                  ? `/restaurants/${restaurant.slug}`
+                  : `/restaurant/${encodeURIComponent(restaurant.id)}`
+              }
               onClick={() => recordRestaurantClick(restaurant.id)}
               className="block"
             >

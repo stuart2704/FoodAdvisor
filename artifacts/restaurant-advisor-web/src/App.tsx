@@ -21,6 +21,9 @@ import CuisinePage from '@/pages/cuisine';
 import DirectoryPage from '@/pages/directory';
 import RestaurantPage from '@/pages/restaurant';
 import ClaimSuccessPage from '@/pages/claim-success';
+import CountriesPage from '@/pages/countries';
+import CountryPage from '@/pages/country';
+import CityDirectoryPage from '@/pages/city-directory';
 import { AdminGate } from '@/components/admin-gate';
 import {
   Route,
@@ -38,9 +41,13 @@ function Router() {
         <Route path="/admin/login" component={AdminLogin} />
         <Route path="/search" component={SearchPage} />
         <Route path="/city/:city" component={CityPage} />
+        <Route path="/cities/:slug" component={CityDirectoryPage} />
+        <Route path="/countries/:slug" component={CountryPage} />
+        <Route path="/countries" component={CountriesPage} />
         <Route path="/cuisine/:cuisine" component={CuisinePage} />
         <Route path="/restaurants" component={DirectoryPage} />
         <Route path="/restaurant/:id" component={RestaurantPage} />
+        <Route path="/restaurants/:slug" component={RestaurantPage} />
         <Route path="/claim/:id/success" component={ClaimSuccessPage} />
         <Route path="/admin/dashboard">
           <AdminGate><Dashboard /></AdminGate>

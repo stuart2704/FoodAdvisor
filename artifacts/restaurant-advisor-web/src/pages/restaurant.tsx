@@ -9,7 +9,10 @@ interface RestaurantProfile {
   name: string;
   cuisine: string | null;
   city: string;
+  region: string | null;
   country: string;
+  globalRegion: string | null;
+  slug: string | null;
   priceLevel: string | null;
   premium: boolean;
   rankingScore: number;
@@ -47,7 +50,9 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export default function RestaurantPage() {
-  const { id = '' } = useParams<{ id: string }>();
+  const params = useParams<{ id?: string; slug?: string }>();
+  const id = params.id ?? params.slug ?? '';
+  const usesSlug = Boolean(params.slug);
   const [data, setData] = useState<RestaurantProfile | null>(null);
   const [error, setError] = useState('');
   const [similar, setSimilar] = useState<SimilarRestaurant[]>([]);
@@ -59,10 +64,15 @@ export default function RestaurantPage() {
     setData(null);
     setError('');
     setSimilar([]);
-    void fetch(`/api/restaurant/${encodeURIComponent(id)}`, {
+    void fetch(
+      usesSlug
+        ? `/api/restaurants/${encodeURIComponent(id)}`
+        : `/api/restaurant/${encodeURIComponent(id)}`,
+      {
       signal: controller.signal,
       cache: 'no-store',
-    })
+      },
+    )
       .then(async (response) => {
         const payload = (await response.json()) as {
           success: boolean;
@@ -80,7 +90,13 @@ export default function RestaurantPage() {
           setError(failure instanceof Error ? failure.message : 'Restaurant not found.');
         }
       });
-    void fetch(`/api/restaurants/${encodeURIComponent(id)}/similar`, {
+    return () => controller.abort();
+  }, [id, usesSlug]);
+
+  useEffect(() => {
+    if (!data?.id) return;
+    const controller = new AbortController();
+    void fetch(`/api/restaurants/${encodeURIComponent(data.id)}/similar`, {
       signal: controller.signal,
       cache: 'no-store',
     })
@@ -95,7 +111,7 @@ export default function RestaurantPage() {
       })
       .catch(() => undefined);
     return () => controller.abort();
-  }, [id]);
+  }, [data?.id]);
 
   useEffect(() => {
     if (!data) return;
@@ -151,7 +167,11 @@ export default function RestaurantPage() {
       <main className="mx-auto max-w-6xl space-y-8 px-6 py-10 md:px-12 md:py-14">
         <header className="max-w-3xl">
           <div className="flex flex-wrap items-center gap-3">
-            <p className="text-sm font-semibold text-primary">{data.cuisine ?? 'Restaurant'} · {data.city}</p>
+            <p className="text-sm font-semibold text-primary">
+              {data.cuisine ?? 'Restaurant'} · {data.city}
+              {data.region ? `, ${data.region}` : ''}
+              {data.country ? ` · ${data.country}` : ''}
+            </p>
             {data.premium && (
               <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
                 <Crown className="h-3.5 w-3.5" /> Premium

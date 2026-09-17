@@ -7,7 +7,10 @@ export interface RestaurantProfile {
   name: string;
   cuisine: string | null;
   city: string;
+  region: string | null;
   country: string;
+  globalRegion: string | null;
+  slug: string | null;
   priceLevel: string | null;
   premium: boolean;
   rankingScore: number;
@@ -44,7 +47,10 @@ export async function getRestaurantProfile(
     name: restaurant.name,
     cuisine,
     city: restaurant.city,
-    country: "United Kingdom",
+    region: restaurant.region,
+    country: restaurant.country ?? "",
+    globalRegion: restaurant.globalRegion,
+    slug: restaurant.slug,
     priceLevel: restaurant.priceLevel,
     premium: restaurant.premium,
     rankingScore: calculateRanking({
@@ -53,7 +59,7 @@ export async function getRestaurantProfile(
       popularity: restaurant.popularity,
       aiRelevanceBoost: restaurant.aiRelevanceBoost,
       city: restaurant.city,
-      country: "United Kingdom",
+      country: restaurant.country ?? "",
       cuisine,
     }),
     description: restaurant.websiteDescription,
