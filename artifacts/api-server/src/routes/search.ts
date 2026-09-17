@@ -26,6 +26,8 @@ const SearchQuery = z
   .object({
     q: z.string().trim().max(120).optional(),
     city: z.string().trim().max(100).optional(),
+    region: z.string().trim().max(100).optional(),
+    country: z.string().trim().max(100).optional(),
     cuisine: z.string().trim().max(100).optional(),
     price: z.string().trim().max(30).optional(),
     premiumOnly: z.enum(["true", "false"]).default("false"),
@@ -49,7 +51,18 @@ async function searchRestaurants(req: Request, res: Response): Promise<void> {
     });
     return;
   }
-  const { q, city, cuisine, price, premiumOnly, ai, page, limit } = parsed.data;
+  const {
+    q,
+    city,
+    region,
+    country,
+    cuisine,
+    price,
+    premiumOnly,
+    ai,
+    page,
+    limit,
+  } = parsed.data;
   if (price) {
     res.status(400).json({
       success: false,
@@ -76,6 +89,12 @@ async function searchRestaurants(req: Request, res: Response): Promise<void> {
     );
   }
   if (city) conditions.push(ilike(restaurantsTable.city, escapeLike(city)));
+  if (region) {
+    conditions.push(ilike(restaurantsTable.region, escapeLike(region)));
+  }
+  if (country) {
+    conditions.push(ilike(restaurantsTable.country, escapeLike(country)));
+  }
   if (cuisine) {
     conditions.push(sql`exists (
       select 1 from unnest(${restaurantsTable.cuisineTags}) as cuisine_tag
@@ -127,7 +146,10 @@ async function searchRestaurants(req: Request, res: Response): Promise<void> {
         name: row.name,
         cuisine: row.cuisineTags[0] ?? null,
         city: row.city,
-        country: "United Kingdom",
+        region: row.region,
+        country: row.country,
+        globalRegion: row.globalRegion,
+        slug: row.slug,
         priceLevel: null,
         tags: [...new Set([...row.cuisineTags, ...row.dietaryTags])],
         premium: row.premium,
@@ -142,7 +164,7 @@ async function searchRestaurants(req: Request, res: Response): Promise<void> {
           aiRelevanceBoost:
             aiBoosts.get(row.placeId) ?? row.aiRelevanceBoost,
           city: row.city,
-          country: "United Kingdom",
+          country: row.country ?? "",
           cuisine: row.cuisineTags[0] ?? null,
         }),
       }))

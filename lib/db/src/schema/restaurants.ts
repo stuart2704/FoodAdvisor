@@ -22,6 +22,10 @@ export const restaurantsTable = pgTable(
     name: text("name").notNull(),
     address: text("address").notNull(),
     city: text("city").notNull(),
+    region: text("region"),
+    country: text("country"),
+    globalRegion: text("global_region"),
+    slug: text("slug"),
     // Coordinates are optional because older imports and manually added
     // listings may not have a verified Places location yet.
     latitude: doublePrecision("latitude"),
@@ -88,6 +92,7 @@ export const restaurantsTable = pgTable(
     premiumCancelledAt: timestamp("premium_cancelled_at", { withTimezone: true }),
   },
   (table) => [
+    uniqueIndex("restaurants_slug_unique").on(table.slug),
     uniqueIndex("restaurants_unsubscribe_token_hash_unique").on(
       table.unsubscribeTokenHash,
     ),

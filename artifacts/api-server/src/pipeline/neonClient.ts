@@ -2,15 +2,22 @@ import { db, restaurantsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logEvent } from "../utils/eventLog";
 import { parseRestaurant } from "./validator";
+import { getRegionForCity } from "../services/regionMap";
+import { restaurantSlug } from "../utils/slugify";
 
 export type InsertedRestaurant = typeof restaurantsTable.$inferSelect;
 
 // Reuse the shared Neon connection and TLS settings; never create another pool.
 export async function dbInsertRestaurant(input: unknown): Promise<InsertedRestaurant | null> {
   const restaurant = parseRestaurant(input);
+  const region = getRegionForCity(restaurant.city);
   try {
     const [inserted] = await db.insert(restaurantsTable)
-      .values(restaurant)
+      .values({
+        ...restaurant,
+        ...(region ?? {}),
+        slug: restaurantSlug(restaurant.name, restaurant.placeId),
+      })
       .onConflictDoNothing({ target: restaurantsTable.placeId })
       .returning();
     logEvent(inserted ? "success" : "info",

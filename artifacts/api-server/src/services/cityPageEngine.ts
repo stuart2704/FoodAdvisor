@@ -30,7 +30,7 @@ function toCityPageRestaurant(row: RestaurantRecord): CityPageRestaurant {
     id: row.placeId,
     name: row.name,
     city: row.city,
-    country: "United Kingdom",
+    country: row.country ?? "",
     cuisine: row.cuisineTags[0] ?? null,
     tags: [...new Set([...row.cuisineTags, ...row.dietaryTags])],
     rating: row.rating,
@@ -71,7 +71,7 @@ export async function getCityPage(city: string): Promise<CityPageData> {
         popularity: restaurant.popularity,
         aiRelevanceBoost: restaurant.aiRelevanceBoost,
         city: restaurant.city,
-        country: "United Kingdom",
+        country: restaurant.country ?? "",
         cuisine: restaurant.cuisineTags[0] ?? null,
       }),
     }))

@@ -2,11 +2,93 @@ import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { getCityPage } from "../services/cityPageEngine";
 import { cityPageViewEventsTable, db } from "@workspace/db";
+import { restaurantsTable } from "@workspace/db";
+import { asc, desc, eq, sql } from "drizzle-orm";
+import { slugify } from "../utils/slugify";
 
 const router: IRouter = Router();
 
 const CityParams = z.object({
   city: z.string().trim().min(1).max(100),
+});
+
+const CitySlugParams = z.object({
+  slug: z.string().trim().min(1).max(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+});
+
+router.get("/cities", async (req, res) => {
+  try {
+    const rows = await db
+      .select({
+        city: restaurantsTable.city,
+        count: sql<number>`count(*)`.mapWith(Number),
+      })
+      .from(restaurantsTable)
+      .groupBy(restaurantsTable.city)
+      .orderBy(asc(restaurantsTable.city))
+      .limit(1_000);
+    res.setHeader("Cache-Control", "public, max-age=300");
+    res.json(
+      rows.map((row) => ({
+        city: row.city,
+        slug: slugify(row.city),
+        count: row.count,
+      })),
+    );
+  } catch (error) {
+    req.log.error({ err: error }, "City directory query failed");
+    res.status(503).json({ error: "Cities are temporarily unavailable." });
+  }
+});
+
+router.get("/cities/:slug", async (req, res) => {
+  const parsed = CitySlugParams.safeParse(req.params);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid city slug." });
+    return;
+  }
+  try {
+    const cities = await db
+      .selectDistinct({ city: restaurantsTable.city })
+      .from(restaurantsTable)
+      .limit(1_000);
+    const city = cities.find((row) => slugify(row.city) === parsed.data.slug)?.city;
+    if (!city) {
+      res.status(404).json({ error: "City not found." });
+      return;
+    }
+    const restaurants = await db
+      .select({
+        id: restaurantsTable.placeId,
+        slug: restaurantsTable.slug,
+        name: restaurantsTable.name,
+        address: restaurantsTable.address,
+        city: restaurantsTable.city,
+        region: restaurantsTable.region,
+        country: restaurantsTable.country,
+        globalRegion: restaurantsTable.globalRegion,
+        cuisineTags: restaurantsTable.cuisineTags,
+        dietaryTags: restaurantsTable.dietaryTags,
+        rating: restaurantsTable.rating,
+        priceLevel: restaurantsTable.priceLevel,
+        website: restaurantsTable.website,
+        googleMapsUrl: restaurantsTable.googleMapsUrl,
+        premium: restaurantsTable.premium,
+      })
+      .from(restaurantsTable)
+      .where(eq(restaurantsTable.city, city))
+      .orderBy(
+        desc(restaurantsTable.premium),
+        desc(restaurantsTable.rankingScore),
+        restaurantsTable.name,
+      )
+      .limit(500);
+    res.setHeader("Cache-Control", "public, max-age=300");
+    res.json({ city, restaurants });
+  } catch (error) {
+    req.log.error({ err: error }, "City directory detail query failed");
+    res.status(503).json({ error: "City restaurants are temporarily unavailable." });
+  }
 });
 
 router.get("/city/:city", async (req, res) => {

@@ -4,6 +4,8 @@ import {
   restaurantImportRunsTable,
   restaurantsTable,
 } from "@workspace/db";
+import { getRegionForCity } from "../services/regionMap";
+import { restaurantSlug } from "../utils/slugify";
 import { normaliseCoordinates, type Coordinates } from "./geo";
 
 export const SUPPORTED_CITIES = [
@@ -279,6 +281,8 @@ export async function runImport(input: PlanInput & { confirm: boolean }) {
           name: place.name,
           address: place.address,
           city: place.city,
+          ...(getRegionForCity(place.city) ?? {}),
+          slug: restaurantSlug(place.name, place.id),
           rating: place.rating,
           latitude: place.location?.latitude ?? null,
           longitude: place.location?.longitude ?? null,
