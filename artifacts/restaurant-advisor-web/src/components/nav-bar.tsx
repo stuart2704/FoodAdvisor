@@ -1,0 +1,27 @@
+import { Link } from 'wouter';
+
+const links = [
+  { href: '/', label: 'Home' },
+  { href: '/cities', label: 'Cities' },
+  { href: '/regions', label: 'Regions' },
+  { href: '/countries', label: 'Countries' },
+  { href: '/search', label: 'Search' },
+];
+
+export function NavBar() {
+  return (
+    <nav className="bg-foreground text-background" aria-label="Main navigation">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-3 px-6 py-4 text-base font-medium md:px-12 md:text-lg">
+        {links.map((link) => (
+          <Link
+            key={link.href}
+            href={link.href}
+            className="rounded-sm underline-offset-4 transition-opacity hover:underline hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-background"
+          >
+            {link.label}
+          </Link>
+        ))}
+      </div>
+    </nav>
+  );
+}

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, Building2, Loader2, Search } from 'lucide-react';
+import { ArrowRight, Building2, Loader2 } from 'lucide-react';
 import { Link } from 'wouter';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface CitySummary {
@@ -46,18 +45,6 @@ export default function CitiesPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b border-border">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 md:px-12">
-          <Link href="/" className="font-serif text-2xl font-semibold">
-            The Food Advisor
-          </Link>
-          <Button asChild>
-            <Link href="/search">
-              <Search className="mr-2 h-4 w-4" /> Search
-            </Link>
-          </Button>
-        </div>
-      </header>
       <main className="mx-auto max-w-7xl space-y-8 px-6 py-10 md:px-12 md:py-14">
         <header className="max-w-2xl">
           <div className="mb-4 inline-flex rounded-full bg-primary/10 p-3 text-primary">

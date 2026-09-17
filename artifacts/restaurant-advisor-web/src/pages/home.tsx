@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Crown, Loader2, Search } from 'lucide-react';
+import { Crown, Loader2 } from 'lucide-react';
 import { Link } from 'wouter';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface HomepageRestaurant {
@@ -166,20 +165,47 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b border-border">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 md:px-12">
-          <Link href="/" className="font-serif text-2xl font-semibold">The Food Advisor</Link>
-          <Button asChild>
-            <Link href="/search"><Search className="mr-2 h-4 w-4" /> Search</Link>
-          </Button>
-        </div>
-      </header>
       <main className="mx-auto max-w-7xl space-y-12 px-6 py-10 md:px-12 md:py-14">
         <section className="max-w-3xl">
           <p className="text-sm font-semibold text-primary">Restaurant discovery, ranked intelligently</p>
           <h1 className="mt-3 font-serif text-4xl font-semibold leading-tight md:text-6xl">
-            Find your next great restaurant
+            The Food Advisor
           </h1>
+          <p className="mt-4 text-lg text-muted-foreground">
+            Explore restaurants across cities, regions, and countries worldwide.
+          </p>
+        </section>
+        <section className="grid gap-6 md:grid-cols-3" aria-label="Browse restaurant directories">
+          {[
+            {
+              href: '/cities',
+              title: 'Cities',
+              description: 'Browse restaurants by city.',
+            },
+            {
+              href: '/regions',
+              title: 'Regions',
+              description: 'Explore UK and global regions.',
+            },
+            {
+              href: '/countries',
+              title: 'Countries',
+              description: 'Discover restaurants worldwide.',
+            },
+          ].map((directory) => (
+            <Link key={directory.href} href={directory.href}>
+              <Card className="h-full transition-colors hover:border-primary/40 hover:bg-muted/30">
+                <CardContent className="p-6">
+                  <h2 className="font-serif text-2xl font-semibold">
+                    {directory.title}
+                  </h2>
+                  <p className="mt-2 text-muted-foreground">
+                    {directory.description}
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
         </section>
         <Section title="Featured Restaurants" items={data.featured} />
         <Section title="Recommended for you" items={recommended} />

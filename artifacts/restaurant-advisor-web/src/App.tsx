@@ -27,6 +27,8 @@ import CityDirectoryPage from '@/pages/city-directory';
 import CitiesPage from '@/pages/cities';
 import RegionsPage from '@/pages/regions';
 import RegionPage from '@/pages/region';
+import { NavBar } from '@/components/nav-bar';
+import { Footer } from '@/components/footer';
 import { AdminGate } from '@/components/admin-gate';
 import {
   Route,
@@ -85,7 +87,13 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-          <Router />
+          <div className="flex min-h-screen flex-col">
+            <NavBar />
+            <div className="flex-1">
+              <Router />
+            </div>
+            <Footer />
+          </div>
         </WouterRouter>
         <Toaster />
       </TooltipProvider>
