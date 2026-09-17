@@ -12,6 +12,7 @@ export interface RestaurantProfile {
   globalRegion: string | null;
   slug: string | null;
   priceLevel: string | null;
+  currency: string;
   premium: boolean;
   rankingScore: number;
   description: string | null;
@@ -76,6 +77,7 @@ export async function getRestaurantProfile(
     globalRegion: restaurant.globalRegion,
     slug: restaurant.slug,
     priceLevel: restaurant.priceLevel,
+    currency: restaurant.currency,
     premium: restaurant.premium,
     rankingScore: calculateRanking({
       premium: restaurant.premium,

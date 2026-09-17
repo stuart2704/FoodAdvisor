@@ -19,6 +19,7 @@ interface RestaurantProfile {
   globalRegion: string | null;
   slug: string | null;
   priceLevel: string | null;
+  currency: string;
   premium: boolean;
   rankingScore: number;
   description: string | null;
@@ -67,6 +68,7 @@ export default function RestaurantPage() {
   const [similar, setSimilar] = useState<SimilarRestaurant[]>([]);
   const [aiDescription, setAiDescription] = useState<string | null>(null);
   const [menuCuisine, setMenuCuisine] = useState<string | null>(null);
+  const [qrCode, setQrCode] = useState<string | null>(null);
   const galleryRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -77,6 +79,7 @@ export default function RestaurantPage() {
     setSimilar([]);
     setAiDescription(null);
     setMenuCuisine(null);
+    setQrCode(null);
     void fetch(
       usesSlug
         ? `/api/restaurants/${encodeURIComponent(id)}`
@@ -120,6 +123,25 @@ export default function RestaurantPage() {
         };
         if (response.ok && payload.success && payload.data) {
           setSimilar(payload.data);
+        }
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [data?.id]);
+
+  useEffect(() => {
+    if (!data?.id) return;
+    const controller = new AbortController();
+    void fetch(`/api/qrcode/${encodeURIComponent(data.id)}`, {
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const payload = (await response.json()) as {
+          success?: boolean;
+          qr?: string;
+        };
+        if (response.ok && payload.success && payload.qr) {
+          setQrCode(payload.qr);
         }
       })
       .catch(() => undefined);
@@ -238,6 +260,18 @@ export default function RestaurantPage() {
           )}
           <FavouriteButton restaurantId={data.id} />
           {data.slug && <ShareButtons slug={data.slug} />}
+          {qrCode && (
+            <div className="mt-6">
+              <img
+                src={qrCode}
+                alt={`QR code for ${data.name}`}
+                className="h-40 w-40 rounded-lg border border-border"
+              />
+              <p className="mt-2 text-sm text-muted-foreground">
+                Scan to share this restaurant.
+              </p>
+            </div>
+          )}
           {menuCuisine && (
             <p className="mt-4 text-sm text-muted-foreground">
               Menu cuisine classification: <strong>{menuCuisine}</strong>

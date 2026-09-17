@@ -27,6 +27,11 @@ interface HomepageData {
   globalDiscovery: HomepageRestaurant[];
 }
 
+interface TrendsData {
+  cuisines: Array<{ cuisine: string; count: number }>;
+  cities: Array<{ city: string; count: number }>;
+}
+
 function Section({
   title,
   items,
@@ -74,6 +79,7 @@ export default function HomePage() {
     cuisine: string;
     items: HomepageRestaurant[];
   } | null>(null);
+  const [trends, setTrends] = useState<TrendsData | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -101,6 +107,20 @@ export default function HomePage() {
           setError(failure instanceof Error ? failure.message : 'Homepage recommendations are unavailable.');
         }
       });
+    void fetch('/api/trends', {
+      signal: controller.signal,
+      cache: 'no-store',
+    })
+      .then(async (response) => {
+        const payload = (await response.json()) as {
+          success?: boolean;
+          data?: TrendsData;
+        };
+        if (response.ok && payload.success && payload.data) {
+          setTrends(payload.data);
+        }
+      })
+      .catch(() => undefined);
     if (visitorId) {
       void fetch('/api/recommendations', {
         signal: controller.signal,
@@ -213,6 +233,38 @@ export default function HomePage() {
         </section>
         <Section title="Featured Restaurants" items={data.featured} />
         <ClusterMap restaurants={data.featured} />
+        {trends && (
+          <section className="grid gap-6 md:grid-cols-2" aria-label="Food trends">
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="font-serif text-2xl font-semibold">Trending cuisines</h2>
+                <ol className="mt-4 space-y-2">
+                  {trends.cuisines.map((item) => (
+                    <li key={item.cuisine} className="flex justify-between gap-4">
+                      <Link href={`/cuisine/${encodeURIComponent(item.cuisine)}`} className="font-semibold hover:text-primary">
+                        {item.cuisine}
+                      </Link>
+                      <span className="text-muted-foreground">{item.count}</span>
+                    </li>
+                  ))}
+                </ol>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="font-serif text-2xl font-semibold">Trending cities</h2>
+                <ol className="mt-4 space-y-2">
+                  {trends.cities.map((item) => (
+                    <li key={item.city} className="flex justify-between gap-4">
+                      <span className="font-semibold">{item.city}</span>
+                      <span className="text-muted-foreground">{item.count}</span>
+                    </li>
+                  ))}
+                </ol>
+              </CardContent>
+            </Card>
+          </section>
+        )}
         <Section title="Recommended for you" items={recommended} />
         <Section title="Trending in your area" items={trendingNearby} />
         {topCuisine ? (

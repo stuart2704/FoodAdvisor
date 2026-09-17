@@ -2,6 +2,7 @@ import { Link } from 'wouter';
 import { Show, UserButton } from '@clerk/react';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { CurrencySwitcher } from '@/components/currency-switcher';
 
 const links = [
   { href: '/', label: 'Home' },
@@ -15,6 +16,8 @@ const links = [
   { href: '/contact', label: 'Contact' },
   { href: '/chat', label: 'Assistant' },
   { href: '/trends', label: 'Trends' },
+  { href: '/pro', label: 'Premium' },
+  { href: '/rankings', label: 'Rankings' },
 ];
 
 export function NavBar() {
@@ -41,6 +44,7 @@ export function NavBar() {
         ))}
         <div className="ml-auto flex items-center gap-4">
           <LanguageSwitcher />
+          <CurrencySwitcher />
           <ThemeToggle />
           <Show when="signed-out">
             <Link href="/sign-in" className="hover:underline">Log in</Link>

@@ -614,6 +614,37 @@ export default function DiscoverScreen() {
         <Image source={foodImages[0]} style={consumerStyles.heroImage} />
       </View>
 
+      <View style={consumerStyles.quickActions}>
+        {[
+          { label: 'Browse Cities', icon: 'map-pin' as const, path: '/cities' as const },
+          { label: 'Search', icon: 'search' as const, path: '/search' as const },
+          {
+            label: 'Restaurant Assistant',
+            icon: 'message-circle' as const,
+            path: '/assistant' as const,
+          },
+        ].map((action) => (
+          <Pressable
+            key={action.path}
+            accessibilityRole="button"
+            onPress={() => {
+              Haptics.selectionAsync();
+              router.push(action.path);
+            }}
+            style={[
+              consumerStyles.quickAction,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Feather name={action.icon} size={20} color={colors.primary} />
+            <Text style={[consumerStyles.quickActionText, { color: colors.foreground }]}>
+              {action.label}
+            </Text>
+            <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+          </Pressable>
+        ))}
+      </View>
+
       <Pressable
         testID="discover-near-me"
         disabled={locationState === 'requesting'}
@@ -748,6 +779,17 @@ const consumerStyles = StyleSheet.create({
   hero: { flexDirection: 'row', alignItems: 'flex-end', gap: 14, marginTop: 4 },
   heroCopy: { flex: 1 },
   heroImage: { width: 104, height: 132, borderRadius: 24 },
+  quickActions: { gap: 10, marginTop: 22 },
+  quickAction: {
+    minHeight: 56,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  quickActionText: { flex: 1, fontFamily: 'Inter_700Bold', fontSize: 16 },
   nearMe: {
     minHeight: 78,
     borderRadius: 22,

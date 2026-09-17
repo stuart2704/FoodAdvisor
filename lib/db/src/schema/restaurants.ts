@@ -20,6 +20,7 @@ export const restaurantsTable = pgTable(
     // Google Place ID remains the canonical primary key.
     placeId: text("place_id").primaryKey(),
     name: text("name").notNull(),
+    brand: text("brand"),
     address: text("address").notNull(),
     city: text("city").notNull(),
     region: text("region"),
@@ -32,6 +33,7 @@ export const restaurantsTable = pgTable(
     longitude: doublePrecision("longitude"),
     rating: real("rating"),
     priceLevel: text("price_level"),
+    currency: text("currency").notNull().default("GBP"),
     website: text("website"),
     deliveryUrl: text("delivery_url"),
     websiteTitle: text("website_title"),
@@ -94,6 +96,7 @@ export const restaurantsTable = pgTable(
   },
   (table) => [
     uniqueIndex("restaurants_slug_unique").on(table.slug),
+    index("restaurants_brand_idx").on(table.brand),
     uniqueIndex("restaurants_unsubscribe_token_hash_unique").on(
       table.unsubscribeTokenHash,
     ),
@@ -174,6 +177,7 @@ export const restaurantBookingsTable = pgTable(
       .references(() => restaurantsTable.placeId, { onDelete: "cascade" }),
     guestName: text("guest_name").notNull(),
     guestEmail: text("guest_email").notNull(),
+    clerkUserId: text("clerk_user_id"),
     bookingDate: date("booking_date").notNull(),
     bookingTime: text("booking_time").notNull(),
     guests: integer("guests").notNull(),
@@ -186,6 +190,30 @@ export const restaurantBookingsTable = pgTable(
     index("restaurant_bookings_restaurant_date_idx").on(
       table.restaurantId,
       table.bookingDate,
+    ),
+  ],
+);
+
+export const userRewardEventsTable = pgTable(
+  "user_reward_events",
+  {
+    id: serial("id").primaryKey(),
+    clerkUserId: text("clerk_user_id").notNull(),
+    action: text("action").notNull(),
+    sourceId: text("source_id").notNull(),
+    points: integer("points").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("user_reward_events_action_source_unique").on(
+      table.action,
+      table.sourceId,
+    ),
+    index("user_reward_events_user_created_idx").on(
+      table.clerkUserId,
+      table.createdAt,
     ),
   ],
 );

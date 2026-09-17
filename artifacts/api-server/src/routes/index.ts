@@ -28,6 +28,10 @@ import favouritesRouter from "./favourites";
 import classifyRouter from "./classify";
 import chatRouter from "./chat";
 import trendingRouter from "./trending";
+import rewardsRouter from "./rewards";
+import rankRouter from "./rank";
+import qrRouter from "./qr";
+import brandRouter from "./brand";
 
 const router: IRouter = Router();
 
@@ -60,5 +64,9 @@ router.use(favouritesRouter);
 router.use(classifyRouter);
 router.use(chatRouter);
 router.use(trendingRouter);
+router.use(rewardsRouter);
+router.use(rankRouter);
+router.use(qrRouter);
+router.use(brandRouter);
 
 export default router;

@@ -1,4 +1,10 @@
-import { db, restaurantBookingsTable, restaurantsTable } from "@workspace/db";
+import { getAuth } from "@clerk/express";
+import {
+  db,
+  restaurantBookingsTable,
+  restaurantsTable,
+  userRewardEventsTable,
+} from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import rateLimit from "express-rate-limit";
@@ -29,6 +35,7 @@ router.post("/bookings", bookingLimiter, async (req, res) => {
     return;
   }
   try {
+    const userId = getAuth(req).userId;
     const [restaurant] = await db
       .select({ id: restaurantsTable.placeId })
       .from(restaurantsTable)
@@ -38,21 +45,34 @@ router.post("/bookings", bookingLimiter, async (req, res) => {
       res.status(404).json({ success: false, error: "Restaurant not found." });
       return;
     }
-    const [booking] = await db
-      .insert(restaurantBookingsTable)
-      .values({
-        restaurantId: parsed.data.restaurantId,
-        guestName: parsed.data.name,
-        guestEmail: parsed.data.email.toLowerCase(),
-        bookingDate: parsed.data.date,
-        bookingTime: parsed.data.time,
-        guests: parsed.data.guests,
-      })
-      .returning({ id: restaurantBookingsTable.id });
+    const booking = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(restaurantBookingsTable)
+        .values({
+          restaurantId: parsed.data.restaurantId,
+          clerkUserId: userId ?? null,
+          guestName: parsed.data.name,
+          guestEmail: parsed.data.email.toLowerCase(),
+          bookingDate: parsed.data.date,
+          bookingTime: parsed.data.time,
+          guests: parsed.data.guests,
+        })
+        .returning({ id: restaurantBookingsTable.id });
+      if (userId) {
+        await tx.insert(userRewardEventsTable).values({
+          clerkUserId: userId,
+          action: "booking",
+          sourceId: String(created.id),
+          points: 5,
+        });
+      }
+      return created;
+    });
     res.status(201).json({
       success: true,
       data: { id: booking.id, status: "requested" },
       message: "Booking request received.",
+      pointsEarned: userId ? 5 : 0,
     });
   } catch (error) {
     req.log.error({ err: error }, "Booking request failed");

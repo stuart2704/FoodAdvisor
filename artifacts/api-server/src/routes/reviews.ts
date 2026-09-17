@@ -1,5 +1,10 @@
 import { getAuth } from "@clerk/express";
-import { db, restaurantReviewsTable, restaurantsTable } from "@workspace/db";
+import {
+  db,
+  restaurantReviewsTable,
+  restaurantsTable,
+  userRewardEventsTable,
+} from "@workspace/db";
 import { desc, eq } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import rateLimit from "express-rate-limit";
@@ -46,20 +51,29 @@ router.post("/reviews", reviewLimiter, async (req, res) => {
       res.status(404).json({ success: false, error: "Restaurant not found." });
       return;
     }
-    const [review] = await db
-      .insert(restaurantReviewsTable)
-      .values({
-        restaurantId: parsed.data.restaurantId,
+    const review = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(restaurantReviewsTable)
+        .values({
+          restaurantId: parsed.data.restaurantId,
+          clerkUserId: userId,
+          rating: parsed.data.rating,
+          review: parsed.data.review,
+        })
+        .returning({
+          id: restaurantReviewsTable.id,
+          rating: restaurantReviewsTable.rating,
+          review: restaurantReviewsTable.review,
+          createdAt: restaurantReviewsTable.createdAt,
+        });
+      await tx.insert(userRewardEventsTable).values({
         clerkUserId: userId,
-        rating: parsed.data.rating,
-        review: parsed.data.review,
-      })
-      .returning({
-        id: restaurantReviewsTable.id,
-        rating: restaurantReviewsTable.rating,
-        review: restaurantReviewsTable.review,
-        createdAt: restaurantReviewsTable.createdAt,
+        action: "review",
+        sourceId: String(created.id),
+        points: 10,
       });
+      return created;
+    });
     res.status(201).json({ success: true, data: review });
   } catch (error) {
     req.log.error({ err: error }, "Review creation failed");

@@ -46,6 +46,9 @@ import PricingPage from '@/pages/pricing';
 import ChatPage from '@/pages/chat';
 import PortalOnboardingPage from '@/pages/portal-onboarding';
 import TrendsPage from '@/pages/trends';
+import ProPage from '@/pages/pro';
+import RankingsPage from '@/pages/rankings';
+import FranchisePage from '@/pages/franchise';
 import { NavBar } from '@/components/nav-bar';
 import { Footer } from '@/components/footer';
 import { AdminGate } from '@/components/admin-gate';
@@ -190,6 +193,9 @@ function Router() {
         <Route path="/pricing" component={PricingPage} />
         <Route path="/chat" component={ChatPage} />
         <Route path="/trends" component={TrendsPage} />
+        <Route path="/pro" component={ProPage} />
+        <Route path="/rankings" component={RankingsPage} />
+        <Route path="/franchise/:brand" component={FranchisePage} />
         <Route path="/countries/:slug" component={CountryPage} />
         <Route path="/countries" component={CountriesPage} />
         <Route path="/cuisine/:cuisine" component={CuisinePage} />
