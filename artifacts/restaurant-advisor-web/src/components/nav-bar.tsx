@@ -10,6 +10,11 @@ const links = [
   { href: '/countries', label: 'Countries' },
   { href: '/search', label: 'Search' },
   { href: '/match', label: 'Match' },
+  { href: '/about', label: 'About' },
+  { href: '/pricing', label: 'Pricing' },
+  { href: '/contact', label: 'Contact' },
+  { href: '/chat', label: 'Assistant' },
+  { href: '/trends', label: 'Trends' },
 ];
 
 export function NavBar() {

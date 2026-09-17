@@ -39,6 +39,13 @@ import OwnerDashboard from '@/pages/owner';
 import OwnerClaimPage from '@/pages/owner-claim';
 import OwnerManagePage from '@/pages/owner-manage';
 import MatchPage from '@/pages/match';
+import AdvancedSearchPage from '@/pages/advanced-search';
+import AboutPage from '@/pages/about';
+import ContactPage from '@/pages/contact';
+import PricingPage from '@/pages/pricing';
+import ChatPage from '@/pages/chat';
+import PortalOnboardingPage from '@/pages/portal-onboarding';
+import TrendsPage from '@/pages/trends';
 import { NavBar } from '@/components/nav-bar';
 import { Footer } from '@/components/footer';
 import { AdminGate } from '@/components/admin-gate';
@@ -177,6 +184,12 @@ function Router() {
         <Route path="/owner/manage" component={OwnerManagePage} />
         <Route path="/owner" component={OwnerDashboard} />
         <Route path="/match" component={MatchPage} />
+        <Route path="/advanced-search" component={AdvancedSearchPage} />
+        <Route path="/about" component={AboutPage} />
+        <Route path="/contact" component={ContactPage} />
+        <Route path="/pricing" component={PricingPage} />
+        <Route path="/chat" component={ChatPage} />
+        <Route path="/trends" component={TrendsPage} />
         <Route path="/countries/:slug" component={CountryPage} />
         <Route path="/countries" component={CountriesPage} />
         <Route path="/cuisine/:cuisine" component={CuisinePage} />
@@ -195,6 +208,7 @@ function Router() {
         <Route path="/portal/:token/photos" component={PortalPhotosPage} />
         <Route path="/portal/:token/analytics" component={PortalAnalyticsPage} />
         <Route path="/portal/:token/upgrade" component={PortalUpgradePage} />
+        <Route path="/portal/:token/onboarding" component={PortalOnboardingPage} />
         <Route path="/portal/:token" component={PortalPage} />
         <Route path="/unsubscribe/:token" component={Unsubscribe} />
         <Route path="/support" component={Support} />

@@ -25,6 +25,9 @@ import menusRouter from "./menus";
 import bookingsRouter from "./bookings";
 import matchRouter from "./match";
 import favouritesRouter from "./favourites";
+import classifyRouter from "./classify";
+import chatRouter from "./chat";
+import trendingRouter from "./trending";
 
 const router: IRouter = Router();
 
@@ -54,5 +57,8 @@ router.use(menusRouter);
 router.use(bookingsRouter);
 router.use(matchRouter);
 router.use(favouritesRouter);
+router.use(classifyRouter);
+router.use(chatRouter);
+router.use(trendingRouter);
 
 export default router;

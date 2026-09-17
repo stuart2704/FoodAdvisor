@@ -12,6 +12,8 @@ export interface HomepageRestaurant {
   tags: string[];
   rating: number | null;
   premium: boolean;
+  lat: number | null;
+  lng: number | null;
 }
 
 export interface HomepageData {
@@ -33,6 +35,8 @@ function toHomepageRestaurant(row: RestaurantRecord): HomepageRestaurant {
     tags: [...new Set([...row.cuisineTags, ...row.dietaryTags])],
     rating: row.rating,
     premium: row.premium,
+    lat: row.latitude,
+    lng: row.longitude,
   };
 }
 

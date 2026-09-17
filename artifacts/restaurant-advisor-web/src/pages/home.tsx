@@ -3,6 +3,7 @@ import { Crown, Loader2 } from 'lucide-react';
 import { Link } from 'wouter';
 import { Card, CardContent } from '@/components/ui/card';
 import { Newsletter } from '@/components/newsletter';
+import { ClusterMap } from '@/components/cluster-map';
 
 interface HomepageRestaurant {
   id: string;
@@ -13,6 +14,8 @@ interface HomepageRestaurant {
   tags: string[];
   rating: number | null;
   premium: boolean;
+  lat: number | null;
+  lng: number | null;
 }
 
 interface HomepageData {
@@ -209,6 +212,7 @@ export default function HomePage() {
           ))}
         </section>
         <Section title="Featured Restaurants" items={data.featured} />
+        <ClusterMap restaurants={data.featured} />
         <Section title="Recommended for you" items={recommended} />
         <Section title="Trending in your area" items={trendingNearby} />
         {topCuisine ? (

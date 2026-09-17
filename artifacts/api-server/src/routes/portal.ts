@@ -33,6 +33,7 @@ router.get("/portal/:token", async (req, res) => {
       address: restaurantsTable.address,
       website: restaurantsTable.website,
       onboardingStatus: restaurantsTable.onboardingStatus,
+      verified: restaurantsTable.claimedAt,
       premium: restaurantsTable.premium,
     })
     .from(restaurantsTable)
@@ -50,7 +51,10 @@ router.get("/portal/:token", async (req, res) => {
   } catch (error) {
     req.log.warn({ err: error }, "Portal login state could not be recorded");
   }
-  res.json({ success: true, restaurant });
+  res.json({
+    success: true,
+    restaurant: { ...restaurant, verified: restaurant.verified !== null },
+  });
 });
 
 router.post("/portal/:token/analytics-insight", async (req, res) => {

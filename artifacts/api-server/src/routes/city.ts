@@ -5,6 +5,7 @@ import { cityPageViewEventsTable, db } from "@workspace/db";
 import { restaurantsTable } from "@workspace/db";
 import { asc, desc, eq, sql } from "drizzle-orm";
 import { slugify } from "../utils/slugify";
+import { cache } from "../lib/cache";
 
 const router: IRouter = Router();
 
@@ -17,6 +18,14 @@ const CitySlugParams = z.object({
 });
 
 router.get("/cities", async (req, res) => {
+  const cached = cache.get<Array<{ city: string; slug: string; count: number }>>(
+    "cities",
+  );
+  if (cached) {
+    res.setHeader("Cache-Control", "public, max-age=60");
+    res.json(cached);
+    return;
+  }
   try {
     const rows = await db
       .select({
@@ -27,14 +36,14 @@ router.get("/cities", async (req, res) => {
       .groupBy(restaurantsTable.city)
       .orderBy(asc(restaurantsTable.city))
       .limit(1_000);
-    res.setHeader("Cache-Control", "public, max-age=300");
-    res.json(
-      rows.map((row) => ({
+    const cities = rows.map((row) => ({
         city: row.city,
         slug: slugify(row.city),
         count: row.count,
-      })),
-    );
+      }));
+    cache.set("cities", cities);
+    res.setHeader("Cache-Control", "public, max-age=60");
+    res.json(cities);
   } catch (error) {
     req.log.error({ err: error }, "City directory query failed");
     res.status(503).json({ error: "Cities are temporarily unavailable." });

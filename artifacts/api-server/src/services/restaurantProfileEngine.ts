@@ -35,6 +35,7 @@ export interface RestaurantProfile {
   photos: [];
   analytics: null;
   claimed: boolean;
+  verified: boolean;
   claimUrl: null;
 }
 
@@ -108,6 +109,7 @@ export async function getRestaurantProfile(
     photos: [],
     analytics: null,
     claimed: restaurant.claimStatus !== null,
+    verified: restaurant.claimedAt !== null,
     claimUrl: null,
   };
 }

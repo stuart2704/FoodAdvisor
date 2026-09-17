@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'wouter';
-import { BarChart3, Camera, Crown, Loader2, UtensilsCrossed } from 'lucide-react';
+import { BarChart3, Camera, Crown, ListChecks, Loader2, UtensilsCrossed } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface PortalResponse {
@@ -54,6 +54,7 @@ export default function PortalPage() {
   }
   const restaurant = data.restaurant;
   const sections = [
+    { href: `/portal/${token}/onboarding`, label: 'Onboarding Progress', icon: ListChecks },
     { href: `/portal/${token}/menu`, label: 'Manage Menu', icon: UtensilsCrossed },
     { href: `/portal/${token}/photos`, label: 'Manage Photos', icon: Camera },
     {

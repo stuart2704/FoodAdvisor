@@ -3,7 +3,7 @@ import {
   restaurantsTable,
   restaurantSearchEventsTable,
 } from "@workspace/db";
-import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, or, sql } from "drizzle-orm";
 import {
   Router,
   type IRouter,
@@ -29,6 +29,7 @@ const SearchQuery = z
     region: z.string().trim().max(100).optional(),
     country: z.string().trim().max(100).optional(),
     cuisine: z.string().trim().max(100).optional(),
+    minRating: z.coerce.number().min(0).max(5).optional(),
     price: z.string().trim().max(30).optional(),
     premiumOnly: z.enum(["true", "false"]).default("false"),
     ai: z.enum(["true", "false"]).default("false"),
@@ -57,6 +58,7 @@ async function searchRestaurants(req: Request, res: Response): Promise<void> {
     region,
     country,
     cuisine,
+    minRating,
     price,
     premiumOnly,
     ai,
@@ -101,6 +103,9 @@ async function searchRestaurants(req: Request, res: Response): Promise<void> {
       where lower(cuisine_tag) = lower(${cuisine})
     )`);
   }
+  if (minRating !== undefined) {
+    conditions.push(gte(restaurantsTable.rating, minRating));
+  }
   if (premiumOnly === "true") {
     conditions.push(eq(restaurantsTable.premium, true));
   }
@@ -140,8 +145,30 @@ async function searchRestaurants(req: Request, res: Response): Promise<void> {
       }
     }
 
+    const normalisedQuery = q?.toLocaleLowerCase();
     const ranked = rows
-      .map((row) => ({
+      .map((row) => {
+        const nameMatches = normalisedQuery
+          ? row.name.toLocaleLowerCase().includes(normalisedQuery)
+          : false;
+        const cuisineMatches = normalisedQuery
+          ? row.cuisineTags.some((tag) =>
+              tag.toLocaleLowerCase().includes(normalisedQuery),
+            )
+          : false;
+        const cityMatches = normalisedQuery
+          ? row.city.toLocaleLowerCase().includes(normalisedQuery)
+          : false;
+        const relevance = !normalisedQuery
+          ? 0
+          : nameMatches
+            ? 10
+            : cuisineMatches
+              ? 6
+              : cityMatches
+                ? 4
+                : 1;
+        return {
         id: row.placeId,
         name: row.name,
         cuisine: row.cuisineTags[0] ?? null,
@@ -167,9 +194,14 @@ async function searchRestaurants(req: Request, res: Response): Promise<void> {
           country: row.country ?? "",
           cuisine: row.cuisineTags[0] ?? null,
         }),
-      }))
+        relevance,
+      };
+      })
       .sort(
-        (left, right) => right.rankingScore - left.rankingScore,
+        (left, right) =>
+          Number(right.premium) - Number(left.premium) ||
+          right.relevance - left.relevance ||
+          right.rankingScore - left.rankingScore,
       );
     const visitorId = req.get("X-Visitor-Id");
     let personalisedResults = ranked;
@@ -250,6 +282,7 @@ const searchLimiter = rateLimit({
 });
 
 router.get("/search", searchLimiter, searchRestaurants);
+router.get("/search-advanced", searchLimiter, searchRestaurants);
 router.get("/restaurants/search", searchLimiter, searchRestaurants);
 
 export default router;

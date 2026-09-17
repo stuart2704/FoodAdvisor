@@ -71,16 +71,16 @@ export default function SearchPage() {
 
   async function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const city = query.trim();
+    const q = query.trim();
     setHasSearched(true);
     setResults([]);
     setError('');
-    if (!city) return;
+    if (!q) return;
 
     const controller = new AbortController();
     setLoading(true);
     try {
-      const params = new URLSearchParams({ city });
+      const params = new URLSearchParams({ q });
       const response = await fetch(`/api/search?${params.toString()}`, {
         signal: controller.signal,
         cache: 'no-store',
@@ -111,6 +111,9 @@ export default function SearchPage() {
         <header>
           <p className="text-sm font-semibold text-primary">The Food Advisor</p>
           <h1 className="mt-2 font-serif text-4xl font-semibold">Search restaurants</h1>
+          <Link href="/advanced-search" className="mt-3 inline-block font-semibold text-primary hover:underline">
+            Use advanced filters
+          </Link>
         </header>
         <form onSubmit={handleSearch} className="flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">

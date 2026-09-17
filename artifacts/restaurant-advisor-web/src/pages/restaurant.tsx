@@ -36,6 +36,7 @@ interface RestaurantProfile {
   photos: Array<{ id?: string; url?: string; alt?: string }>;
   analytics: Record<string, unknown> | null;
   claimed: boolean;
+  verified: boolean;
   claimUrl: string | null;
 }
 
@@ -65,6 +66,7 @@ export default function RestaurantPage() {
   const [error, setError] = useState('');
   const [similar, setSimilar] = useState<SimilarRestaurant[]>([]);
   const [aiDescription, setAiDescription] = useState<string | null>(null);
+  const [menuCuisine, setMenuCuisine] = useState<string | null>(null);
   const galleryRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -74,6 +76,7 @@ export default function RestaurantPage() {
     setError('');
     setSimilar([]);
     setAiDescription(null);
+    setMenuCuisine(null);
     void fetch(
       usesSlug
         ? `/api/restaurants/${encodeURIComponent(id)}`
@@ -117,6 +120,25 @@ export default function RestaurantPage() {
         };
         if (response.ok && payload.success && payload.data) {
           setSimilar(payload.data);
+        }
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [data?.id]);
+
+  useEffect(() => {
+    if (!data?.id) return;
+    const controller = new AbortController();
+    void fetch(`/api/classify/${encodeURIComponent(data.id)}`, {
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const payload = (await response.json()) as {
+          success?: boolean;
+          cuisine?: string;
+        };
+        if (response.ok && payload.success && payload.cuisine !== 'Unknown') {
+          setMenuCuisine(payload.cuisine ?? null);
         }
       })
       .catch(() => undefined);
@@ -201,7 +223,14 @@ export default function RestaurantPage() {
               </span>
             )}
           </div>
-          <h1 className="mt-3 font-serif text-4xl font-semibold md:text-6xl">{data.name}</h1>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <h1 className="font-serif text-4xl font-semibold md:text-6xl">{data.name}</h1>
+            {data.verified && (
+              <span className="rounded bg-fa-gold px-2 py-1 text-sm font-semibold text-fa-black">
+                ✓ Verified
+              </span>
+            )}
+          </div>
           {(aiDescription ?? data.description) && (
             <p className="mt-5 text-lg leading-8 text-muted-foreground">
               {aiDescription ?? data.description}
@@ -209,6 +238,11 @@ export default function RestaurantPage() {
           )}
           <FavouriteButton restaurantId={data.id} />
           {data.slug && <ShareButtons slug={data.slug} />}
+          {menuCuisine && (
+            <p className="mt-4 text-sm text-muted-foreground">
+              Menu cuisine classification: <strong>{menuCuisine}</strong>
+            </p>
+          )}
           {data.rating !== null && (
             <p className="mt-4 font-medium"><span className="text-amber-500">★</span> {data.rating.toFixed(1)}</p>
           )}
