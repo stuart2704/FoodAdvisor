@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "The Restaurant Advisor"
+title = "the-food-advisor"
 description = "A budget-aware restaurant discovery and import dashboard for expanding UK restaurant coverage across web and mobile without exceeding Google Places spending limits."
 version = "1.0.0"
 id = "artifacts/restaurant-advisor-web"
