@@ -49,12 +49,15 @@ test("website extraction uses business mailboxes, exact social hosts and resolve
     "https://bistro.org/about/",
     ["mailto:info@bistro.org?subject=Hello", "../menu.pdf",
       "https://instagram.com.evil.org/name", "https://www.instagram.com/bistro",
-      "https://facebook.com/bistro", "javascript:alert(1)"],
+      "https://facebook.com/bistro", "https://www.opentable.com/r/bistro",
+      "https://opentable.com.evil.org/r/bistro", "javascript:alert(1)"],
   );
   assert.equal(data.email, "info@bistro.org");
   assert.equal(data.menuUrl, "https://bistro.org/menu.pdf");
   assert.equal(data.instagram, "https://www.instagram.com/bistro");
   assert.equal(data.facebook, "https://facebook.com/bistro");
+  assert.equal(data.bookingUrl, "https://www.opentable.com/r/bistro");
+  assert.equal(data.bookingProvider, "OpenTable");
   assert.equal(data.brandingQuality, "high");
   assert.equal(data.brandingAssessment, "heuristic");
   assert.equal(m.extractWebsiteSignals("chef@bistro.org", "https://bistro.org", []).email, null);

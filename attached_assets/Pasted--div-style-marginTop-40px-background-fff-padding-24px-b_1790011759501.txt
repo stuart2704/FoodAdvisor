@@ -1,0 +1,98 @@
+<div
+  style={{
+    marginTop: "40px",
+    background: "#fff",
+    padding: "24px",
+    borderRadius: "16px"
+  }}
+>
+  <h2>Special Offers</h2>
+  <p>Create promotions to attract more customers.</p>
+
+  <input
+    type="text"
+    placeholder="Offer Title"
+    value={offerTitle}
+    onChange={(e) => setOfferTitle(e.target.value)}
+    style={{
+      padding: "12px",
+      width: "100%",
+      marginBottom: "12px",
+      borderRadius: "8px",
+      border: "1px solid #ccc"
+    }}
+  />
+
+  <textarea
+    placeholder="Offer Description"
+    value={offerDesc}
+    onChange={(e) => setOfferDesc(e.target.value)}
+    style={{
+      padding: "12px",
+      width: "100%",
+      height: "120px",
+      marginBottom: "12px",
+      borderRadius: "8px",
+      border: "1px solid #ccc"
+    }}
+  />
+
+  <label>Start Date</label>
+  <input
+    type="date"
+    value={offerStart}
+    onChange={(e) => setOfferStart(e.target.value)}
+    style={{
+      padding: "12px",
+      width: "100%",
+      marginBottom: "12px",
+      borderRadius: "8px",
+      border: "1px solid #ccc"
+    }}
+  />
+
+  <label>End Date</label>
+  <input
+    type="date"
+    value={offerEnd}
+    onChange={(e) => setOfferEnd(e.target.value)}
+    style={{
+      padding: "12px",
+      width: "100%",
+      marginBottom: "12px",
+      borderRadius: "8px",
+      border: "1px solid #ccc"
+    }}
+  />
+
+  <button
+    onClick={() => {
+      fetch("https://the-food-advisor-api.onrender.com/add-offer/RESTAURANT_ID", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: offerTitle,
+          description: offerDesc,
+          startDate: offerStart,
+          endDate: offerEnd
+        })
+      })
+        .then(res => res.json())
+        .then(() => setOfferMessage("Offer added successfully."));
+    }}
+    style={{
+      padding: "12px 20px",
+      background: "#d94800",
+      color: "#fff",
+      borderRadius: "8px",
+      border: "none",
+      cursor: "pointer"
+    }}
+  >
+    Add Offer
+  </button>
+
+  {offerMessage && (
+    <p style={{ marginTop: "12px", color: "green" }}>{offerMessage}</p>
+  )}
+</div>

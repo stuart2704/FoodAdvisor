@@ -13,3 +13,4 @@
 - [Stripe environment separation](stripe-environment-separation.md) — keep sandbox prices development-only; production Stripe setup must create and configure its own live price.
 - [GitHub push authentication](github-push-authentication.md) — OAuth may work through the connector while Git CLI stays unauthorized; never force-push as a workaround.
 - [External hosting connectors](external-hosting-connectors.md) — Replit connector clients need direct provider-credential fallbacks on non-Replit hosts.
+- [Clerk OAuth preview hosts](clerk-oauth-preview-hosts.md) — verify provider redirects on the actual preview host; injected test hosts can resolve a different Clerk context.

@@ -7,6 +7,8 @@ export interface BrowserWebsiteData {
   instagram: string | null;
   facebook: string | null;
   menuUrl: string | null;
+  bookingUrl: string | null;
+  bookingProvider: string | null;
   brandingQuality: "high" | "medium" | "low";
   brandingAssessment: "heuristic";
 }
@@ -14,6 +16,29 @@ export interface BrowserWebsiteData {
 export function scoreBranding(html: string): BrowserWebsiteData["brandingQuality"] {
   const score = [/srcset\s*=/i, /menu/i, /font-family/i].filter((pattern) => pattern.test(html)).length;
   return score === 3 ? "high" : score === 2 ? "medium" : "low";
+}
+
+const bookingProviders = [
+  { hostname: "opentable.com", name: "OpenTable" },
+  { hostname: "resdiary.com", name: "ResDiary" },
+  { hostname: "quandoo.com", name: "Quandoo" },
+  { hostname: "sevenrooms.com", name: "SevenRooms" },
+  { hostname: "tableagent.com", name: "TableAgent" },
+] as const;
+
+export function detectBookingLink(urls: URL[]) {
+  for (const url of urls) {
+    const hostname = url.hostname.toLowerCase();
+    const provider = bookingProviders.find(
+      ({ hostname: providerHostname }) =>
+        hostname === providerHostname ||
+        hostname.endsWith(`.${providerHostname}`),
+    );
+    if (provider) {
+      return { bookingUrl: url.href, bookingProvider: provider.name };
+    }
+  }
+  return { bookingUrl: null, bookingProvider: null };
 }
 
 /** Parse actual link targets; do not invent /menu paths or social accounts. */
@@ -34,11 +59,14 @@ export function extractWebsiteSignals(html: string, finalUrl: string, links: str
   }
   const social = (host: string) => urls.find((url) =>
     ["www." + host, host].includes(url.hostname.toLowerCase()) && url.pathname !== "/")?.href ?? null;
+  const booking = detectBookingLink(urls);
   return {
     email,
     instagram: social("instagram.com"),
     facebook: social("facebook.com"),
     menuUrl: urls.find((url) => url.origin === base.origin && /menu/i.test(url.pathname))?.href ?? null,
+    bookingUrl: booking.bookingUrl,
+    bookingProvider: booking.bookingProvider,
     brandingQuality: scoreBranding(html),
     brandingAssessment: "heuristic",
   };

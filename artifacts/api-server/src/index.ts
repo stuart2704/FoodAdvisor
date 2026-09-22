@@ -7,6 +7,7 @@ import { initializeStripe } from "./services/stripeClient";
 import { startDailyRankingScheduler } from "./cron/dailyRankings";
 import { startAnalyticsRollupScheduler } from "./cron/analyticsRollup";
 import { startGlobalMetricsScheduler } from "./cron/globalMetrics";
+import { startOperationalLogCleanup } from "./cron/operationalLogCleanup";
 
 const rawPort = process.env["PORT"];
 
@@ -35,6 +36,7 @@ app.listen(port, (err) => {
   startDailyRankingScheduler();
   startAnalyticsRollupScheduler();
   startGlobalMetricsScheduler();
+  startOperationalLogCleanup();
   void initializeStripe().then(
     () => logger.info("Stripe access initialized."),
     (error) =>

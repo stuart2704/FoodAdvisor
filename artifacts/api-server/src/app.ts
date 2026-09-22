@@ -18,6 +18,13 @@ import statusRoutes from "./routes/status";
 import dashboardRoutes from "./routes/dashboard";
 import dashboardOutreachRoutes from "./routes/dashboardOutreach";
 import dashboardSchedulerRoutes from "./routes/dashboardScheduler";
+import dashboardSystemHealth from "./routes/dashboardSystemHealth";
+import dashboardOperationalLogs from "./routes/dashboardOperationalLogs";
+import internalLogs from "./routes/internalLogs";
+import metrics from "./routes/metrics";
+import performanceRoute from "./routes/performance";
+import errorMetricsRoute from "./routes/errorMetrics";
+import engineHealth from "./routes/engineHealth";
 import dashboardAIUsage from "./routes/dashboardAIUsage";
 import dashboardClaims from "./routes/dashboardClaims";
 import dashboardGlobal from "./routes/dashboardGlobal";
@@ -72,7 +79,13 @@ app.use(
   }),
 );
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
-app.use(cors({ credentials: true, origin: true }));
+app.use(cors({
+  credentials: true,
+  origin: [
+    "https://www.thefoodadvisor.co.uk",
+    "https://thefoodadvisor.co.uk"
+  ]
+}));
 // Instantly webhook authentication/body limits are owned by this router and
 // must run before the global JSON parser. Keep both documented aliases on the
 // same handler; neither path registers a provider webhook or sends mail.
@@ -131,12 +144,19 @@ app.use("/api", router);
 app.use("/ai", aiRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/automation", aiAutomationRouter);
+app.use("/internal/logs", internalLogs);
+app.use("/metrics", metrics);
+app.use("/performance", performanceRoute);
+app.use("/errors", errorMetricsRoute);
+app.use("/health", engineHealth);
 app.use("/auth", authRoutes);
 app.use("/admin", adminRoutes);
 app.use("/status", statusRoutes);
 app.use("/dashboard", dashboardRoutes);
 app.use("/dashboard", dashboardOutreachRoutes);
 app.use("/dashboard", dashboardSchedulerRoutes);
+app.use("/dashboard", dashboardSystemHealth);
+app.use("/dashboard/logs", dashboardOperationalLogs);
 app.use("/dashboard", dashboardAIUsage);
 app.use("/dashboard", dashboardClaims);
 app.use("/dashboard", dashboardGlobal);

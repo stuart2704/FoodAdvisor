@@ -1,0 +1,99 @@
+<div
+  style={{
+    marginTop: "40px",
+    background: "#fff",
+    padding: "24px",
+    borderRadius: "16px"
+  }}
+>
+  <h2>City Highlights Collections</h2>
+  <p>Create curated lists of top restaurants in any city.</p>
+
+  <input
+    type="text"
+    placeholder="Collection Title"
+    value={colTitle}
+    onChange={(e) => setColTitle(e.target.value)}
+    style={{
+      padding: "12px",
+      width: "100%",
+      marginBottom: "12px",
+      borderRadius: "8px",
+      border: "1px solid #ccc"
+    }}
+  />
+
+  <textarea
+    placeholder="Description"
+    value={colDesc}
+    onChange={(e) => setColDesc(e.target.value)}
+    style={{
+      padding: "12px",
+      width: "100%",
+      height: "120px",
+      marginBottom: "12px",
+      borderRadius: "8px",
+      border: "1px solid #ccc"
+    }}
+  />
+
+  <input
+    type="text"
+    placeholder="City"
+    value={colCity}
+    onChange={(e) => setColCity(e.target.value)}
+    style={{
+      padding: "12px",
+      width: "100%",
+      marginBottom: "12px",
+      borderRadius: "8px",
+      border: "1px solid #ccc"
+    }}
+  />
+
+  <textarea
+    placeholder="Restaurant IDs (comma separated)"
+    value={colRestaurants}
+    onChange={(e) => setColRestaurants(e.target.value)}
+    style={{
+      padding: "12px",
+      width: "100%",
+      height: "100px",
+      marginBottom: "12px",
+      borderRadius: "8px",
+      border: "1px solid #ccc"
+    }}
+  />
+
+  <button
+    onClick={() => {
+      fetch("https://the-food-advisor-api.onrender.com/add-collection", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: colTitle.toLowerCase().replace(/\s+/g, "-"),
+          title: colTitle,
+          description: colDesc,
+          city: colCity,
+          restaurants: colRestaurants.split(",").map((r) => r.trim())
+        })
+      })
+        .then(res => res.json())
+        .then(() => setColMessage("Collection created."));
+    }}
+    style={{
+      padding: "12px 20px",
+      background: "#d94800",
+      color: "#fff",
+      borderRadius: "8px",
+      border: "none",
+      cursor: "pointer"
+    }}
+  >
+    Create Collection
+  </button>
+
+  {colMessage && (
+    <p style={{ marginTop: "12px", color: "green" }}>{colMessage}</p>
+  )}
+</div>

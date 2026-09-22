@@ -1,0 +1,113 @@
+<div
+  style={{
+    marginTop: "40px",
+    background: "#fff",
+    padding: "24px",
+    borderRadius: "16px"
+  }}
+>
+  <h2>Events & Live Music</h2>
+  <p>Promote upcoming events to attract more customers.</p>
+
+  <input
+    type="text"
+    placeholder="Event Title"
+    value={eventTitle}
+    onChange={(e) => setEventTitle(e.target.value)}
+    style={{
+      padding: "12px",
+      width: "100%",
+      marginBottom: "12px",
+      borderRadius: "8px",
+      border: "1px solid #ccc"
+    }}
+  />
+
+  <textarea
+    placeholder="Event Description"
+    value={eventDesc}
+    onChange={(e) => setEventDesc(e.target.value)}
+    style={{
+      padding: "12px",
+      width: "100%",
+      height: "120px",
+      marginBottom: "12px",
+      borderRadius: "8px",
+      border: "1px solid #ccc"
+    }}
+  />
+
+  <label>Date</label>
+  <input
+    type="date"
+    value={eventDate}
+    onChange={(e) => setEventDate(e.target.value)}
+    style={{
+      padding: "12px",
+      width: "100%",
+      marginBottom: "12px",
+      borderRadius: "8px",
+      border: "1px solid #ccc"
+    }}
+  />
+
+  <label>Time</label>
+  <input
+    type="time"
+    value={eventTime}
+    onChange={(e) => setEventTime(e.target.value)}
+    style={{
+      padding: "12px",
+      width: "100%",
+      marginBottom: "12px",
+      borderRadius: "8px",
+      border: "1px solid #ccc"
+    }}
+  />
+
+  <input
+    type="text"
+    placeholder="Price (e.g., Free, £10)"
+    value={eventPrice}
+    onChange={(e) => setEventPrice(e.target.value)}
+    style={{
+      padding: "12px",
+      width: "100%",
+      marginBottom: "12px",
+      borderRadius: "8px",
+      border: "1px solid #ccc"
+    }}
+  />
+
+  <button
+    onClick={() => {
+      fetch("https://the-food-advisor-api.onrender.com/add-event/RESTAURANT_ID", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: eventTitle,
+          description: eventDesc,
+          date: eventDate,
+          time: eventTime,
+          price: eventPrice
+        })
+      })
+        .then(res => res.json())
+        .then(() => setEventMessage("Event added successfully."));
+    }}
+    style={{
+      padding: "12px 20px",
+      background: "#d94800",
+      color: "#fff",
+      borderRadius: "8px",
+      border: "none",
+      cursor: "pointer"
+    }}
+  >
+    Add Event
+  </button>
+
+  {eventMessage && (
+    <p style={{ marginTop: "12px", color: "green" }}>{eventMessage}</p>
+  )}
+</div>

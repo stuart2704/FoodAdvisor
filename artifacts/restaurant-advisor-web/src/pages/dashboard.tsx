@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import './live-events.css';
+import '../styles/log-viewer.css';
 import { LiveEvents } from '@/components/live-events';
 import HealthPanel from '@/components/health-panel';
 import StatusPanel from '@/components/status-panel';

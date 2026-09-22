@@ -1,0 +1,243 @@
+import { useState } from "react";
+import { Link } from "react-router-dom";
+
+export default function Navbar() {
+  const [open, setOpen] = useState(false);
+  const [dropdown, setDropdown] = useState(null);
+  const [user, setUser] = useState(null); // null = logged out
+
+  function toggleDropdown(name) {
+    setDropdown(dropdown === name ? null : name);
+  }
+
+  return (
+    <nav
+      style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 999,
+        background: "#fff",
+        borderBottom: "1px solid #eee",
+        padding: "12px 24px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between"
+      }}
+    >
+      {/* Logo */}
+      <Link
+        to="/"
+        style={{
+          fontSize: "1.4rem",
+          fontWeight: 700,
+          color: "#d94800",
+          textDecoration: "none"
+        }}
+      >
+        The Food Advisor
+      </Link>
+
+      {/* Desktop Menu */}
+      <div className="desktop-menu" style={{ display: "flex", gap: "24px", alignItems: "center" }}>
+        
+        {/* Dropdown: Explore */}
+        <div style={{ position: "relative" }}>
+          <span
+            className="nav-link"
+            onClick={() => toggleDropdown("explore")}
+            style={{ cursor: "pointer" }}
+          >
+            Explore ▼
+          </span>
+
+          {dropdown === "explore" && (
+            <div className="dropdown">
+              <Link to="/trending">Trending</Link>
+              <Link to="/highlights">City Highlights</Link>
+              <Link to="/awards">Awards</Link>
+              <Link to="/city-guide">Food Guides</Link>
+            </div>
+          )}
+        </div>
+
+        {/* Dropdown: Cities */}
+        <div style={{ position: "relative" }}>
+          <span
+            className="nav-link"
+            onClick={() => toggleDropdown("cities")}
+            style={{ cursor: "pointer" }}
+          >
+            Cities ▼
+          </span>
+
+          {dropdown === "cities" && (
+            <div className="dropdown">
+              <Link to="/city/belfast">Belfast</Link>
+              <Link to="/city/cardiff">Cardiff</Link>
+              <Link to="/city/london">London</Link>
+              <Link to="/city/edinburgh">Edinburgh</Link>
+            </div>
+          )}
+        </div>
+
+        {/* Dropdown: More */}
+        <div style={{ position: "relative" }}>
+          <span
+            className="nav-link"
+            onClick={() => toggleDropdown("more")}
+            style={{ cursor: "pointer" }}
+          >
+            More ▼
+          </span>
+
+          {dropdown === "more" && (
+            <div className="dropdown">
+              <Link to="/owner">For Restaurants</Link>
+              <Link to="/about">About</Link>
+              <Link to="/contact">Contact</Link>
+            </div>
+          )}
+        </div>
+
+        {/* Profile / Sign In */}
+        {!user ? (
+          <Link
+            to="/login"
+            className="nav-link"
+            style={{
+              padding: "8px 16px",
+              background: "#d94800",
+              color: "#fff",
+              borderRadius: "8px"
+            }}
+          >
+            Sign In
+          </Link>
+        ) : (
+          <div style={{ position: "relative" }}>
+            <span
+              className="nav-link"
+              onClick={() => toggleDropdown("profile")}
+              style={{ cursor: "pointer" }}
+            >
+              {user.name} ▼
+            </span>
+
+            {dropdown === "profile" && (
+              <div className="dropdown">
+                <Link to="/profile">My Profile</Link>
+                <Link to="/saved">Saved Restaurants</Link>
+                <span
+                  onClick={() => setUser(null)}
+                  style={{ cursor: "pointer", padding: "8px 12px" }}
+                >
+                  Logout
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Mobile Hamburger */}
+      <div
+        className="hamburger"
+        onClick={() => setOpen(!open)}
+        style={{
+          display: "none",
+          cursor: "pointer",
+          fontSize: "1.8rem",
+          userSelect: "none"
+        }}
+      >
+        ☰
+      </div>
+
+      {/* Mobile Menu */}
+      {open && (
+        <div
+          className="mobile-menu"
+          style={{
+            position: "absolute",
+            top: "64px",
+            right: 0,
+            background: "#fff",
+            width: "220px",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+            borderRadius: "12px",
+            padding: "16px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "12px"
+          }}
+        >
+          <Link to="/trending">Trending</Link>
+          <Link to="/highlights">City Highlights</Link>
+          <Link to="/awards">Awards</Link>
+          <Link to="/city-guide">Food Guides</Link>
+          <Link to="/owner">For Restaurants</Link>
+          {!user ? (
+            <Link to="/login">Sign In</Link>
+          ) : (
+            <>
+              <Link to="/profile">My Profile</Link>
+              <Link to="/saved">Saved Restaurants</Link>
+              <span onClick={() => setUser(null)}>Logout</span>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Styles */}
+      <style>
+        {`
+          .nav-link {
+            text-decoration: none;
+            color: #333;
+            font-weight: 500;
+            transition: color 0.2s ease;
+          }
+
+          .nav-link:hover {
+            color: #d94800;
+          }
+
+          .dropdown {
+            position: absolute;
+            top: 32px;
+            right: 0;
+            background: #fff;
+            border: 1px solid #eee;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            min-width: 180px;
+            overflow: hidden;
+          }
+
+          .dropdown a, .dropdown span {
+            padding: 10px 14px;
+            text-decoration: none;
+            color: #333;
+            font-size: 0.95rem;
+          }
+
+          .dropdown a:hover, .dropdown span:hover {
+            background: #f7f7f7;
+            color: #d94800;
+          }
+
+          @media (max-width: 768px) {
+            .desktop-menu {
+              display: none;
+            }
+            .hamburger {
+              display: block;
+            }
+          }
+        `}
+      </style>
+    </nav>
+  );
+}

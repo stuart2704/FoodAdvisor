@@ -12,12 +12,12 @@ paths = [ "/" ]
 localPort = 22612
 
 [services.development]
-run = "pnpm --filter @workspace/restaurant-advisor-web run dev"
+run = "pnpm --filter restaurant-advisor-web exec vite --host 0.0.0.0 --port $PORT --strictPort"
 
 [services.production]
-build = [ "pnpm", "--filter", "@workspace/restaurant-advisor-web", "run", "build" ]
+build = [ "pnpm", "--filter", "restaurant-advisor-web", "run", "build" ]
 serve = "static"
-publicDir = "artifacts/restaurant-advisor-web/dist/public"
+publicDir = "artifacts/restaurant-advisor-web/dist"
 
 [[services.production.rewrites]]
 from = "/*"

@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import { clerkClient, getAuth } from "@clerk/express";
 import bcrypt from "bcrypt";
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
 
@@ -19,6 +20,22 @@ const loginLimiter = rateLimit({
   standardHeaders: "draft-7",
   legacyHeaders: false,
 });
+
+async function establishAdminSession(req: Request): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    req.session.regenerate((error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
+  req.session.admin = true;
+  await new Promise<void>((resolve, reject) => {
+    req.session.save((error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
+}
 
 function equalEmail(supplied: string, expected: string): boolean {
   const suppliedHash = createHash("sha256")
@@ -62,31 +79,64 @@ router.post("/login", loginLimiter, async (req, res): Promise<void> => {
   try {
     const [emailMatches, passwordMatches] = await Promise.all([
       Promise.resolve(equalEmail(parsed.data.email, adminEmail)),
-      adminPassword
-        ? Promise.resolve(equalPassword(parsed.data.password, adminPassword))
-        : bcrypt.compare(parsed.data.password, passwordHash!),
+      passwordHash
+        ? bcrypt.compare(parsed.data.password, passwordHash)
+        : Promise.resolve(equalPassword(parsed.data.password, adminPassword!)),
     ]);
     if (!emailMatches || !passwordMatches) {
       res.status(401).json({ success: false, error: "Invalid email or password." });
       return;
     }
 
-    await new Promise<void>((resolve, reject) => {
-      req.session.regenerate((error) => {
-        if (error) reject(error);
-        else resolve();
-      });
-    });
-    req.session.admin = true;
-    await new Promise<void>((resolve, reject) => {
-      req.session.save((error) => {
-        if (error) reject(error);
-        else resolve();
-      });
-    });
+    await establishAdminSession(req);
     res.json({ success: true });
   } catch (error) {
     req.log.error({ err: error }, "Admin login failed");
+    res.status(503).json({ success: false, error: "Admin login is unavailable." });
+  }
+});
+
+router.post("/clerk-admin", loginLimiter, async (req, res): Promise<void> => {
+  res.set("Cache-Control", "no-store");
+  const { userId } = getAuth(req);
+  const adminEmail = process.env.ADMIN_EMAIL;
+  if (!userId) {
+    res.status(401).json({ success: false, error: "GitHub sign-in required." });
+    return;
+  }
+  if (!adminEmail) {
+    req.log.error("Admin email is not configured");
+    res.status(503).json({ success: false, error: "Admin login is unavailable." });
+    return;
+  }
+
+  try {
+    const user = await clerkClient.users.getUser(userId);
+    const primaryEmail = user.emailAddresses.find(
+      (email) => email.id === user.primaryEmailAddressId,
+    );
+    const hasVerifiedGitHubAccount = user.externalAccounts.some(
+      (account) =>
+        account.provider.toLowerCase().includes("github") &&
+        account.verification?.status === "verified",
+    );
+    const authorized =
+      hasVerifiedGitHubAccount &&
+      primaryEmail?.verification?.status === "verified" &&
+      equalEmail(primaryEmail.emailAddress, adminEmail);
+
+    if (!authorized) {
+      res.status(403).json({
+        success: false,
+        error: "This GitHub account is not authorized for administration.",
+      });
+      return;
+    }
+
+    await establishAdminSession(req);
+    res.json({ success: true });
+  } catch (error) {
+    req.log.error({ err: error }, "Clerk admin login failed");
     res.status(503).json({ success: false, error: "Admin login is unavailable." });
   }
 });

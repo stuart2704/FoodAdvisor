@@ -2,6 +2,50 @@ import { db, restaurantMenuItemsTable, restaurantsTable } from "@workspace/db";
 import { asc, eq } from "drizzle-orm";
 import { calculateRanking } from "./rankingEngine";
 
+function deriveBadges(restaurant: {
+  rating: number | null;
+  priceLevel: string | null;
+  popularity: number;
+  cuisineTags: string[];
+  types: string[];
+}): string[] {
+  const badges: string[] = [];
+  const categories = new Set(
+    [...restaurant.cuisineTags, ...restaurant.types].map((value) =>
+      value.toLocaleLowerCase("en-GB"),
+    ),
+  );
+
+  if (restaurant.popularity >= 50) badges.push("Popular");
+  if (
+    restaurant.rating !== null &&
+    restaurant.rating > 4.5 &&
+    ["italian_restaurant", "french_restaurant", "wine_bar"].some((category) =>
+      categories.has(category),
+    )
+  ) {
+    badges.push("Romantic");
+  }
+  if (restaurant.rating !== null && restaurant.rating >= 4.7) {
+    badges.push("Top Rated");
+  }
+  if (
+    restaurant.priceLevel === "PRICE_LEVEL_FREE" ||
+    restaurant.priceLevel === "PRICE_LEVEL_INEXPENSIVE" ||
+    restaurant.priceLevel === "PRICE_LEVEL_MODERATE"
+  ) {
+    badges.push("Budget Friendly");
+  }
+  if (
+    restaurant.priceLevel === "PRICE_LEVEL_EXPENSIVE" ||
+    restaurant.priceLevel === "PRICE_LEVEL_VERY_EXPENSIVE"
+  ) {
+    badges.push("Premium Dining");
+  }
+
+  return badges;
+}
+
 export interface RestaurantProfile {
   id: string;
   name: string;
@@ -20,6 +64,42 @@ export interface RestaurantProfile {
   address: string;
   website: string | null;
   deliveryUrl: string | null;
+  bookingUrl: string | null;
+  bookingProvider: string | null;
+  offers: Array<{
+    title: string;
+    description: string;
+    startDate: string;
+    endDate: string;
+  }>;
+  events: Array<{
+    title: string;
+    description: string;
+    date: string;
+    time: string;
+    price: string;
+  }>;
+  badges: string[];
+  collections: Array<{
+    id: string;
+    title: string;
+    description: string;
+    city: string;
+    restaurants: string[];
+  }>;
+  bestDishes: Array<{
+    name: string;
+    description: string;
+    reason: string;
+  }>;
+  chef: {
+    name: string | null;
+    bio: string | null;
+    signatureDishes: string[];
+    awards: string[];
+    philosophy: string | null;
+    photo: string | null;
+  };
   googleMapsUrl: string;
   rating: number | null;
   lat: number | null;
@@ -101,6 +181,21 @@ export async function getRestaurantProfile(
     address: restaurant.address,
     website: restaurant.website,
     deliveryUrl: restaurant.deliveryUrl,
+    bookingUrl: null,
+    bookingProvider: null,
+    offers: [],
+    events: [],
+    badges: deriveBadges(restaurant),
+    collections: [],
+    bestDishes: [],
+    chef: {
+      name: null,
+      bio: null,
+      signatureDishes: [],
+      awards: [],
+      philosophy: null,
+      photo: null,
+    },
     googleMapsUrl: restaurant.googleMapsUrl,
     rating: restaurant.rating,
     lat: restaurant.latitude,

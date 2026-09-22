@@ -1,0 +1,93 @@
+import { useState } from "react";
+
+export default function OwnerDashboard() {
+  const [socialPosts, setSocialPosts] = useState("");
+  const [tone, setTone] = useState("friendly");
+  const [loadingSocial, setLoadingSocial] = useState(false);
+
+  function generateSocial() {
+    setLoadingSocial(true);
+
+    fetch("https://the-food-advisor-api.onrender.com/ai/social", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "Your Restaurant Name",
+        city: "Your City",
+        cuisine: "Your Cuisine",
+        tone
+      })
+    })
+      .then(res => res.json())
+      .then(data => {
+        setSocialPosts(data.posts);
+        setLoadingSocial(false);
+      });
+  }
+
+  return (
+    <div className="section">
+      <h1>Restaurant Owner Dashboard</h1>
+
+      {/* Social Media Generator */}
+      <div
+        style={{
+          marginTop: "40px",
+          background: "#fff",
+          padding: "24px",
+          borderRadius: "16px"
+        }}
+      >
+        <h2>AI Social Media Posts</h2>
+        <p>Generate ready-to-post content for Instagram, Facebook, and TikTok.</p>
+
+        <label style={{ display: "block", marginTop: "12px" }}>
+          Tone:
+          <select
+            value={tone}
+            onChange={(e) => setTone(e.target.value)}
+            style={{
+              marginLeft: "12px",
+              padding: "8px",
+              borderRadius: "8px",
+              border: "1px solid #ccc"
+            }}
+          >
+            <option value="friendly">Friendly</option>
+            <option value="luxury">Luxury</option>
+            <option value="fun">Fun</option>
+            <option value="romantic">Romantic</option>
+            <option value="professional">Professional</option>
+          </select>
+        </label>
+
+        <button
+          onClick={generateSocial}
+          style={{
+            padding: "12px 20px",
+            background: "#d94800",
+            color: "#fff",
+            borderRadius: "8px",
+            border: "none",
+            cursor: "pointer",
+            marginTop: "12px"
+          }}
+        >
+          {loadingSocial ? "Generating…" : "Generate Social Posts"}
+        </button>
+
+        {socialPosts && (
+          <div
+            style={{
+              marginTop: "24px",
+              whiteSpace: "pre-wrap",
+              lineHeight: "1.6"
+            }}
+          >
+            {socialPosts}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

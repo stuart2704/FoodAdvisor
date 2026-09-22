@@ -20,3 +20,9 @@ Standalone artifact builds may require the same routing variables normally suppl
 **Why:** A valid web change passed type checking but standalone Vite builds failed sequentially until both the port and artifact base path expected by the managed environment were supplied.
 
 **How to apply:** Before running an artifact build outside its workflow, identify all required environment inputs from its configuration and provide the artifact's registered preview path as the base path.
+
+New routes in the active web shell must not import retired dashboard helpers without first verifying their package dependencies, path aliases, router, and styling runtime.
+
+**Why:** A dormant dashboard component looked reusable but depended on unavailable workspace clients, aliases, icons, and Tailwind styles; making it active surfaced failures one layer at a time.
+
+**How to apply:** Keep small new admin surfaces dependency-local to the active router and authenticated API contract, or explicitly migrate the full dashboard stack as a separate task.

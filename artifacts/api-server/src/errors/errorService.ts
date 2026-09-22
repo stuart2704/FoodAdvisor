@@ -9,6 +9,42 @@ export type ScraperErrorCategory =
   | "general_error"
   | "unknown_error";
 
+export type OperationalErrorCategory =
+  | "timeout"
+  | "network_error"
+  | "auth_error"
+  | "db_error"
+  | "validation_error"
+  | "rate_limit"
+  | "unknown_error";
+
+export interface OperationalErrorLog {
+  summary?: unknown;
+  message?: unknown;
+}
+
+export function classifyError(
+  log: OperationalErrorLog,
+): OperationalErrorCategory {
+  const detail =
+    typeof log.summary === "string"
+      ? log.summary
+      : typeof log.message === "string"
+        ? log.message
+        : "";
+  const summary = detail.toLowerCase();
+
+  if (summary.includes("timeout")) return "timeout";
+  if (summary.includes("network")) return "network_error";
+  if (summary.includes("auth")) return "auth_error";
+  if (summary.includes("permission")) return "auth_error";
+  if (summary.includes("db") || summary.includes("database")) return "db_error";
+  if (summary.includes("validation")) return "validation_error";
+  if (summary.includes("rate")) return "rate_limit";
+
+  return "unknown_error";
+}
+
 /**
  * Diagnostic labels only, not a retry policy. Existing structured provider
  * error handling remains authoritative for retries and permanent failures.

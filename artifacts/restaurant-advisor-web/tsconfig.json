@@ -1,22 +1,29 @@
 {
-  "extends": "../../tsconfig.base.json",
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "build", "dist", "**/*.test.ts"],
   "compilerOptions": {
-    "noEmit": true,
-    "jsx": "preserve",
-    "lib": ["esnext", "dom", "dom.iterable"],
-    "resolveJsonModule": true,
-    "allowImportingTsExtensions": true,
+    "target": "ESNext",
+    "useDefineForClassFields": true,
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
     "moduleResolution": "bundler",
-    "types": ["node", "vite/client"],
-    "paths": {
-      "@/*": ["./src/*"]
-    }
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "types": ["vite/client"]
   },
-  "references": [
-    {
-      "path": "../../lib/api-client-react"
-    }
+  "include": [
+    "src/main.tsx",
+    "src/App.tsx",
+    "src/hooks/use-toast.ts",
+    "src/components/Toast.tsx",
+    "src/components/ToastContainer.tsx",
+    "src/components/Layout.tsx",
+    "src/components/RestaurantCard.tsx"
   ]
 }

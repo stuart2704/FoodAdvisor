@@ -1,17 +1,23 @@
-import { createRoot } from 'react-dom/client';
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { ClerkProvider } from "@clerk/react";
+import { publishableKeyFromHost } from "@clerk/react/internal";
+import App from "./App";
+import "./index.css";
 
-import App from './App';
-import { ErrorBoundary } from '@/components/error-boundary';
+const clerkPublishableKey = publishableKeyFromHost(
+  window.location.hostname,
+  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
+);
+const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
 
-import './index.css';
-
-createRoot(document.getElementById('root')!, {
-  // Keeps caught errors off reportError(), which would raise the dev overlay.
-  onCaughtError: (error, errorInfo) => {
-    console.error(error, errorInfo.componentStack);
-  },
-}).render(
-  <ErrorBoundary>
-    <App />
-  </ErrorBoundary>,
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <ClerkProvider
+      publishableKey={clerkPublishableKey}
+      proxyUrl={clerkProxyUrl}
+    >
+      <App />
+    </ClerkProvider>
+  </React.StrictMode>
 );
