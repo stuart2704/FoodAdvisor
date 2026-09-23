@@ -89,10 +89,9 @@ async function getDatabaseHealth(): Promise<HealthCheck> {
   }
 }
 
-router.get("/system-health", adminOnly, async (_req, res) => {
+export async function getSystemHealthSnapshot() {
   const database = await getDatabaseHealth();
-  res.setHeader("Cache-Control", "no-store");
-  res.json({
+  return {
     checkedAt: new Date().toISOString(),
     scope: "current_process",
     services: {
@@ -108,7 +107,11 @@ router.get("/system-health", adminOnly, async (_req, res) => {
       } satisfies HealthCheck,
       database,
     },
-  });
+  };
+}
+
+router.get("/system-health", adminOnly, async (_req, res) => {
+  res.json(await getSystemHealthSnapshot());
 });
 
 export default router;

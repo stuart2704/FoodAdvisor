@@ -8,6 +8,9 @@ const sections = [
   { to: "/admin/restaurants", label: "Restaurants" },
   { to: "/admin/chef-review", label: "Chef review" },
   { to: "/admin/logs", label: "Logs" },
+  { to: "/admin/queue", label: "Queue" },
+  { to: "/admin/engines", label: "Engines" },
+  { to: "/admin/health", label: "Health" },
 ] as const;
 
 export function Sidebar() {

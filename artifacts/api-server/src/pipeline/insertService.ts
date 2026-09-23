@@ -6,6 +6,7 @@ export type { InsertedRestaurant } from "./neonClient";
 
 // Temporary, process-local queue. A restart loses pending entries.
 const insertionQueue = new Map<string, QueuedRestaurant>();
+const insertionQueuedAt = new Map<string, string>();
 const MAX_PENDING = 1000;
 let draining = false;
 
@@ -19,7 +20,28 @@ export function queueForInsertion(input: unknown): void {
     throw new Error("Insertion queue is full. Drain pending records before adding more.");
   }
   insertionQueue.set(restaurant.placeId, restaurant);
+  insertionQueuedAt.set(restaurant.placeId, new Date().toISOString());
   logEvent("info", "Restaurant queued for insertion");
+}
+
+export function getInsertionQueueStatus(limit = 50) {
+  const safeLimit = Math.max(0, Math.min(50, Math.trunc(limit)));
+  return {
+    pending: insertionQueue.size,
+    capacity: MAX_PENDING,
+    draining,
+    scope: "current_process" as const,
+    resetsOnRestart: true,
+    items: Array.from(insertionQueue.values())
+      .slice(0, safeLimit)
+      .map((restaurant) => ({
+        jobId: restaurant.placeId,
+        kind: "restaurant_insertion" as const,
+        label: restaurant.name,
+        city: restaurant.city,
+        queuedAt: insertionQueuedAt.get(restaurant.placeId) ?? null,
+      })),
+  };
 }
 
 export function getPendingInsertions(): QueuedRestaurant[] {
@@ -57,7 +79,10 @@ export async function insertQueuedRestaurants(): Promise<InsertedRestaurant[]> {
         const inserted = await insertRestaurant(restaurant);
         if (inserted) results.push(inserted);
         // A successful insert or confirmed duplicate can be removed.
-        if (insertionQueue.get(placeId) === restaurant) insertionQueue.delete(placeId);
+        if (insertionQueue.get(placeId) === restaurant) {
+          insertionQueue.delete(placeId);
+          insertionQueuedAt.delete(placeId);
+        }
       } catch {
         failedCount += 1;
         // Preserve failures rather than clearing the queue.
