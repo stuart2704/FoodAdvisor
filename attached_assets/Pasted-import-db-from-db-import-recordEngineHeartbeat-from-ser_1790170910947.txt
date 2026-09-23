@@ -1,0 +1,89 @@
+import { db } from "../db";
+import { recordEngineHeartbeat } from "../services/engineHeartbeat";
+import { runDailyCycle } from "./runDailyCycle";
+import { outreachEngine } from "./outreachEngine";
+
+export async function restaurantDiscoveryEngine() {
+  console.log("Starting restaurant discovery engine...");
+
+  try {
+    // 1. Fetch new restaurants from your global sources
+    const newRestaurants = await fetchNewRestaurants();
+    console.log(`Fetched ${newRestaurants.length} new restaurants.`);
+
+    // 2. Clean + enrich + classify
+    const enriched = await enrichRestaurants(newRestaurants);
+    console.log(`Enriched ${enriched.length} restaurants.`);
+
+    // 3. Insert into DB (skip duplicates)
+    const inserted = await insertRestaurants(enriched);
+    console.log(`Inserted ${inserted.length} new restaurants into DB.`);
+
+    // 4. Trigger outreach automatically
+    if (inserted.length > 0) {
+      console.log("Triggering outreach engine for new restaurants...");
+      await outreachEngine();
+    }
+
+    // 5. Trigger automation cycle
+    console.log("Running daily automation cycle...");
+    await runDailyCycle();
+
+    // 6. Heartbeat
+    await recordEngineHeartbeat("discovery");
+    console.log("Discovery engine heartbeat written.");
+
+    return {
+      fetched: newRestaurants.length,
+      enriched: enriched.length,
+      inserted: inserted.length
+    };
+
+  } catch (err) {
+    console.error("Discovery engine error:", err);
+    throw err;
+  }
+}
+
+/* ---------------------------------------------------------
+   MOCKED FUNCTIONS — replace with your real data sources
+--------------------------------------------------------- */
+
+async function fetchNewRestaurants() {
+  // Replace with your real API sources:
+  // Google Places, Yelp, TripAdvisor, OpenStreetMap, etc.
+  return [
+    {
+      name: "Example Restaurant",
+      city: "London",
+      country: "UK",
+      cuisine: "Italian",
+      website: "https://example.com"
+    }
+  ];
+}
+
+async function enrichRestaurants(restaurants) {
+  return restaurants.map(r => ({
+    ...r,
+    score: Math.floor(Math.random() * 100),
+    discovered_at: new Date()
+  }));
+}
+
+async function insertRestaurants(restaurants) {
+  const inserted = [];
+
+  for (const r of restaurants) {
+    const exists = await db.restaurant.findFirst({
+      where: { website: r.website }
+    });
+
+    if (!exists) {
+      const created = await db.restaurant.create({ data: r });
+      inserted.push(created);
+    }
+  }
+
+  return inserted;
+}

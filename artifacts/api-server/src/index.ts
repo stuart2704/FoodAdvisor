@@ -24,22 +24,32 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-await initializeStripe();
-
-app.listen(port, (err) => {
+const server = app.listen(port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
   }
 
   logger.info({ port }, "Server listening");
-  startWatchRenewal();
-  startWatchHealthCheck();
-  startDailyOutreachScheduler();
-  startDailyRankingScheduler();
-  startAnalyticsRollupScheduler();
-  startGlobalMetricsScheduler();
-  startOperationalLogCleanup();
-  startBetterContactScheduler();
-  logger.info("Stripe access, managed webhook, and catalog sync initialized.");
+  void initializeAfterListen();
 });
+
+async function initializeAfterListen(): Promise<void> {
+  try {
+    await initializeStripe();
+    startWatchRenewal();
+    startWatchHealthCheck();
+    startDailyOutreachScheduler();
+    startDailyRankingScheduler();
+    startAnalyticsRollupScheduler();
+    startGlobalMetricsScheduler();
+    startOperationalLogCleanup();
+    startBetterContactScheduler();
+    logger.info("Stripe access, managed webhook, and catalog sync initialized.");
+  } catch (err) {
+    logger.error({ err }, "Stripe initialization failed");
+    server.close(() => {
+      process.exitCode = 1;
+    });
+  }
+}
