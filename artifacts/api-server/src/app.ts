@@ -57,6 +57,7 @@ import {
 } from "./middlewares/clerkProxyMiddleware";
 
 const app: Express = express();
+app.locals.isDev = process.env.NODE_ENV !== "production";
 
 // Replit forwards requests through one trusted proxy hop. This lets middleware
 // such as express-rate-limit identify the real client without trusting an

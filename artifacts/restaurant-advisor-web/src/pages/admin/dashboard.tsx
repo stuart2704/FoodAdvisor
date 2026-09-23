@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AdminLayout } from "../../components/admin/AdminLayout";
 import { RequireAdmin } from "../../components/admin/RequireAdmin";
@@ -33,6 +34,59 @@ const adminLinks = [
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const [status, setStatus] = useState<{ isDev: boolean } | null>(null);
+  const [isRunningEngines, setIsRunningEngines] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    void fetch("/status", {
+      credentials: "include",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Status request failed.");
+        return (await response.json()) as { isDev?: unknown };
+      })
+      .then((data) => {
+        setStatus({ isDev: data.isDev === true });
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setStatus(null);
+      });
+
+    return () => controller.abort();
+  }, []);
+
+  async function startEngines() {
+    const confirmed = window.confirm(
+      "Run one engine cycle now? This may send eligible outreach emails.",
+    );
+    if (!confirmed) return;
+
+    setIsRunningEngines(true);
+    try {
+      const response = await fetch("/dev/run-engines", {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = (await response.json()) as {
+        message?: string;
+        error?: string;
+      };
+      if (!response.ok) {
+        throw new Error(data.error ?? "Engine cycle failed.");
+      }
+      window.alert(data.message ?? "Engine cycle executed.");
+    } catch (error) {
+      window.alert(
+        error instanceof Error ? error.message : "Engine cycle failed.",
+      );
+    } finally {
+      setIsRunningEngines(false);
+    }
+  }
 
   async function logout() {
     await fetch("/auth/logout", {
@@ -75,6 +129,32 @@ export default function AdminDashboard() {
             Sign out
           </button>
         </header>
+
+        {status?.isDev && (
+          <div style={{ marginBottom: "20px" }}>
+            <div
+              role="status"
+              style={{
+                background: "#f97316",
+                color: "#ffffff",
+                padding: "10px 16px",
+                borderRadius: "8px",
+                marginBottom: "12px",
+                fontWeight: 600,
+              }}
+            >
+              DEVELOPMENT MODE — Engine runner is enabled
+            </div>
+            <button
+              className="admin-button"
+              type="button"
+              disabled={isRunningEngines}
+              onClick={() => void startEngines()}
+            >
+              {isRunningEngines ? "Running Engine Cycle…" : "Run Engine Cycle"}
+            </button>
+          </div>
+        )}
 
         <div style={{ marginBottom: "24px" }}>
           <SummaryPanel />

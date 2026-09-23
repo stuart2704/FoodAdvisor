@@ -4,6 +4,13 @@ import { validAutomationToken } from "../lib/automation-auth";
 
 const router: IRouter = Router();
 
+router.get("/", (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.json({
+    isDev: req.app.locals.isDev === true,
+  });
+});
+
 router.get("/gmail-watch-status", async (req, res): Promise<void> => {
   res.setHeader("Cache-Control", "no-store");
   if (!validAutomationToken(req.header("authorization"))) {
