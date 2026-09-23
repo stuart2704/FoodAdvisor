@@ -12,15 +12,13 @@ const sections = [
 export function Sidebar() {
   return (
     <aside
-      className="admin-system-navigation"
+      className="admin-system-navigation admin-sidebar"
       style={{
         position: "sticky",
         top: "24px",
         alignSelf: "start",
-        padding: "20px 14px",
         border: "1px solid #292929",
-        borderRadius: "12px",
-        background: "#151515"
+        borderRadius: "12px"
       }}
     >
       <div
@@ -40,12 +38,10 @@ export function Sidebar() {
           <NavLink
             key={section.to}
             to={section.to}
+            className={({ isActive }) => isActive ? "active" : undefined}
             style={({ isActive }) => ({
-              display: "block",
-              padding: "10px 12px",
               borderRadius: "8px",
               background: isActive ? "#d94800" : "transparent",
-              color: isActive ? "#f97316" : "#aaa",
               fontWeight: isActive ? 700 : 500,
               textDecoration: "none",
             })}
