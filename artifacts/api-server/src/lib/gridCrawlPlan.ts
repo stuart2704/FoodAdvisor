@@ -13,6 +13,7 @@ export type GridPoint = {
 };
 
 export const DAILY_GRID_LIMIT = 50;
+export const EMERGENCY_RESERVE = Math.ceil(DAILY_GRID_LIMIT * 0.1);
 export const DELAY_BETWEEN_REQUESTS_MS = 15_000;
 
 export function parseGrid(raw: unknown): GridPoint[] {

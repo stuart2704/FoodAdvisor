@@ -4,7 +4,7 @@
  */
 import { readFile, writeFile, rename, open } from "node:fs/promises";
 import { resolve } from "node:path";
-import { parseGrid, gridHash, validateProgress, DAILY_GRID_LIMIT, DELAY_BETWEEN_REQUESTS_MS, type GridProgress } from "../lib/gridCrawlPlan";
+import { parseGrid, gridHash, validateProgress, DAILY_GRID_LIMIT, EMERGENCY_RESERVE, DELAY_BETWEEN_REQUESTS_MS, type GridProgress } from "../lib/gridCrawlPlan";
 import { normaliseCoordinates } from "../lib/geo";
 import { verifiedExistingFields, type NearbyPlace } from "../lib/gridPlaceFields";
 import { cuisineFromRestaurantName } from "../lib/restaurantKeywords";
@@ -39,6 +39,15 @@ async function persistProgress(path: string, progress: GridProgress) {
   const temporary = `${path}.${process.pid}.tmp`;
   await writeFile(temporary, JSON.stringify(progress, null, 2) + "\n", { flag: "wx", mode: 0o600 });
   await rename(temporary, path);
+}
+
+function logDailyBudgetSummary(progress: GridProgress) {
+  logEvent("daily_budget_summary", {
+    total: DAILY_GRID_LIMIT,
+    used: progress.attemptedToday,
+    remaining: DAILY_GRID_LIMIT - progress.attemptedToday,
+    scope: "utc_daily_grid_requests",
+  });
 }
 
 async function searchNearby(latitude: number, longitude: number, apiKey: string): Promise<NearbyPlace[]> {
@@ -88,7 +97,15 @@ export async function runDailyCrawl(args: string[]) {
   if (!options.confirm) return; // Default is dry-run. No DB connection or paid request.
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
   if (!apiKey) throw new Error("GOOGLE_MAPS_API_KEY is required; no crawl was started.");
-  if (progress.nextIndex >= points.length || progress.attemptedToday >= DAILY_GRID_LIMIT) return;
+  if (progress.nextIndex >= points.length) {
+    logDailyBudgetSummary(progress);
+    return;
+  }
+  if (progress.attemptedToday >= DAILY_GRID_LIMIT) {
+    logEvent("budget_exhausted", { remaining: 0, scope: "utc_daily_grid_requests" });
+    logDailyBudgetSummary(progress);
+    return;
+  }
 
   // Dynamic imports keep dry-run free from database connections.
   const [{ db, restaurantsTable, restaurantImportRunsTable }, { sql, gte, eq, and, or, isNull, lt }, { restaurantSlug }] = await Promise.all([
@@ -132,6 +149,17 @@ export async function runDailyCrawl(args: string[]) {
       });
       progress.attemptedToday += 1;
       await persistProgress(options.stateFile, progress);
+      logEvent("budget_used", {
+        remaining: DAILY_GRID_LIMIT - progress.attemptedToday,
+        scope: "utc_daily_grid_requests",
+      });
+      logEvent("budget_status", {
+        used: progress.attemptedToday,
+        remaining: DAILY_GRID_LIMIT - progress.attemptedToday,
+        reserve_target: EMERGENCY_RESERVE,
+        reserve_enforced: false,
+        scope: "utc_daily_grid_requests",
+      });
       const currentRegion = point.globalRegion.toLowerCase().replace(/\s+/g, "_");
       if (activeRegion !== currentRegion) {
         if (activeRegion !== null) {
@@ -263,6 +291,7 @@ export async function runDailyCrawl(args: string[]) {
           logEvent("stale_detected", { name: existing.name, place_id: existing.placeId, reason: reasons.join("/") });
           logEvent("update_stale", { name: row.name, place_id: row.placeId });
           logEvent("update_recovery", { name: row.name, reason: fillableMissing ? "missing_fields" : "stale" });
+          logEvent("update_mode", { name: row.name, mode: fillableMissing ? "recovery" : "stale" });
           logEvent("update", { name: row.name, place_id: row.placeId });
         } else {
           const [latest] = await db.select({
@@ -293,6 +322,9 @@ export async function runDailyCrawl(args: string[]) {
         await new Promise((done) => setTimeout(done, DELAY_BETWEEN_REQUESTS_MS));
       }
     }
+    if (progress.nextIndex < points.length && progress.attemptedToday >= DAILY_GRID_LIMIT) {
+      logEvent("budget_exhausted", { remaining: 0, scope: "utc_daily_grid_requests" });
+    }
   } catch (error) {
     summary.errors++;
     throw error;
@@ -309,6 +341,7 @@ export async function runDailyCrawl(args: string[]) {
       next_index: progress.nextIndex,
       errors_this_run: summary.errors,
     });
+    logDailyBudgetSummary(progress);
     await lock.close();
     const { unlink } = await import("node:fs/promises");
     await unlink(`${options.stateFile}.lock`);

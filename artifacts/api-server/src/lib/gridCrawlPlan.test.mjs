@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { gridHash, parseGrid, validateProgress } from "./gridCrawlPlan.ts";
+import { EMERGENCY_RESERVE, gridHash, parseGrid, validateProgress } from "./gridCrawlPlan.ts";
 
 const grid = {
   europe: { London: [[51.5074, -0.1278]] },
   north_america: { New_York_City: [[40.7128, -74.006]] },
 };
+
+test("the proposed emergency reserve is five of the 50 daily attempts", () => {
+  assert.equal(EMERGENCY_RESERVE, 5);
+});
 
 test("accepts validated region/city coordinates, including New_York_City", () => {
   const points = parseGrid(grid);
