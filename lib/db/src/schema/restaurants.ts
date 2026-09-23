@@ -32,6 +32,7 @@ export const restaurantsTable = pgTable(
     latitude: doublePrecision("latitude"),
     longitude: doublePrecision("longitude"),
     rating: real("rating"),
+    reviewCount: integer("review_count"),
     priceLevel: text("price_level"),
     currency: text("currency").notNull().default("GBP"),
     website: text("website"),

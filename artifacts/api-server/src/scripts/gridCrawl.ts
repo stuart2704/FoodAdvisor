@@ -7,14 +7,17 @@ import { resolve } from "node:path";
 import { parseGrid, gridHash, validateProgress, DAILY_GRID_LIMIT, DELAY_BETWEEN_REQUESTS_MS, type GridProgress } from "../lib/gridCrawlPlan";
 import { logger } from "../lib/logger";
 
-const MASK = "places.id,places.displayName,places.formattedAddress,places.rating,places.location,places.websiteUri,places.googleMapsUri,places.types";
-const COST_CENTS = 5; // Estimated guard, not a provider invoice or guaranteed price.
+const MASK = "places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.priceLevel,places.location,places.websiteUri,places.googleMapsUri,places.types";
+const COST_CENTS = 50; // Conservative estimate for the requested fields, not a guaranteed provider price.
+const RESTAURANTS_PER_POINT = 10;
 
 type Place = {
   id?: string;
   displayName?: { text?: string };
   formattedAddress?: string;
   rating?: number;
+  userRatingCount?: number;
+  priceLevel?: string;
   location?: { latitude?: number; longitude?: number };
   websiteUri?: string;
   googleMapsUri?: string;
@@ -51,7 +54,7 @@ async function searchNearby(latitude: number, longitude: number, apiKey: string)
     headers: { "Content-Type": "application/json", "X-Goog-Api-Key": apiKey, "X-Goog-FieldMask": MASK },
     body: JSON.stringify({
       includedTypes: ["restaurant"],
-      maxResultCount: 20,
+      maxResultCount: RESTAURANTS_PER_POINT,
       locationRestriction: { circle: { center: { latitude, longitude }, radius: 1500 } },
       languageCode: "en",
     }),
@@ -110,7 +113,7 @@ export async function runDailyCrawl(args: string[]) {
       // Reserve before calling Google: on an uncertain failure the reservation
       // remains and the point is not advanced, avoiding an untracked retry.
       await db.insert(restaurantImportRunsTable).values({
-        cities: [point.city], requested: 20, imported: 0, skippedDuplicates: 0,
+        cities: [point.city], requested: RESTAURANTS_PER_POINT, imported: 0, skippedDuplicates: 0,
         apiCalls: 1, estimatedCostCents: COST_CENTS, monthlyBudgetCents: options.monthlyBudgetCents,
         stoppedBecause: `Grid request reserved at point ${progress.nextIndex}`,
       });
@@ -123,6 +126,9 @@ export async function runDailyCrawl(args: string[]) {
         const latitude = place.location?.latitude;
         const longitude = place.location?.longitude;
         if (typeof latitude !== "number" || typeof longitude !== "number") continue;
+        const cuisineTags = (place.types ?? [])
+          .filter((type) => type.endsWith("_restaurant") && type !== "restaurant")
+          .map((type) => type.replace(/_restaurant$/, "").replace(/_/g, " "));
         const [row] = await db.insert(restaurantsTable).values({
           placeId: place.id,
           name: place.displayName.text,
@@ -133,7 +139,12 @@ export async function runDailyCrawl(args: string[]) {
           globalRegion: point.globalRegion,
           slug: restaurantSlug(place.displayName.text, place.id),
           rating: typeof place.rating === "number" ? place.rating : null,
+          reviewCount: Number.isSafeInteger(place.userRatingCount) && place.userRatingCount! >= 0
+            ? place.userRatingCount : null,
+          priceLevel: place.priceLevel ?? null,
           latitude, longitude,
+          currency: point.country === "USA" ? "USD" : point.country === "France" ? "EUR" : "GBP",
+          cuisineTags,
           website: place.websiteUri ?? null,
           googleMapsUrl: place.googleMapsUri ?? `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(place.id)}`,
           types: place.types ?? ["restaurant"],
