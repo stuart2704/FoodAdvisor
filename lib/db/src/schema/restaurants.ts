@@ -203,6 +203,35 @@ export const restaurantOffersTable = pgTable(
   ],
 );
 
+export const restaurantEventsTable = pgTable(
+  "restaurant_events",
+  {
+    id: serial("id").primaryKey(),
+    restaurantId: text("restaurant_id")
+      .notNull()
+      .references(() => restaurantsTable.placeId, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description").notNull(),
+    eventDate: date("event_date", { mode: "string" }).notNull(),
+    eventTime: text("event_time").notNull(),
+    price: text("price").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index("restaurant_events_restaurant_date_time_idx").on(
+      table.restaurantId,
+      table.eventDate,
+      table.eventTime,
+    ),
+  ],
+);
+
 export const restaurantBookingsTable = pgTable(
   "restaurant_bookings",
   {
@@ -764,6 +793,13 @@ export const insertRestaurantOfferSchema = createInsertSchema(
   createdAt: true,
   updatedAt: true,
 });
+export const insertRestaurantEventSchema = createInsertSchema(
+  restaurantEventsTable,
+).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
 export const insertRestaurantImportRunSchema = createInsertSchema(
   restaurantImportRunsTable,
 ).omit({ id: true, createdAt: true });
@@ -772,6 +808,8 @@ export type RestaurantRecord = typeof restaurantsTable.$inferSelect;
 export type InsertRestaurant = typeof restaurantsTable.$inferInsert;
 export type RestaurantOffer = typeof restaurantOffersTable.$inferSelect;
 export type InsertRestaurantOffer = typeof restaurantOffersTable.$inferInsert;
+export type RestaurantEvent = typeof restaurantEventsTable.$inferSelect;
+export type InsertRestaurantEvent = typeof restaurantEventsTable.$inferInsert;
 export type RestaurantImportRun =
   typeof restaurantImportRunsTable.$inferSelect;
 export type OutreachAudit = typeof outreachAuditTable.$inferSelect;

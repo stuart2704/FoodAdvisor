@@ -1,4 +1,9 @@
-import { db, restaurantOffersTable, restaurantsTable } from "@workspace/db";
+import {
+  db,
+  restaurantEventsTable,
+  restaurantOffersTable,
+  restaurantsTable,
+} from "@workspace/db";
 import { and, asc, eq, gte } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import { z } from "zod";
@@ -38,6 +43,9 @@ const socialMarketingSchema = z
 const offerIdParamsSchema = tokenParamsSchema.extend({
   offerId: z.coerce.number().int().positive(),
 });
+const eventIdParamsSchema = tokenParamsSchema.extend({
+  eventId: z.coerce.number().int().positive(),
+});
 const calendarDateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Dates must use YYYY-MM-DD.")
@@ -70,6 +78,35 @@ const offerBodySchema = z
         code: "custom",
         path: ["endDate"],
         message: "Expired offers cannot be published.",
+      });
+    }
+  });
+const eventPriceSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(40)
+  .regex(
+    /^(?:free|(?:£|\$|€)\d{1,6}(?:\.\d{2})?(?:\s+per\s+person)?|\d{1,6}(?:\.\d{2})?\s+(?:GBP|USD|EUR)(?:\s+per\s+person)?)$/i,
+    "Price must be Free or a valid GBP, USD, or EUR amount.",
+  );
+const eventBodySchema = z
+  .object({
+    title: z.string().trim().min(1).max(120),
+    description: z.string().trim().min(1).max(1_000),
+    date: calendarDateSchema,
+    time: z
+      .string()
+      .regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/, "Time must use 24-hour HH:mm format."),
+    price: eventPriceSchema,
+  })
+  .strict()
+  .superRefine((event, context) => {
+    if (event.date < new Date().toISOString().slice(0, 10)) {
+      context.addIssue({
+        code: "custom",
+        path: ["date"],
+        message: "Past events cannot be published.",
       });
     }
   });
@@ -279,6 +316,147 @@ router.delete("/portal/:token/offers/:offerId", async (req, res): Promise<void> 
     .returning({ id: restaurantOffersTable.id });
   if (!offer) {
     res.status(404).json({ success: false, error: "Offer not found." });
+    return;
+  }
+  res.json({ success: true });
+});
+
+router.get("/portal/:token/events", async (req, res): Promise<void> => {
+  setPortalPrivacyHeaders(res);
+  const params = tokenParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    invalidPortalLink(res);
+    return;
+  }
+  const placeId = await getVerifiedOwnerPlaceId(params.data.token);
+  if (!placeId) {
+    invalidPortalLink(res);
+    return;
+  }
+  const events = await db
+    .select({
+      id: restaurantEventsTable.id,
+      title: restaurantEventsTable.title,
+      description: restaurantEventsTable.description,
+      date: restaurantEventsTable.eventDate,
+      time: restaurantEventsTable.eventTime,
+      price: restaurantEventsTable.price,
+    })
+    .from(restaurantEventsTable)
+    .where(
+      and(
+        eq(restaurantEventsTable.restaurantId, placeId),
+        gte(restaurantEventsTable.eventDate, new Date().toISOString().slice(0, 10)),
+      ),
+    )
+    .orderBy(
+      asc(restaurantEventsTable.eventDate),
+      asc(restaurantEventsTable.eventTime),
+      asc(restaurantEventsTable.id),
+    );
+  res.json({ success: true, events });
+});
+
+router.post("/portal/:token/events", async (req, res): Promise<void> => {
+  setPortalPrivacyHeaders(res);
+  const params = tokenParamsSchema.safeParse(req.params);
+  const body = eventBodySchema.safeParse(req.body);
+  if (!params.success) {
+    invalidPortalLink(res);
+    return;
+  }
+  if (!body.success) {
+    res.status(400).json({
+      success: false,
+      error: body.error.issues[0]?.message ?? "Invalid event.",
+    });
+    return;
+  }
+  const placeId = await getVerifiedOwnerPlaceId(params.data.token);
+  if (!placeId) {
+    invalidPortalLink(res);
+    return;
+  }
+  const { date, time, ...details } = body.data;
+  const [event] = await db
+    .insert(restaurantEventsTable)
+    .values({
+      restaurantId: placeId,
+      eventDate: date,
+      eventTime: time,
+      ...details,
+    })
+    .returning();
+  res.status(201).json({
+    success: true,
+    event: { ...event, date: event.eventDate, time: event.eventTime },
+  });
+});
+
+router.patch("/portal/:token/events/:eventId", async (req, res): Promise<void> => {
+  setPortalPrivacyHeaders(res);
+  const params = eventIdParamsSchema.safeParse(req.params);
+  const body = eventBodySchema.safeParse(req.body);
+  if (!params.success) {
+    invalidPortalLink(res);
+    return;
+  }
+  if (!body.success) {
+    res.status(400).json({
+      success: false,
+      error: body.error.issues[0]?.message ?? "Invalid event.",
+    });
+    return;
+  }
+  const placeId = await getVerifiedOwnerPlaceId(params.data.token);
+  if (!placeId) {
+    invalidPortalLink(res);
+    return;
+  }
+  const { date, time, ...details } = body.data;
+  const [event] = await db
+    .update(restaurantEventsTable)
+    .set({ eventDate: date, eventTime: time, ...details })
+    .where(
+      and(
+        eq(restaurantEventsTable.id, params.data.eventId),
+        eq(restaurantEventsTable.restaurantId, placeId),
+      ),
+    )
+    .returning();
+  if (!event) {
+    res.status(404).json({ success: false, error: "Event not found." });
+    return;
+  }
+  res.json({
+    success: true,
+    event: { ...event, date: event.eventDate, time: event.eventTime },
+  });
+});
+
+router.delete("/portal/:token/events/:eventId", async (req, res): Promise<void> => {
+  setPortalPrivacyHeaders(res);
+  const params = eventIdParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    invalidPortalLink(res);
+    return;
+  }
+  const placeId = await getVerifiedOwnerPlaceId(params.data.token);
+  if (!placeId) {
+    invalidPortalLink(res);
+    return;
+  }
+  const [event] = await db
+    .delete(restaurantEventsTable)
+    .where(
+      and(
+        eq(restaurantEventsTable.id, params.data.eventId),
+        eq(restaurantEventsTable.restaurantId, placeId),
+      ),
+    )
+    .returning({ id: restaurantEventsTable.id });
+  if (!event) {
+    res.status(404).json({ success: false, error: "Event not found." });
     return;
   }
   res.json({ success: true });

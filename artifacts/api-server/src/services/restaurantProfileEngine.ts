@@ -1,5 +1,6 @@
 import {
   db,
+  restaurantEventsTable,
   restaurantMenuItemsTable,
   restaurantOffersTable,
   restaurantsTable,
@@ -137,7 +138,7 @@ export async function getRestaurantProfile(
     .limit(1);
   if (!restaurant) return null;
   const today = new Date().toISOString().slice(0, 10);
-  const [menu, offers] = await Promise.all([
+  const [menu, offers, events] = await Promise.all([
     db
       .select({
         id: restaurantMenuItemsTable.id,
@@ -169,6 +170,27 @@ export async function getRestaurantProfile(
             ),
           )
           .orderBy(asc(restaurantOffersTable.endDate))
+      : Promise.resolve([]),
+    restaurant.claimedAt
+      ? db
+          .select({
+            title: restaurantEventsTable.title,
+            description: restaurantEventsTable.description,
+            date: restaurantEventsTable.eventDate,
+            time: restaurantEventsTable.eventTime,
+            price: restaurantEventsTable.price,
+          })
+          .from(restaurantEventsTable)
+          .where(
+            and(
+              eq(restaurantEventsTable.restaurantId, restaurant.placeId),
+              gte(restaurantEventsTable.eventDate, today),
+            ),
+          )
+          .orderBy(
+            asc(restaurantEventsTable.eventDate),
+            asc(restaurantEventsTable.eventTime),
+          )
       : Promise.resolve([]),
   ]);
   const cuisine = restaurant.cuisineTags[0] ?? null;
@@ -210,7 +232,7 @@ export async function getRestaurantProfile(
     bookingUrl: null,
     bookingProvider: null,
     offers,
-    events: [],
+    events,
     badges: deriveBadges(restaurant),
     collections: [],
     bestDishes: [],

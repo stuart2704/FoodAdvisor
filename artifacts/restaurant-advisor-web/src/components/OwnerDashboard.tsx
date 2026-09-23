@@ -14,11 +14,27 @@ interface Offer {
   endDate: string;
 }
 
+interface RestaurantEvent {
+  id: number;
+  title: string;
+  description: string;
+  date: string;
+  time: string;
+  price: string;
+}
+
 const emptyOffer = {
   title: "",
   description: "",
   startDate: "",
   endDate: "",
+};
+const emptyEvent = {
+  title: "",
+  description: "",
+  date: "",
+  time: "",
+  price: "",
 };
 
 export default function OwnerDashboard({
@@ -38,6 +54,13 @@ export default function OwnerDashboard({
   const [offerSaving, setOfferSaving] = useState(false);
   const [offerMessage, setOfferMessage] = useState("");
   const [offerError, setOfferError] = useState("");
+  const [events, setEvents] = useState<RestaurantEvent[]>([]);
+  const [eventForm, setEventForm] = useState(emptyEvent);
+  const [editingEventId, setEditingEventId] = useState<number | null>(null);
+  const [eventLoading, setEventLoading] = useState(true);
+  const [eventSaving, setEventSaving] = useState(false);
+  const [eventMessage, setEventMessage] = useState("");
+  const [eventError, setEventError] = useState("");
 
   const loadOffers = useCallback(async () => {
     setOfferLoading(true);
@@ -57,10 +80,33 @@ export default function OwnerDashboard({
     }
   }, [token]);
 
+  const loadEvents = useCallback(async () => {
+    setEventLoading(true);
+    setEventError("");
+    try {
+      const response = await fetch(
+        `/api/portal/${encodeURIComponent(token)}/events`,
+        { cache: "no-store", referrerPolicy: "no-referrer" },
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Events could not be loaded.");
+      setEvents(data.events);
+    } catch (error) {
+      setEventError(error instanceof Error ? error.message : "Events could not be loaded.");
+    } finally {
+      setEventLoading(false);
+    }
+  }, [token]);
+
   useEffect(() => {
-    if (verified) void loadOffers();
-    else setOfferLoading(false);
-  }, [loadOffers, verified]);
+    if (verified) {
+      void loadOffers();
+      void loadEvents();
+    } else {
+      setOfferLoading(false);
+      setEventLoading(false);
+    }
+  }, [loadEvents, loadOffers, verified]);
 
   async function saveOffer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -109,6 +155,57 @@ export default function OwnerDashboard({
       await loadOffers();
     } catch (error) {
       setOfferError(error instanceof Error ? error.message : "Offer could not be deleted.");
+    }
+  }
+
+  async function saveEvent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setEventSaving(true);
+    setEventError("");
+    setEventMessage("");
+    try {
+      const isEditing = editingEventId !== null;
+      const url = isEditing
+        ? `/api/portal/${encodeURIComponent(token)}/events/${editingEventId}`
+        : `/api/portal/${encodeURIComponent(token)}/events`;
+      const response = await fetch(url, {
+        method: isEditing ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        referrerPolicy: "no-referrer",
+        body: JSON.stringify(eventForm),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Event could not be saved.");
+      setEventForm(emptyEvent);
+      setEditingEventId(null);
+      setEventMessage(isEditing ? "Event updated." : "Event published.");
+      await loadEvents();
+    } catch (error) {
+      setEventError(error instanceof Error ? error.message : "Event could not be saved.");
+    } finally {
+      setEventSaving(false);
+    }
+  }
+
+  async function deleteEvent(id: number) {
+    setEventError("");
+    setEventMessage("");
+    try {
+      const response = await fetch(
+        `/api/portal/${encodeURIComponent(token)}/events/${id}`,
+        { method: "DELETE", cache: "no-store", referrerPolicy: "no-referrer" },
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Event could not be deleted.");
+      if (editingEventId === id) {
+        setEditingEventId(null);
+        setEventForm(emptyEvent);
+      }
+      setEventMessage("Event deleted.");
+      await loadEvents();
+    } catch (error) {
+      setEventError(error instanceof Error ? error.message : "Event could not be deleted.");
     }
   }
 
@@ -276,6 +373,90 @@ export default function OwnerDashboard({
                 >
                   Delete
                 </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>}
+
+      {verified && <div className="mt-10 rounded-2xl bg-white p-6">
+        <h2 className="text-2xl font-semibold">Upcoming events</h2>
+        <p className="mt-2 text-muted-foreground">
+          Publish events to your verified restaurant profile. Past events are hidden automatically.
+        </p>
+        <form onSubmit={saveEvent} className="mt-6 grid gap-4">
+          <label className="grid gap-1">
+            <span className="font-medium">Title</span>
+            <input required maxLength={120} value={eventForm.title}
+              onChange={(event) => setEventForm({ ...eventForm, title: event.target.value })}
+              className="rounded-lg border px-3 py-2" />
+          </label>
+          <label className="grid gap-1">
+            <span className="font-medium">Description</span>
+            <textarea required maxLength={1000} rows={4} value={eventForm.description}
+              onChange={(event) => setEventForm({ ...eventForm, description: event.target.value })}
+              className="rounded-lg border px-3 py-2" />
+          </label>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <label className="grid gap-1">
+              <span className="font-medium">Date</span>
+              <input required type="date" min={new Date().toISOString().slice(0, 10)}
+                value={eventForm.date}
+                onChange={(event) => setEventForm({ ...eventForm, date: event.target.value })}
+                className="rounded-lg border px-3 py-2" />
+            </label>
+            <label className="grid gap-1">
+              <span className="font-medium">Time</span>
+              <input required type="time" value={eventForm.time}
+                onChange={(event) => setEventForm({ ...eventForm, time: event.target.value })}
+                className="rounded-lg border px-3 py-2" />
+            </label>
+            <label className="grid gap-1">
+              <span className="font-medium">Price</span>
+              <input required maxLength={40} placeholder="Free or £25.00"
+                value={eventForm.price}
+                onChange={(event) => setEventForm({ ...eventForm, price: event.target.value })}
+                className="rounded-lg border px-3 py-2" />
+            </label>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <button type="submit" disabled={eventSaving}
+              className="rounded-lg bg-[#d94800] px-5 py-3 font-medium text-white disabled:opacity-60">
+              {eventSaving ? "Saving…" : editingEventId === null ? "Publish event" : "Save changes"}
+            </button>
+            {editingEventId !== null && (
+              <button type="button" onClick={() => {
+                setEditingEventId(null);
+                setEventForm(emptyEvent);
+              }} className="rounded-lg border px-5 py-3 font-medium">Cancel</button>
+            )}
+          </div>
+        </form>
+        {eventMessage && <p className="mt-4 text-sm text-green-700" role="status">{eventMessage}</p>}
+        {eventError && <p className="mt-4 text-sm text-red-700" role="alert">{eventError}</p>}
+        <div className="mt-8 grid gap-3">
+          {eventLoading && <p>Loading events…</p>}
+          {!eventLoading && events.length === 0 && <p className="text-muted-foreground">No upcoming events.</p>}
+          {events.map((event) => (
+            <article key={event.id} className="rounded-xl border p-4">
+              <h3 className="font-semibold">{event.title}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{event.description}</p>
+              <p className="mt-2 text-sm">{event.date} at {event.time} · {event.price}</p>
+              <div className="mt-3 flex gap-3">
+                <button type="button" className="font-medium text-[#b83d00]" onClick={() => {
+                  setEditingEventId(event.id);
+                  setEventForm({
+                    title: event.title,
+                    description: event.description,
+                    date: event.date,
+                    time: event.time,
+                    price: event.price,
+                  });
+                  setEventMessage("");
+                  setEventError("");
+                }}>Edit</button>
+                <button type="button" className="font-medium text-red-700"
+                  onClick={() => void deleteEvent(event.id)}>Delete</button>
               </div>
             </article>
           ))}

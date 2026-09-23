@@ -11,13 +11,14 @@ const source = path.join(apiRoot, "src/routes/portal.ts");
 
 const dbMock = String.raw`
 const column = (name) => ({ name });
-export const restaurantsTable = new Proxy({}, {
-  get(_target, name) { return column(name); },
+const table = (kind) => new Proxy({ kind }, {
+  get(target, name) { return name === "kind" ? target.kind : column(name); },
 });
-export const restaurantOffersTable = new Proxy({}, {
-  get(_target, name) { return column(name); },
-});
+export const restaurantsTable = table("restaurants");
+export const restaurantOffersTable = table("offers");
+export const restaurantEventsTable = table("events");
 const state = () => globalThis.__portalRouteState;
+const rowsFor = (table) => state()[table.kind];
 const project = (selection, row) => Object.fromEntries(
   Object.entries(selection).map(([key, selected]) => [key, row[selected.name]]),
 );
@@ -37,9 +38,9 @@ export const db = {
                 return [project(selection, restaurant)];
               },
               async orderBy() {
-                return state().offers
-                  .filter((offer) => matches(condition, offer))
-                  .map((offer) => project(selection, offer));
+                return rowsFor(table)
+                  .filter((row) => matches(condition, row))
+                  .map((row) => project(selection, row));
               },
             };
           },
@@ -47,30 +48,30 @@ export const db = {
       },
     };
   },
-  insert() {
+  insert(table) {
     return {
       values(values) {
         return {
           async returning() {
-            const offer = { id: state().nextOfferId++, ...values };
-            state().offers.push(offer);
-            return [offer];
+            const row = { id: state().nextIds[table.kind]++, ...values };
+            rowsFor(table).push(row);
+            return [row];
           },
         };
       },
     };
   },
-  update() {
+  update(table) {
     return {
       set(values) {
         return {
           where(condition) {
             return {
               async returning() {
-                const offer = state().offers.find((candidate) => matches(condition, candidate));
-                if (!offer) return [];
-                Object.assign(offer, values);
-                return [offer];
+                const row = rowsFor(table).find((candidate) => matches(condition, candidate));
+                if (!row) return [];
+                Object.assign(row, values);
+                return [row];
               },
             };
           },
@@ -78,14 +79,14 @@ export const db = {
       },
     };
   },
-  delete() {
+  delete(table) {
     return {
       where(condition) {
         return {
           async returning() {
-            const index = state().offers.findIndex((candidate) => matches(condition, candidate));
+            const index = rowsFor(table).findIndex((candidate) => matches(condition, candidate));
             if (index < 0) return [];
-            return state().offers.splice(index, 1);
+            return rowsFor(table).splice(index, 1);
           },
         };
       },
@@ -211,7 +212,8 @@ function resetState(claimStatus = "basic") {
     },
     aiCalls: [],
     offers: [],
-    nextOfferId: 1,
+    events: [],
+    nextIds: { offers: 1, events: 1 },
   };
   process.env.OPENAI_API_KEY = "test-key";
 }
@@ -249,6 +251,7 @@ async function post(pathname, { token = validToken, body = {} } = {}) {
 async function request(method, pathname, {
   token = validToken,
   offerId,
+  eventId,
   body = {},
 } = {}) {
   let statusCode = 200;
@@ -269,6 +272,7 @@ async function request(method, pathname, {
     params: {
       token,
       ...(offerId === undefined ? {} : { offerId: String(offerId) }),
+      ...(eventId === undefined ? {} : { eventId: String(eventId) }),
     },
     body,
     log: { warn() {}, error() {} },
@@ -415,6 +419,85 @@ test("offer updates and deletes are scoped to the token-linked restaurant", asyn
   assert.equal(globalThis.__portalRouteState.offers[0].title, "Other offer");
 });
 
+test("verified owner creates an event for the token-linked restaurant", async () => {
+  resetState();
+  const rejectedIdentity = await request("post", "/portal/:token/events", {
+    body: {
+      restaurantId: "someone-elses-place",
+      title: "Jazz night",
+      description: "Live jazz in the dining room.",
+      date: "2099-04-10",
+      time: "19:30",
+      price: "£15.00",
+    },
+  });
+  assert.equal(rejectedIdentity.statusCode, 400);
+
+  const created = await request("post", "/portal/:token/events", {
+    body: {
+      title: "Jazz night",
+      description: "Live jazz in the dining room.",
+      date: "2099-04-10",
+      time: "19:30",
+      price: "£15.00",
+    },
+  });
+  assert.equal(created.statusCode, 201);
+  assert.equal(globalThis.__portalRouteState.events[0].restaurantId, "place-1");
+  assert.equal(globalThis.__portalRouteState.events[0].eventDate, "2099-04-10");
+});
+
+test("event validation rejects past dates, invalid times, prices, and oversized text", async () => {
+  resetState();
+  const valid = {
+    title: "Jazz night",
+    description: "Live jazz in the dining room.",
+    date: "2099-04-10",
+    time: "19:30",
+    price: "£15.00",
+  };
+  for (const body of [
+    { ...valid, date: "2020-01-01" },
+    { ...valid, time: "25:00" },
+    { ...valid, price: "fifteen-ish" },
+    { ...valid, description: "x".repeat(1_001) },
+  ]) {
+    const result = await request("post", "/portal/:token/events", { body });
+    assert.equal(result.statusCode, 400);
+  }
+  assert.equal(globalThis.__portalRouteState.events.length, 0);
+});
+
+test("event updates and deletes are scoped to the token-linked restaurant", async () => {
+  resetState();
+  globalThis.__portalRouteState.events.push({
+    id: 9,
+    restaurantId: "other-place",
+    title: "Private event",
+    description: "Owned by another listing.",
+    eventDate: "2099-04-10",
+    eventTime: "19:30",
+    price: "Free",
+  });
+  const body = {
+    title: "Changed",
+    description: "Should not change.",
+    date: "2099-04-11",
+    time: "20:00",
+    price: "£20.00",
+  };
+  const update = await request("patch", "/portal/:token/events/:eventId", {
+    eventId: 9,
+    body,
+  });
+  assert.equal(update.statusCode, 404);
+  const deletion = await request("delete", "/portal/:token/events/:eventId", {
+    eventId: 9,
+  });
+  assert.equal(deletion.statusCode, 404);
+  assert.equal(globalThis.__portalRouteState.events[0].title, "Private event");
+});
+
 test("unverified listings cannot manage offers", async () => {
   resetState(null);
   const result = await request("post", "/portal/:token/offers", {
@@ -427,6 +510,21 @@ test("unverified listings cannot manage offers", async () => {
   });
   assert.equal(result.statusCode, 404);
   assert.equal(globalThis.__portalRouteState.offers.length, 0);
+});
+
+test("unverified listings cannot manage events", async () => {
+  resetState(null);
+  const result = await request("post", "/portal/:token/events", {
+    body: {
+      title: "Blocked",
+      description: "Not verified.",
+      date: "2099-04-10",
+      time: "19:30",
+      price: "Free",
+    },
+  });
+  assert.equal(result.statusCode, 404);
+  assert.equal(globalThis.__portalRouteState.events.length, 0);
 });
 
 test.after(async () => {
