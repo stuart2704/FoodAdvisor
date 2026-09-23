@@ -16,7 +16,18 @@ test("accepts validated region/city coordinates, including New_York_City", () =>
   ]);
 });
 
+test("orders supplied regions by the schedule without inventing empty-region points", () => {
+  const reversed = {
+    south_america: {},
+    north_america: { New_York_City: [[40.7128, -74.006]] },
+    asia: {},
+    europe: { London: [[51.5074, -0.1278]] },
+  };
+  assert.deepEqual(parseGrid(reversed).map((point) => point.city), ["London", "New York"]);
+});
+
 test("rejects missing, invalid, or mismatched grid data", () => {
+  assert.throws(() => parseGrid({ unknown_region: {} }), /Unsupported grid region/);
   assert.throws(() => parseGrid({ europe: { Atlantis: [[51, 0]] } }), /Unknown city/);
   assert.throws(() => parseGrid({ europe: { London: [[91, 0]] } }), /Invalid/);
   assert.throws(() => parseGrid({ north_america: { London: [[51, 0]] } }), /does not belong/);

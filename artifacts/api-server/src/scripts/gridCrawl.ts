@@ -8,6 +8,7 @@ import { parseGrid, gridHash, validateProgress, DAILY_GRID_LIMIT, DELAY_BETWEEN_
 import { normaliseCoordinates } from "../lib/geo";
 import { verifiedExistingFields, type NearbyPlace } from "../lib/gridPlaceFields";
 import { cuisineFromRestaurantName } from "../lib/restaurantKeywords";
+import { missingFieldNames, stalenessReasons, STALE_AFTER_MS, STALE_RATING_CHANGE, STALE_REVIEW_JUMP } from "../lib/gridStaleness";
 import { logEvent } from "../lib/logEvent";
 import { logger } from "../lib/logger";
 
@@ -15,8 +16,6 @@ const MASK = "places.id,places.displayName,places.formattedAddress,places.rating
 const PLACES_URL = "https://places.googleapis.com/v1/places:searchNearby";
 const COST_CENTS = 50; // Conservative estimate for the requested fields, not a guaranteed provider price.
 const RESTAURANTS_PER_POINT = 10;
-
-const REFRESH_AFTER_MS = 720 * 60 * 60 * 1000;
 
 function argumentsForRun(args: string[]) {
   const option = (name: string) => args[args.indexOf(name) + 1];
@@ -92,7 +91,7 @@ export async function runDailyCrawl(args: string[]) {
   if (progress.nextIndex >= points.length || progress.attemptedToday >= DAILY_GRID_LIMIT) return;
 
   // Dynamic imports keep dry-run free from database connections.
-  const [{ db, restaurantsTable, restaurantImportRunsTable }, { sql, gte, eq, and, or, isNull, lte }, { restaurantSlug }] = await Promise.all([
+  const [{ db, restaurantsTable, restaurantImportRunsTable }, { sql, gte, eq, and, or, isNull, lt }, { restaurantSlug }] = await Promise.all([
     import("@workspace/db"),
     import("drizzle-orm"),
     import("../utils/slugify"),
@@ -109,6 +108,9 @@ export async function runDailyCrawl(args: string[]) {
     errors: 0,
     period: "this_run",
   };
+  let activeRegion: string | null = null;
+  let pointsCrawledInRegion = 0;
+  let lastCompletedIndex = progress.nextIndex - 1;
   try {
     while (progress.nextIndex < points.length && progress.attemptedToday < DAILY_GRID_LIMIT) {
       const point = points[progress.nextIndex];
@@ -130,6 +132,15 @@ export async function runDailyCrawl(args: string[]) {
       });
       progress.attemptedToday += 1;
       await persistProgress(options.stateFile, progress);
+      const currentRegion = point.globalRegion.toLowerCase().replace(/\s+/g, "_");
+      if (activeRegion !== currentRegion) {
+        if (activeRegion !== null) {
+          logEvent("region_end", { region: activeRegion, points_crawled: pointsCrawledInRegion, completed: true });
+        }
+        activeRegion = currentRegion;
+        pointsCrawledInRegion = 0;
+        logEvent("region_start", { region: currentRegion });
+      }
       logEvent("crawl_point", {
         region: point.region,
         city: point.city,
@@ -178,37 +189,104 @@ export async function runDailyCrawl(args: string[]) {
             continue;
           }
         }
-        // Conflict and freshness check are atomic: a concurrent insert or
-        // refresh cannot be overwritten by an earlier existence check.
+        const [existing] = await db.select({
+          name: restaurantsTable.name,
+          placeId: restaurantsTable.placeId,
+          updatedAt: restaurantsTable.updatedAt,
+          rating: restaurantsTable.rating,
+          reviewCount: restaurantsTable.reviewCount,
+          address: restaurantsTable.address,
+          cuisines: restaurantsTable.cuisines,
+          amenities: restaurantsTable.amenities,
+          priceLevel: restaurantsTable.priceLevel,
+          website: restaurantsTable.website,
+        }).from(restaurantsTable).where(eq(restaurantsTable.placeId, place.id)).limit(1);
+        if (!existing) continue;
+
+        const missing = missingFieldNames(existing);
+        if (missing.length) {
+          logEvent("missing_fields_detected", { name: existing.name, missing });
+        }
+        const now = new Date();
+        const reasons = stalenessReasons(existing, fields, now);
+        const fillableMissing = reasons.some((reason) => reason.startsWith("missing_"));
+        logEvent("crawl_priority", {
+          name: existing.name,
+          priority: fillableMissing ? "high" : reasons.length ? "medium" : "low",
+        });
+        if (!reasons.length) {
+          summary.skips++;
+          logEvent("skip_not_stale", { name: existing.name, place_id: existing.placeId });
+          logEvent("skip_fresh", { name: existing.name, place_id: existing.placeId });
+          if (existing.updatedAt && existing.updatedAt.getTime() > now.getTime() - STALE_AFTER_MS) {
+            logEvent("skip_recent", { name: existing.name, place_id: existing.placeId });
+          }
+          continue;
+        }
+
+        // Recheck the full eligibility condition atomically at write time:
+        // another crawler may have refreshed this row since the read above.
+        const staleConditions = [
+          isNull(restaurantsTable.updatedAt),
+          lt(restaurantsTable.updatedAt, new Date(now.getTime() - STALE_AFTER_MS)),
+        ];
+        if (fields.rating !== undefined) {
+          staleConditions.push(sql`(${restaurantsTable.rating} IS NOT NULL AND
+            ABS(${restaurantsTable.rating}::numeric - ${fields.rating}::numeric) > ${STALE_RATING_CHANGE}::numeric)`);
+        }
+        if (fields.reviewCount !== undefined) {
+          staleConditions.push(sql`(${restaurantsTable.reviewCount} IS NOT NULL AND
+            ${fields.reviewCount}::integer - ${restaurantsTable.reviewCount} > ${STALE_REVIEW_JUMP})`);
+        }
+        if (fields.address) {
+          staleConditions.push(sql`btrim(${restaurantsTable.address}) = ''`);
+        }
+        if (fields.cuisines?.length) {
+          staleConditions.push(sql`coalesce(cardinality(${restaurantsTable.cuisines}), 0) = 0`);
+        }
+        if (fields.priceLevel) {
+          staleConditions.push(sql`(${restaurantsTable.priceLevel} IS NULL OR btrim(${restaurantsTable.priceLevel}) = '')`);
+        }
+        if (fields.website) {
+          staleConditions.push(sql`(${restaurantsTable.website} IS NULL OR btrim(${restaurantsTable.website}) = '')`);
+        }
         const [row] = await db.update(restaurantsTable)
-          .set({ ...fields, updatedAt: new Date() })
+          .set({ ...fields, updatedAt: now })
           .where(and(
             eq(restaurantsTable.placeId, place.id),
-            or(
-              isNull(restaurantsTable.updatedAt),
-              lte(restaurantsTable.updatedAt, new Date(Date.now() - REFRESH_AFTER_MS)),
-            ),
+            or(...staleConditions),
           ))
           .returning({ placeId: restaurantsTable.placeId, name: restaurantsTable.name });
         if (row) {
           refreshed++;
           summary.updates++;
+          logEvent("stale_detected", { name: existing.name, place_id: existing.placeId, reason: reasons.join("/") });
+          logEvent("update_stale", { name: row.name, place_id: row.placeId });
+          logEvent("update_recovery", { name: row.name, reason: fillableMissing ? "missing_fields" : "stale" });
           logEvent("update", { name: row.name, place_id: row.placeId });
         } else {
-          const [existing] = await db.select({
+          const [latest] = await db.select({
             name: restaurantsTable.name,
             placeId: restaurantsTable.placeId,
             updatedAt: restaurantsTable.updatedAt,
+            rating: restaurantsTable.rating,
+            reviewCount: restaurantsTable.reviewCount,
+            address: restaurantsTable.address,
+            cuisines: restaurantsTable.cuisines,
+            priceLevel: restaurantsTable.priceLevel,
+            website: restaurantsTable.website,
           }).from(restaurantsTable).where(eq(restaurantsTable.placeId, place.id)).limit(1);
-          if (existing?.updatedAt && existing.updatedAt.getTime() > Date.now() - REFRESH_AFTER_MS) {
+          if (latest && !stalenessReasons(latest, fields).length) {
             summary.skips++;
-            logEvent("skip_recent", { name: existing.name, place_id: existing.placeId });
+            logEvent("skip_not_stale", { name: latest.name, place_id: latest.placeId });
           }
         }
       }
       progress.nextIndex++;
       await persistProgress(options.stateFile, progress);
+      lastCompletedIndex = progress.nextIndex - 1;
       summary.points_crawled++;
+      pointsCrawledInRegion++;
       logEvent("grid_crawl_point_completed", { point: progress.nextIndex, total: points.length, found: places.length, imported, refreshed });
       if (progress.nextIndex < points.length && progress.attemptedToday < DAILY_GRID_LIMIT) {
         logEvent("grid_crawl_wait", { delaySeconds: DELAY_BETWEEN_REQUESTS_MS / 1000 });
@@ -219,6 +297,11 @@ export async function runDailyCrawl(args: string[]) {
     summary.errors++;
     throw error;
   } finally {
+    if (activeRegion !== null) {
+      const nextPoint = points[lastCompletedIndex + 1];
+      const completed = !nextPoint || nextPoint.globalRegion.toLowerCase().replace(/\s+/g, "_") !== activeRegion;
+      logEvent("region_end", { region: activeRegion, points_crawled: pointsCrawledInRegion, completed });
+    }
     logEvent("daily_summary", summary);
     logEvent("crawler_health", {
       delay_ms: DELAY_BETWEEN_REQUESTS_MS,

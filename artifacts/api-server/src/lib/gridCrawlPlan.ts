@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { getRegionForCity } from "../services/regionMap";
 import { isValidLatitude, isValidLongitude } from "./geo";
+import { regionSchedule } from "./regionSchedule";
 
 export type GridPoint = {
   region: string;
@@ -19,7 +20,15 @@ export function parseGrid(raw: unknown): GridPoint[] {
     throw new Error("Grid must be an object of regions containing cities and coordinate arrays.");
   }
   const points: GridPoint[] = [];
-  for (const [regionKey, cities] of Object.entries(raw)) {
+  const regions = raw as Record<string, unknown>;
+  for (const regionKey of Object.keys(regions)) {
+    if (!(regionSchedule as readonly string[]).includes(regionKey)) {
+      throw new Error(`Unsupported grid region ${regionKey}.`);
+    }
+  }
+  for (const regionKey of regionSchedule) {
+    if (!(regionKey in regions)) continue;
+    const cities = regions[regionKey];
     if (!cities || typeof cities !== "object" || Array.isArray(cities)) {
       throw new Error(`Region ${regionKey} must contain city arrays.`);
     }
