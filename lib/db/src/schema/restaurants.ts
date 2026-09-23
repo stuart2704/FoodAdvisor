@@ -46,6 +46,8 @@ export const restaurantsTable = pgTable(
     googleMapsUrl: text("google_maps_url").notNull(),
     types: text("types").array().notNull().default([]),
     cuisineTags: text("cuisine_tags").array().notNull().default([]),
+    cuisines: text("cuisines").array(),
+    amenities: text("amenities").array(),
     dietaryTags: text("dietary_tags").array().notNull().default([]),
     enrichedAt: timestamp("enriched_at", { withTimezone: true }),
     enrichmentStatus: text("enrichment_status").notNull().default("pending"),
@@ -53,6 +55,7 @@ export const restaurantsTable = pgTable(
     importedAt: timestamp("imported_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
     publicBusinessEmail: text("public_business_email"),
     emailSourceUrl: text("email_source_url"),
     emailDiscoveredAt: timestamp("email_discovered_at", {

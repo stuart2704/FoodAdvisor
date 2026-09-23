@@ -5,6 +5,7 @@
 import { readFile, writeFile, rename, open } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parseGrid, gridHash, validateProgress, DAILY_GRID_LIMIT, DELAY_BETWEEN_REQUESTS_MS, type GridProgress } from "../lib/gridCrawlPlan";
+import { cuisineFromRestaurantName } from "../lib/restaurantKeywords";
 import { logger } from "../lib/logger";
 
 const MASK = "places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.priceLevel,places.location,places.websiteUri,places.googleMapsUri,places.types";
@@ -126,9 +127,12 @@ export async function runDailyCrawl(args: string[]) {
         const latitude = place.location?.latitude;
         const longitude = place.location?.longitude;
         if (typeof latitude !== "number" || typeof longitude !== "number") continue;
-        const cuisineTags = (place.types ?? [])
+        const structuredCuisines = (place.types ?? [])
           .filter((type) => type.endsWith("_restaurant") && type !== "restaurant")
           .map((type) => type.replace(/_restaurant$/, "").replace(/_/g, " "));
+        const cuisineTags = structuredCuisines.length
+          ? structuredCuisines
+          : cuisineFromRestaurantName(place.displayName.text);
         const [row] = await db.insert(restaurantsTable).values({
           placeId: place.id,
           name: place.displayName.text,
@@ -145,6 +149,7 @@ export async function runDailyCrawl(args: string[]) {
           latitude, longitude,
           currency: point.country === "USA" ? "USD" : point.country === "France" ? "EUR" : "GBP",
           cuisineTags,
+          cuisines: cuisineTags,
           website: place.websiteUri ?? null,
           googleMapsUrl: place.googleMapsUri ?? `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(place.id)}`,
           types: place.types ?? ["restaurant"],
