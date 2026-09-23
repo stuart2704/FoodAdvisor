@@ -10,6 +10,11 @@ import { and, asc, eq, gte, gt, isNull, lt } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { validateToken } from "../services/portalTokenService";
+import { adminOnly } from "../middleware/adminOnly";
+import {
+  BookingLinkError,
+  verifyBookingLink,
+} from "../services/bookingLinkService";
 import { logEvent } from "../services/analyticsEngine";
 import { getRestaurantAnalytics } from "../services/analyticsEngine";
 import { generateOwnerAnalyticsInsight } from "../services/ownerAnalyticsInsight";
@@ -150,6 +155,15 @@ const chefUploadSchema = z.object({
 const chefFinalizeSchema = chefUploadSchema.extend({
   objectPath: z.string().regex(/^\/objects\/chef\/[0-9a-f-]{36}$/),
 }).strict();
+const bookingBodySchema = z
+  .object({
+    url: z.string().trim().min(1).max(2_048),
+    provider: z.string().trim().min(1).max(80).nullable().optional(),
+  })
+  .strict();
+const adminBookingParamsSchema = z.object({
+  restaurantId: z.string().trim().min(1).max(512),
+});
 
 function setPortalPrivacyHeaders(res: {
   setHeader(name: string, value: string): unknown;
@@ -174,6 +188,174 @@ function invalidPortalLink(res: {
 }) {
   res.status(404).json({ success: false, error: "Invalid or expired login link." });
 }
+
+function bookingPayload(restaurant: {
+  bookingUrl: string | null;
+  bookingProvider: string | null;
+  bookingStatus: string | null;
+}) {
+  return {
+    url: restaurant.bookingUrl,
+    provider: restaurant.bookingProvider,
+    status: restaurant.bookingStatus,
+  };
+}
+
+async function saveApprovedBooking(
+  placeId: string,
+  input: z.infer<typeof bookingBodySchema>,
+) {
+  const approvedUrl = await verifyBookingLink(input.url);
+  const [restaurant] = await db
+    .update(restaurantsTable)
+    .set({
+      bookingUrl: approvedUrl,
+      bookingProvider: input.provider?.trim() || null,
+      bookingStatus: "approved",
+      bookingVerifiedAt: new Date(),
+    })
+    .where(eq(restaurantsTable.placeId, placeId))
+    .returning({
+      bookingUrl: restaurantsTable.bookingUrl,
+      bookingProvider: restaurantsTable.bookingProvider,
+      bookingStatus: restaurantsTable.bookingStatus,
+    });
+  return restaurant;
+}
+
+function bookingFailure(res: {
+  status(code: number): { json(value: unknown): unknown };
+}, error: unknown) {
+  if (error instanceof BookingLinkError) {
+    res.status(error.code === "unavailable" ? 422 : 400).json({
+      success: false,
+      error: error.message,
+      code: error.code,
+    });
+    return;
+  }
+  throw error;
+}
+
+router.get("/portal/:token/booking", async (req, res): Promise<void> => {
+  setPortalPrivacyHeaders(res);
+  const params = tokenParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    invalidPortalLink(res);
+    return;
+  }
+  const placeId = await getVerifiedOwnerPlaceId(params.data.token);
+  if (!placeId) {
+    invalidPortalLink(res);
+    return;
+  }
+  const [restaurant] = await db
+    .select({
+      bookingUrl: restaurantsTable.bookingUrl,
+      bookingProvider: restaurantsTable.bookingProvider,
+      bookingStatus: restaurantsTable.bookingStatus,
+    })
+    .from(restaurantsTable)
+    .where(eq(restaurantsTable.placeId, placeId))
+    .limit(1);
+  res.json({ success: true, booking: bookingPayload(restaurant!) });
+});
+
+router.put("/portal/:token/booking", async (req, res): Promise<void> => {
+  setPortalPrivacyHeaders(res);
+  const params = tokenParamsSchema.safeParse(req.params);
+  const body = bookingBodySchema.safeParse(req.body);
+  if (!params.success) {
+    invalidPortalLink(res);
+    return;
+  }
+  if (!body.success) {
+    res.status(400).json({ success: false, error: body.error.issues[0]?.message ?? "Invalid booking link." });
+    return;
+  }
+  const placeId = await getVerifiedOwnerPlaceId(params.data.token);
+  if (!placeId) {
+    invalidPortalLink(res);
+    return;
+  }
+  try {
+    const restaurant = await saveApprovedBooking(placeId, body.data);
+    res.json({ success: true, booking: bookingPayload(restaurant!) });
+  } catch (error) {
+    bookingFailure(res, error);
+  }
+});
+
+router.delete("/portal/:token/booking", async (req, res): Promise<void> => {
+  setPortalPrivacyHeaders(res);
+  const params = tokenParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    invalidPortalLink(res);
+    return;
+  }
+  const placeId = await getVerifiedOwnerPlaceId(params.data.token);
+  if (!placeId) {
+    invalidPortalLink(res);
+    return;
+  }
+  const [restaurant] = await db
+    .update(restaurantsTable)
+    .set({
+      bookingUrl: null,
+      bookingProvider: null,
+      bookingStatus: null,
+      bookingVerifiedAt: null,
+    })
+    .where(eq(restaurantsTable.placeId, placeId))
+    .returning({ placeId: restaurantsTable.placeId });
+  if (!restaurant) {
+    invalidPortalLink(res);
+    return;
+  }
+  res.json({ success: true, booking: { url: null, provider: null, status: null } });
+});
+
+router.put("/admin/restaurants/:restaurantId/booking", adminOnly, async (req, res): Promise<void> => {
+  const params = adminBookingParamsSchema.safeParse(req.params);
+  const body = bookingBodySchema.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ success: false, error: "Invalid booking link request." });
+    return;
+  }
+  try {
+    const restaurant = await saveApprovedBooking(params.data.restaurantId, body.data);
+    if (!restaurant) {
+      res.status(404).json({ success: false, error: "Restaurant not found." });
+      return;
+    }
+    res.json({ success: true, booking: bookingPayload(restaurant) });
+  } catch (error) {
+    bookingFailure(res, error);
+  }
+});
+
+router.delete("/admin/restaurants/:restaurantId/booking", adminOnly, async (req, res): Promise<void> => {
+  const params = adminBookingParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ success: false, error: "Invalid restaurant." });
+    return;
+  }
+  const [restaurant] = await db
+    .update(restaurantsTable)
+    .set({
+      bookingUrl: null,
+      bookingProvider: null,
+      bookingStatus: null,
+      bookingVerifiedAt: null,
+    })
+    .where(eq(restaurantsTable.placeId, params.data.restaurantId))
+    .returning({ placeId: restaurantsTable.placeId });
+  if (!restaurant) {
+    res.status(404).json({ success: false, error: "Restaurant not found." });
+    return;
+  }
+  res.json({ success: true });
+});
 
 function emptyChef() {
   return {
@@ -828,6 +1010,9 @@ router.get("/portal/:token", async (req, res) => {
       claimStatus: restaurantsTable.claimStatus,
       verified: restaurantsTable.claimedAt,
       premium: restaurantsTable.premium,
+      bookingUrl: restaurantsTable.bookingUrl,
+      bookingProvider: restaurantsTable.bookingProvider,
+      bookingStatus: restaurantsTable.bookingStatus,
     })
     .from(restaurantsTable)
     .where(eq(restaurantsTable.placeId, placeId))

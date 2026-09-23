@@ -159,6 +159,7 @@ async function loadRouter() {
     ["insight", "export async function generateOwnerAnalyticsInsight(){ return {}; }"],
     ["personalisation", "export async function recordOwnerLogin(){}"],
     ["token", "export async function validateToken(token){ return token === 'v'.repeat(43) ? 'place-1' : null; }"],
+    ["booking", "export class BookingLinkError extends Error { constructor(code,message){super(message);this.code=code;} }; export async function verifyBookingLink(url){ if(!url.startsWith('https://')) throw new BookingLinkError('invalid_url','Enter a valid HTTPS booking URL.'); if(url.includes('private')) throw new BookingLinkError('unsafe_url','The booking hostname is not public.'); if(url.includes('redirect-abuse')) throw new BookingLinkError('redirect_abuse','The booking link redirects to an unrelated website and cannot be approved.'); return url; }"],
   ]);
 
   await build({
@@ -189,6 +190,10 @@ async function loadRouter() {
         pluginBuild.onResolve(
           { filter: /portalTokenService$/ },
           () => ({ path: "token", namespace: "portal-mock" }),
+        );
+        pluginBuild.onResolve(
+          { filter: /bookingLinkService$/ },
+          () => ({ path: "booking", namespace: "portal-mock" }),
         );
         pluginBuild.onLoad({ filter: /.*/, namespace: "portal-mock" }, (args) => ({
           contents:
@@ -230,6 +235,9 @@ function resetState(claimStatus = "basic") {
       rating: 4.6,
       claimStatus,
       claimedAt: claimStatus ? new Date("2026-01-01T00:00:00Z") : null,
+      bookingUrl: null,
+      bookingProvider: null,
+      bookingStatus: null,
     },
     aiCalls: [],
     offers: [],
@@ -700,6 +708,51 @@ test("unverified listings cannot manage events", async () => {
   });
   assert.equal(result.statusCode, 404);
   assert.equal(globalThis.__portalRouteState.events.length, 0);
+});
+
+test("verified owner booking updates are token-scoped, validated, and removable", async () => {
+  resetState();
+  const spoofed = await request("put", "/portal/:token/booking", {
+    body: { url: "https://bookings.example.com/table", restaurantId: "other-place" },
+  });
+  assert.equal(spoofed.statusCode, 400);
+
+  const invalid = await request("put", "/portal/:token/booking", {
+    body: { url: "not-a-url" },
+  });
+  assert.equal(invalid.statusCode, 400);
+
+  for (const url of ["https://private.example/table", "https://redirect-abuse.example/table"]) {
+    const rejected = await request("put", "/portal/:token/booking", { body: { url } });
+    assert.equal(rejected.statusCode, 400);
+  }
+
+  const saved = await request("put", "/portal/:token/booking", {
+    body: { url: "https://bookings.example.com/table", provider: "ExampleBook" },
+  });
+  assert.equal(saved.statusCode, 200);
+  assert.equal(globalThis.__portalRouteState.restaurant.bookingUrl, "https://bookings.example.com/table");
+  assert.equal(globalThis.__portalRouteState.restaurant.bookingStatus, "approved");
+
+  const removed = await request("delete", "/portal/:token/booking");
+  assert.equal(removed.statusCode, 200);
+  assert.equal(globalThis.__portalRouteState.restaurant.bookingUrl, null);
+});
+
+test("unverified and invalid-token owners cannot change booking links", async () => {
+  resetState(null);
+  const unverified = await request("put", "/portal/:token/booking", {
+    body: { url: "https://bookings.example.com/table" },
+  });
+  assert.equal(unverified.statusCode, 404);
+
+  resetState();
+  const invalid = await request("put", "/portal/:token/booking", {
+    token: "x".repeat(43),
+    body: { url: "https://bookings.example.com/table" },
+  });
+  assert.equal(invalid.statusCode, 404);
+  assert.equal(globalThis.__portalRouteState.restaurant.bookingUrl, null);
 });
 
 test.after(async () => {

@@ -277,8 +277,14 @@ export async function getRestaurantProfile(
     address: restaurant.address,
     website: restaurant.website,
     deliveryUrl: restaurant.deliveryUrl,
-    bookingUrl: null,
-    bookingProvider: null,
+    bookingUrl:
+      restaurant.claimedAt && restaurant.bookingStatus === "approved"
+        ? restaurant.bookingUrl
+        : null,
+    bookingProvider:
+      restaurant.claimedAt && restaurant.bookingStatus === "approved"
+        ? restaurant.bookingProvider
+        : null,
     offers,
     events,
     badges: deriveBadges(restaurant),

@@ -41,6 +41,11 @@ interface ChefProfile {
   rejectionReason?: string | null;
 }
 
+interface BookingLink {
+  url: string;
+  provider: string;
+}
+
 const emptyChef: ChefProfile = {
   name: "",
   bio: "",
@@ -97,6 +102,32 @@ export default function OwnerDashboard({
   const [chefError, setChefError] = useState("");
   const [photoUploading, setPhotoUploading] = useState(false);
   const [removePhoto, setRemovePhoto] = useState(false);
+  const [booking, setBooking] = useState<BookingLink>({ url: "", provider: "" });
+  const [bookingLoading, setBookingLoading] = useState(true);
+  const [bookingSaving, setBookingSaving] = useState(false);
+  const [bookingMessage, setBookingMessage] = useState("");
+  const [bookingError, setBookingError] = useState("");
+
+  const loadBooking = useCallback(async () => {
+    setBookingLoading(true);
+    setBookingError("");
+    try {
+      const response = await fetch(`/api/portal/${encodeURIComponent(token)}/booking`, {
+        cache: "no-store",
+        referrerPolicy: "no-referrer",
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Booking link could not be loaded.");
+      setBooking({
+        url: typeof data.booking?.url === "string" ? data.booking.url : "",
+        provider: typeof data.booking?.provider === "string" ? data.booking.provider : "",
+      });
+    } catch (error) {
+      setBookingError(error instanceof Error ? error.message : "Booking link could not be loaded.");
+    } finally {
+      setBookingLoading(false);
+    }
+  }, [token]);
 
   const loadOffers = useCallback(async () => {
     setOfferLoading(true);
@@ -179,11 +210,64 @@ export default function OwnerDashboard({
       void loadOffers();
       void loadEvents();
       void loadChef();
+      void loadBooking();
     } else {
       setOfferLoading(false);
       setEventLoading(false);
+      setBookingLoading(false);
     }
-  }, [loadChef, loadEvents, loadOffers, verified]);
+  }, [loadBooking, loadChef, loadEvents, loadOffers, verified]);
+
+  async function saveBooking(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBookingSaving(true);
+    setBookingError("");
+    setBookingMessage("");
+    try {
+      const response = await fetch(`/api/portal/${encodeURIComponent(token)}/booking`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        referrerPolicy: "no-referrer",
+        body: JSON.stringify({
+          url: booking.url,
+          provider: booking.provider.trim() || null,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Booking link could not be saved.");
+      setBooking({
+        url: data.booking.url,
+        provider: data.booking.provider ?? "",
+      });
+      setBookingMessage("Booking link approved and published.");
+    } catch (error) {
+      setBookingError(error instanceof Error ? error.message : "Booking link could not be saved.");
+    } finally {
+      setBookingSaving(false);
+    }
+  }
+
+  async function removeBooking() {
+    setBookingSaving(true);
+    setBookingError("");
+    setBookingMessage("");
+    try {
+      const response = await fetch(`/api/portal/${encodeURIComponent(token)}/booking`, {
+        method: "DELETE",
+        cache: "no-store",
+        referrerPolicy: "no-referrer",
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Booking link could not be removed.");
+      setBooking({ url: "", provider: "" });
+      setBookingMessage("Booking link removed from your public profile.");
+    } catch (error) {
+      setBookingError(error instanceof Error ? error.message : "Booking link could not be removed.");
+    } finally {
+      setBookingSaving(false);
+    }
+  }
 
   function updateChef<K extends keyof ChefProfile>(key: K, value: ChefProfile[K]) {
     setChef((current) => ({ ...current, [key]: value }));
@@ -476,6 +560,43 @@ export default function OwnerDashboard({
       <p className="mt-2 text-muted-foreground">
         Generate content using the verified listing for {restaurantName}.
       </p>
+
+      {verified && <div className="mt-10 rounded-2xl bg-white p-6">
+        <h2 className="text-2xl font-semibold">Booking link</h2>
+        <p className="mt-2 text-muted-foreground">
+          Add the HTTPS page where diners can book. We check the destination and its redirects before publishing it.
+        </p>
+        {bookingLoading ? <p className="mt-6">Loading booking link…</p> : (
+          <form onSubmit={saveBooking} className="mt-6 grid gap-4">
+            <label className="grid gap-1">
+              <span className="font-medium">Booking URL</span>
+              <input required type="url" maxLength={2048} placeholder="https://bookings.example.com/your-restaurant"
+                value={booking.url} onChange={(event) => {
+                  setBooking({ ...booking, url: event.target.value });
+                  setBookingMessage("");
+                  setBookingError("");
+                }} className="rounded-lg border px-3 py-2" />
+            </label>
+            <label className="grid gap-1">
+              <span className="font-medium">Provider (optional)</span>
+              <input maxLength={80} placeholder="OpenTable"
+                value={booking.provider} onChange={(event) => setBooking({ ...booking, provider: event.target.value })}
+                className="rounded-lg border px-3 py-2" />
+            </label>
+            {bookingMessage && <p className="text-sm text-green-700" role="status">{bookingMessage}</p>}
+            {bookingError && <p className="text-sm text-red-700" role="alert">{bookingError}</p>}
+            <div className="flex flex-wrap gap-3">
+              <button type="submit" disabled={bookingSaving} className="rounded-lg bg-[#d94800] px-5 py-3 font-medium text-white disabled:opacity-60">
+                {bookingSaving ? "Checking…" : "Check and publish"}
+              </button>
+              {booking.url && <button type="button" disabled={bookingSaving} onClick={() => void removeBooking()}
+                className="rounded-lg border px-5 py-3 font-medium text-red-700 disabled:opacity-60">
+                Remove booking link
+              </button>}
+            </div>
+          </form>
+        )}
+      </div>}
 
       {verified && <div className="mt-10 rounded-2xl bg-white p-6">
         <h2 className="text-2xl font-semibold">Chef profile</h2>
