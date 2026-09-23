@@ -545,7 +545,11 @@ export default function DiscoverScreen() {
           permission?.granted ? permission : await requestPermission();
         if (!currentPermission.granted) {
           setLocationState('denied');
-          setLocationError('Allow location access to find stored restaurants near you.');
+          setLocationError(
+            currentPermission.canAskAgain
+              ? 'Location permission is needed to find restaurants near you.'
+              : 'Location permission is blocked. Open Settings to allow Near me.',
+          );
           return;
         }
       }
@@ -561,9 +565,17 @@ export default function DiscoverScreen() {
                 );
               },
             )
-          : await Location.getCurrentPositionAsync({
-              accuracy: Location.Accuracy.Balanced,
-            });
+          : await Promise.race([
+              Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.Balanced,
+              }),
+              new Promise<never>((_, reject) => {
+                setTimeout(
+                  () => reject(new Error('LOCATION_TIMEOUT')),
+                  10_000,
+                );
+              }),
+            ]);
 
       setNearbyCoords({
         latitude: position.coords.latitude,
@@ -571,9 +583,24 @@ export default function DiscoverScreen() {
       });
       setNearbyRequested(true);
       setLocationState('ready');
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
       setLocationState('error');
-      setLocationError('Your location could not be read. Check device settings and try again.');
+      setLocationError(
+        message === 'LOCATION_TIMEOUT'
+          ? 'Location took too long to respond. Check your signal and try again.'
+          : 'Your location could not be read. Check device settings and try again.',
+      );
+    }
+  };
+
+  const openLocationSettings = async () => {
+    if (Platform.OS === 'web') return;
+
+    try {
+      await Linking.openSettings();
+    } catch {
+      setLocationError('Open your device Settings to allow location access.');
     }
   };
 
@@ -680,22 +707,29 @@ export default function DiscoverScreen() {
           <Pill
             key={radius}
             selected={radiusMiles === radius}
-            onPress={() => {
-              setRadiusMiles(radius);
-              if (nearbyRequested) setNearbyRequested(false);
-            }}
+            onPress={() => setRadiusMiles(radius)}
           >
             {radius} mi
           </Pill>
         ))}
       </View>
       {locationError && (
-        <Notice>
-          {locationError}
-          {locationState === 'denied' && permission?.canAskAgain === false
-            ? ' Open device Settings to enable location.'
-            : ''}
-        </Notice>
+        <View style={consumerStyles.locationError}>
+          <Notice>{locationError}</Notice>
+          {locationState === 'denied' && permission?.canAskAgain === false && (
+            <Pressable
+              accessibilityRole="button"
+              testID="discover-location-settings"
+              onPress={openLocationSettings}
+              style={[consumerStyles.settingsButton, { borderColor: colors.primary }]}
+            >
+              <Feather name="settings" size={16} color={colors.primary} />
+              <Text style={[consumerStyles.settingsButtonText, { color: colors.primary }]}>
+                Open Settings
+              </Text>
+            </Pressable>
+          )}
+        </View>
       )}
 
       <Section title="Near you" action={`${directory.length} places`}>
@@ -813,6 +847,18 @@ const consumerStyles = StyleSheet.create({
   nearMeText: { fontFamily: 'Inter_400Regular', fontSize: 11, lineHeight: 15, opacity: 0.86 },
   radiusRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 7, marginTop: 12 },
   radiusLabel: { fontFamily: 'Inter_700Bold', fontSize: 10, letterSpacing: 1, marginRight: 2 },
+  locationError: { gap: 8 },
+  settingsButton: {
+    minHeight: 44,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+  },
+  settingsButtonText: { fontFamily: 'Inter_700Bold', fontSize: 13 },
   rail: { gap: 10, paddingRight: 20 },
   loader: { marginVertical: 28 },
   cuisines: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
