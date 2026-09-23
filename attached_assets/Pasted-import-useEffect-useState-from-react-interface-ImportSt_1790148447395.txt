@@ -1,0 +1,142 @@
+import { useEffect, useState } from "react";
+
+interface ImportStatus {
+  running: boolean;
+  lastRun: string | null;
+  lastPlan: string | null;
+  queued: number;
+}
+
+interface Restaurant {
+  id: string;
+  name: string;
+  city: string;
+  status: string;
+}
+
+export default function RestaurantIngestionPanel() {
+  const [status, setStatus] = useState<ImportStatus | null>(null);
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  async function loadData() {
+    try {
+      const [statusRes, restaurantsRes] = await Promise.all([
+        fetch("/api/restaurant-import/status", { credentials: "include" }),
+        fetch("/dashboard/restaurants?page=1&limit=100", {
+          credentials: "include",
+        }),
+      ]);
+
+      if (!statusRes.ok || !restaurantsRes.ok) {
+        setError(
+          `Backend returned ${statusRes.status} / ${restaurantsRes.status}`
+        );
+        setLoading(false);
+        return;
+      }
+
+      const statusData = await statusRes.json();
+      const restaurantsData = await restaurantsRes.json();
+
+      setStatus(statusData);
+      setRestaurants(restaurantsData.items || []);
+    } catch {
+      setError("Network or server error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function planImport() {
+    try {
+      const res = await fetch("/api/restaurant-import/plan", {
+        method: "POST",
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        setActionError(`Plan failed (${res.status})`);
+        return;
+      }
+
+      setActionError(null);
+      loadData();
+    } catch {
+      setActionError("Network or server error");
+    }
+  }
+
+  async function runImport() {
+    try {
+      const res = await fetch("/api/restaurant-import/run", {
+        method: "POST",
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        setActionError(`Run failed (${res.status})`);
+        return;
+      }
+
+      setActionError(null);
+      loadData();
+    } catch {
+      setActionError("Network or server error");
+    }
+  }
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  if (loading) return <p>Loading ingestion data…</p>;
+
+  if (error)
+    return (
+      <div style={{ color: "red" }}>
+        <p>Error: {error}</p>
+        <button onClick={loadData}>Retry</button>
+      </div>
+    );
+
+  if (!status) return <p>No ingestion data available.</p>;
+
+  return (
+    <div style={{ marginTop: "30px" }}>
+      <h2>Restaurant Ingestion</h2>
+
+      <ul>
+        <li>Running: {status.running ? "Yes" : "No"}</li>
+        <li>Last Plan: {status.lastPlan ?? "None"}</li>
+        <li>Last Run: {status.lastRun ?? "None"}</li>
+        <li>Queued: {status.queued}</li>
+      </ul>
+
+      {actionError && <p style={{ color: "red" }}>{actionError}</p>}
+
+      <button onClick={planImport} disabled={status.running}>
+        Plan Ingestion
+      </button>
+
+      <button
+        onClick={runImport}
+        disabled={status.running || status.queued === 0}
+        style={{ marginLeft: "10px" }}
+      >
+        Run Ingestion
+      </button>
+
+      <h3 style={{ marginTop: "20px" }}>Recently Ingested Restaurants</h3>
+      <ul>
+        {restaurants.map((r) => (
+          <li key={r.id}>
+            {r.name} — {r.city} ({r.status})
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
