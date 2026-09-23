@@ -175,6 +175,34 @@ export const restaurantMenuItemsTable = pgTable(
   ],
 );
 
+export const restaurantOffersTable = pgTable(
+  "restaurant_offers",
+  {
+    id: serial("id").primaryKey(),
+    restaurantId: text("restaurant_id")
+      .notNull()
+      .references(() => restaurantsTable.placeId, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description").notNull(),
+    startDate: date("start_date", { mode: "string" }).notNull(),
+    endDate: date("end_date", { mode: "string" }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index("restaurant_offers_restaurant_dates_idx").on(
+      table.restaurantId,
+      table.startDate,
+      table.endDate,
+    ),
+  ],
+);
+
 export const restaurantBookingsTable = pgTable(
   "restaurant_bookings",
   {
@@ -729,12 +757,21 @@ export const gmailHistoryMessagesTable = pgTable("gmail_history_messages", {
 });
 
 export const insertRestaurantSchema = createInsertSchema(restaurantsTable);
+export const insertRestaurantOfferSchema = createInsertSchema(
+  restaurantOffersTable,
+).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
 export const insertRestaurantImportRunSchema = createInsertSchema(
   restaurantImportRunsTable,
 ).omit({ id: true, createdAt: true });
 
 export type RestaurantRecord = typeof restaurantsTable.$inferSelect;
 export type InsertRestaurant = typeof restaurantsTable.$inferInsert;
+export type RestaurantOffer = typeof restaurantOffersTable.$inferSelect;
+export type InsertRestaurantOffer = typeof restaurantOffersTable.$inferInsert;
 export type RestaurantImportRun =
   typeof restaurantImportRunsTable.$inferSelect;
 export type OutreachAudit = typeof outreachAuditTable.$inferSelect;

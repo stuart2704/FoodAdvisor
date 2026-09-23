@@ -1,5 +1,10 @@
-import { db, restaurantMenuItemsTable, restaurantsTable } from "@workspace/db";
-import { asc, eq } from "drizzle-orm";
+import {
+  db,
+  restaurantMenuItemsTable,
+  restaurantOffersTable,
+  restaurantsTable,
+} from "@workspace/db";
+import { and, asc, eq, gte, lte } from "drizzle-orm";
 import { calculateRanking } from "./rankingEngine";
 
 function deriveBadges(restaurant: {
@@ -131,20 +136,41 @@ export async function getRestaurantProfile(
     .where(eq(restaurantsTable.placeId, placeId))
     .limit(1);
   if (!restaurant) return null;
-  const menu = await db
-    .select({
-      id: restaurantMenuItemsTable.id,
-      name: restaurantMenuItemsTable.name,
-      price: restaurantMenuItemsTable.price,
-      description: restaurantMenuItemsTable.description,
-      category: restaurantMenuItemsTable.category,
-    })
-    .from(restaurantMenuItemsTable)
-    .where(eq(restaurantMenuItemsTable.restaurantId, restaurant.placeId))
-    .orderBy(
-      asc(restaurantMenuItemsTable.category),
-      asc(restaurantMenuItemsTable.name),
-    );
+  const today = new Date().toISOString().slice(0, 10);
+  const [menu, offers] = await Promise.all([
+    db
+      .select({
+        id: restaurantMenuItemsTable.id,
+        name: restaurantMenuItemsTable.name,
+        price: restaurantMenuItemsTable.price,
+        description: restaurantMenuItemsTable.description,
+        category: restaurantMenuItemsTable.category,
+      })
+      .from(restaurantMenuItemsTable)
+      .where(eq(restaurantMenuItemsTable.restaurantId, restaurant.placeId))
+      .orderBy(
+        asc(restaurantMenuItemsTable.category),
+        asc(restaurantMenuItemsTable.name),
+      ),
+    restaurant.claimedAt
+      ? db
+          .select({
+            title: restaurantOffersTable.title,
+            description: restaurantOffersTable.description,
+            startDate: restaurantOffersTable.startDate,
+            endDate: restaurantOffersTable.endDate,
+          })
+          .from(restaurantOffersTable)
+          .where(
+            and(
+              eq(restaurantOffersTable.restaurantId, restaurant.placeId),
+              lte(restaurantOffersTable.startDate, today),
+              gte(restaurantOffersTable.endDate, today),
+            ),
+          )
+          .orderBy(asc(restaurantOffersTable.endDate))
+      : Promise.resolve([]),
+  ]);
   const cuisine = restaurant.cuisineTags[0] ?? null;
 
   return {
@@ -183,7 +209,7 @@ export async function getRestaurantProfile(
     deliveryUrl: restaurant.deliveryUrl,
     bookingUrl: null,
     bookingProvider: null,
-    offers: [],
+    offers,
     events: [],
     badges: deriveBadges(restaurant),
     collections: [],

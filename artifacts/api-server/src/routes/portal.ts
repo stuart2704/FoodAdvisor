@@ -1,5 +1,5 @@
-import { db, restaurantsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, restaurantOffersTable, restaurantsTable } from "@workspace/db";
+import { and, asc, eq, gte } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { validateToken } from "../services/portalTokenService";
@@ -35,6 +35,68 @@ const socialMarketingSchema = z
       .default("friendly"),
   })
   .strict();
+const offerIdParamsSchema = tokenParamsSchema.extend({
+  offerId: z.coerce.number().int().positive(),
+});
+const calendarDateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Dates must use YYYY-MM-DD.")
+  .refine((value) => {
+    const parsed = new Date(`${value}T00:00:00.000Z`);
+    return (
+      !Number.isNaN(parsed.getTime()) &&
+      parsed.toISOString().slice(0, 10) === value
+    );
+  }, "Date is not a valid calendar date.");
+const offerBodySchema = z
+  .object({
+    title: z.string().trim().min(1).max(120),
+    description: z.string().trim().min(1).max(1_000),
+    startDate: calendarDateSchema,
+    endDate: calendarDateSchema,
+  })
+  .strict()
+  .superRefine((offer, context) => {
+    const today = new Date().toISOString().slice(0, 10);
+    if (offer.startDate > offer.endDate) {
+      context.addIssue({
+        code: "custom",
+        path: ["endDate"],
+        message: "End date must be on or after the start date.",
+      });
+    }
+    if (offer.endDate < today) {
+      context.addIssue({
+        code: "custom",
+        path: ["endDate"],
+        message: "Expired offers cannot be published.",
+      });
+    }
+  });
+
+function setPortalPrivacyHeaders(res: {
+  setHeader(name: string, value: string): unknown;
+}) {
+  res.setHeader("Cache-Control", "no-store, private");
+  res.setHeader("Referrer-Policy", "no-referrer");
+}
+
+async function getVerifiedOwnerPlaceId(token: string): Promise<string | null> {
+  const placeId = await validateToken(token);
+  if (!placeId) return null;
+  const [restaurant] = await db
+    .select({ claimedAt: restaurantsTable.claimedAt })
+    .from(restaurantsTable)
+    .where(eq(restaurantsTable.placeId, placeId))
+    .limit(1);
+  return restaurant?.claimedAt ? placeId : null;
+}
+
+function invalidPortalLink(res: {
+  status(code: number): { json(value: unknown): unknown };
+}) {
+  res.status(404).json({ success: false, error: "Invalid or expired login link." });
+}
 
 async function getVerifiedMarketingDetails(token: string) {
   const placeId = await validateToken(token);
@@ -97,6 +159,130 @@ router.post(
     }
   },
 );
+
+router.get("/portal/:token/offers", async (req, res): Promise<void> => {
+  setPortalPrivacyHeaders(res);
+  const params = tokenParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    invalidPortalLink(res);
+    return;
+  }
+  const placeId = await getVerifiedOwnerPlaceId(params.data.token);
+  if (!placeId) {
+    invalidPortalLink(res);
+    return;
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  const offers = await db
+    .select({
+      id: restaurantOffersTable.id,
+      title: restaurantOffersTable.title,
+      description: restaurantOffersTable.description,
+      startDate: restaurantOffersTable.startDate,
+      endDate: restaurantOffersTable.endDate,
+    })
+    .from(restaurantOffersTable)
+    .where(
+      and(
+        eq(restaurantOffersTable.restaurantId, placeId),
+        gte(restaurantOffersTable.endDate, today),
+      ),
+    )
+    .orderBy(asc(restaurantOffersTable.startDate), asc(restaurantOffersTable.id));
+  res.json({ success: true, offers });
+});
+
+router.post("/portal/:token/offers", async (req, res): Promise<void> => {
+  setPortalPrivacyHeaders(res);
+  const params = tokenParamsSchema.safeParse(req.params);
+  const body = offerBodySchema.safeParse(req.body);
+  if (!params.success) {
+    invalidPortalLink(res);
+    return;
+  }
+  if (!body.success) {
+    res.status(400).json({
+      success: false,
+      error: body.error.issues[0]?.message ?? "Invalid offer.",
+    });
+    return;
+  }
+  const placeId = await getVerifiedOwnerPlaceId(params.data.token);
+  if (!placeId) {
+    invalidPortalLink(res);
+    return;
+  }
+  const [offer] = await db
+    .insert(restaurantOffersTable)
+    .values({ restaurantId: placeId, ...body.data })
+    .returning();
+  res.status(201).json({ success: true, offer });
+});
+
+router.patch("/portal/:token/offers/:offerId", async (req, res): Promise<void> => {
+  setPortalPrivacyHeaders(res);
+  const params = offerIdParamsSchema.safeParse(req.params);
+  const body = offerBodySchema.safeParse(req.body);
+  if (!params.success) {
+    invalidPortalLink(res);
+    return;
+  }
+  if (!body.success) {
+    res.status(400).json({
+      success: false,
+      error: body.error.issues[0]?.message ?? "Invalid offer.",
+    });
+    return;
+  }
+  const placeId = await getVerifiedOwnerPlaceId(params.data.token);
+  if (!placeId) {
+    invalidPortalLink(res);
+    return;
+  }
+  const [offer] = await db
+    .update(restaurantOffersTable)
+    .set(body.data)
+    .where(
+      and(
+        eq(restaurantOffersTable.id, params.data.offerId),
+        eq(restaurantOffersTable.restaurantId, placeId),
+      ),
+    )
+    .returning();
+  if (!offer) {
+    res.status(404).json({ success: false, error: "Offer not found." });
+    return;
+  }
+  res.json({ success: true, offer });
+});
+
+router.delete("/portal/:token/offers/:offerId", async (req, res): Promise<void> => {
+  setPortalPrivacyHeaders(res);
+  const params = offerIdParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    invalidPortalLink(res);
+    return;
+  }
+  const placeId = await getVerifiedOwnerPlaceId(params.data.token);
+  if (!placeId) {
+    invalidPortalLink(res);
+    return;
+  }
+  const [offer] = await db
+    .delete(restaurantOffersTable)
+    .where(
+      and(
+        eq(restaurantOffersTable.id, params.data.offerId),
+        eq(restaurantOffersTable.restaurantId, placeId),
+      ),
+    )
+    .returning({ id: restaurantOffersTable.id });
+  if (!offer) {
+    res.status(404).json({ success: false, error: "Offer not found." });
+    return;
+  }
+  res.json({ success: true });
+});
 
 router.post(
   "/portal/:token/marketing/social",

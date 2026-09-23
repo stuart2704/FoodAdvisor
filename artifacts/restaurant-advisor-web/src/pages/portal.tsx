@@ -14,6 +14,7 @@ interface PortalResponse {
     website: string | null;
     onboardingStatus: string | null;
     premium: boolean;
+    verified: boolean;
     marketingEligible: boolean;
   };
   error?: string;
@@ -104,7 +105,11 @@ export default function PortalPage() {
           )}
         </div>
         {restaurant.marketingEligible && (
-          <OwnerDashboard token={token} restaurantName={restaurant.name} />
+          <OwnerDashboard
+            token={token}
+            restaurantName={restaurant.name}
+            verified={restaurant.verified}
+          />
         )}
       </main>
     </div>
