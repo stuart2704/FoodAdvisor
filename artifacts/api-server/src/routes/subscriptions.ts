@@ -22,8 +22,33 @@ import {
 import { startOnboarding } from "../services/onboardingService";
 import { escalateClaimClick } from "../services/leadEscalationService";
 import { z } from "zod";
+import rateLimit from "express-rate-limit";
+import {
+  createCheckoutSession,
+  getCheckoutCompletion,
+} from "../services/stripeService";
+import { validateToken } from "../services/portalTokenService";
 
 const router: IRouter = Router();
+const checkoutLimiter = rateLimit({
+  windowMs: 15 * 60 * 1_000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: "Too many checkout attempts. Please try again later.",
+  },
+});
+const PortalCheckoutBody = z
+  .object({ portalToken: z.string().regex(/^[A-Za-z0-9_-]{43}$/) })
+  .strict();
+const CheckoutCompletionParams = z.object({
+  sessionId: z.string().regex(/^cs_(?:test_|live_)?[A-Za-z0-9]{20,200}$/),
+});
+const CheckoutCompletionQuery = z.object({
+  portalToken: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+});
 
 router.post("/restaurants/:placeId/claim-click", async (req, res): Promise<void> => {
   const params = ClaimRestaurantParams.safeParse(req.params);
@@ -58,9 +83,37 @@ router.post("/restaurants/:placeId/claim-click", async (req, res): Promise<void>
 });
 
 router.get("/checkout-completion/:sessionId", async (req, res): Promise<void> => {
-  res.status(503).json({
-    error: "Paid checkout is unavailable. No charge has been made.",
-  });
+  const params = CheckoutCompletionParams.safeParse(req.params);
+  const query = CheckoutCompletionQuery.safeParse(req.query);
+  if (!params.success || !query.success) {
+    res.status(400).json({ success: false, error: "Invalid checkout details." });
+    return;
+  }
+  try {
+    const completion = await getCheckoutCompletion(
+      query.data.portalToken,
+      params.data.sessionId,
+    );
+    res.json({ success: true, ...completion });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (
+      message === "Invalid or expired portal login." ||
+      message === "Checkout session does not belong to this restaurant."
+    ) {
+      res.status(403).json({ success: false, error: message });
+      return;
+    }
+    if (message === "Restaurant not found.") {
+      res.status(404).json({ success: false, error: message });
+      return;
+    }
+    req.log.error({ err: error }, "Checkout completion lookup failed");
+    res.status(502).json({
+      success: false,
+      error: "Checkout confirmation is temporarily unavailable.",
+    });
+  }
 });
 
 router.post("/restaurants/:placeId/claim", async (req, res): Promise<void> => {
@@ -158,10 +211,58 @@ router.post("/restaurants/:placeId/claim", async (req, res): Promise<void> => {
 
 router.post(
   "/restaurants/:placeId/checkout",
+  checkoutLimiter,
   async (req, res): Promise<void> => {
-    res.status(503).json({
-      error: "Paid checkout is unavailable. No charge has been made.",
-    });
+    const params = ClaimRestaurantParams.safeParse(req.params);
+    const body = PortalCheckoutBody.safeParse(req.body);
+    if (!params.success || !body.success) {
+      res.status(400).json({
+        success: false,
+        error: "A valid restaurant and portal login are required.",
+      });
+      return;
+    }
+    try {
+      const tokenPlaceId = await validateToken(body.data.portalToken);
+      if (tokenPlaceId !== params.data.placeId) {
+        res.status(403).json({
+          success: false,
+          error: "This portal login does not match the restaurant.",
+        });
+        return;
+      }
+      const url = await createCheckoutSession(body.data.portalToken);
+      res.status(201).json({ success: true, url });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (message === "Invalid or expired portal login.") {
+        res.status(401).json({ success: false, error: message });
+        return;
+      }
+      if (
+        message === "This restaurant already has a subscription." ||
+        message === "This restaurant already has a checkout awaiting confirmation." ||
+        message === "A claimed business email is required."
+      ) {
+        res.status(409).json({ success: false, error: message });
+        return;
+      }
+      if (
+        message === "STRIPE_PREMIUM_PRICE_ID is not configured." ||
+        message.includes("public HTTPS")
+      ) {
+        res.status(503).json({
+          success: false,
+          error: "Premium checkout is not configured yet. No charge was made.",
+        });
+        return;
+      }
+      req.log.error({ err: error }, "Restaurant checkout creation failed");
+      res.status(502).json({
+        success: false,
+        error: "Premium checkout is temporarily unavailable. No charge was made.",
+      });
+    }
   },
 );
 

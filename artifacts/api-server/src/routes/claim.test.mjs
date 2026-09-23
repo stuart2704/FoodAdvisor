@@ -136,6 +136,29 @@ export async function escalateClaimClick() {
 }
 `;
 
+const stripeServiceMock = String.raw`
+export async function createCheckoutSession() {
+  return "https://checkout.stripe.test/session";
+}
+export async function getCheckoutCompletion() {
+  return { paid: true, premium: true };
+}
+`;
+
+const portalTokenMock = String.raw`
+export async function validateToken() {
+  return null;
+}
+`;
+
+const rateLimitMock = String.raw`
+export default function rateLimit() {
+  return function rateLimitMiddleware(_req, _res, next) {
+    if (typeof next === "function") next();
+  };
+}
+`;
+
 const expressMock = String.raw`
 export function Router() {
   const router = {
@@ -164,6 +187,9 @@ async function loadRouter() {
     ["cancellation-intents", cancellationMock],
     ["onboarding-service", onboardingMock],
     ["escalation-service", escalationMock],
+    ["stripe-service", stripeServiceMock],
+    ["portal-token-service", portalTokenMock],
+    ["express-rate-limit", rateLimitMock],
     ["express", expressMock],
   ]);
   await build({
@@ -183,6 +209,10 @@ async function loadRouter() {
           path: "express",
           namespace: "claim-mock",
         }));
+        pluginBuild.onResolve({ filter: /^express-rate-limit$/ }, () => ({
+          path: "express-rate-limit",
+          namespace: "claim-mock",
+        }));
         pluginBuild.onResolve({ filter: /outreach\/instantlyService$/ }, () => ({
           path: "instantly-service",
           namespace: "claim-mock",
@@ -197,6 +227,14 @@ async function loadRouter() {
         }));
         pluginBuild.onResolve({ filter: /services\/leadEscalationService$/ }, () => ({
           path: "escalation-service",
+          namespace: "claim-mock",
+        }));
+        pluginBuild.onResolve({ filter: /services\/stripeService$/ }, () => ({
+          path: "stripe-service",
+          namespace: "claim-mock",
+        }));
+        pluginBuild.onResolve({ filter: /services\/portalTokenService$/ }, () => ({
+          path: "portal-token-service",
           namespace: "claim-mock",
         }));
         pluginBuild.onLoad({ filter: /.*/, namespace: "claim-mock" }, (args) => ({

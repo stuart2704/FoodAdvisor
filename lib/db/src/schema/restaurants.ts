@@ -90,6 +90,8 @@ export const restaurantsTable = pgTable(
     onboardingStatus: text("onboarding_status"),
     stripeCustomerId: text("stripe_customer_id"),
     stripeSubscriptionId: text("stripe_subscription_id"),
+    stripeCheckoutAttemptId: text("stripe_checkout_attempt_id"),
+    stripeCheckoutSessionId: text("stripe_checkout_session_id"),
     premium: boolean("premium").notNull().default(false),
     premiumSince: timestamp("premium_since", { withTimezone: true }),
     premiumCancelledAt: timestamp("premium_cancelled_at", { withTimezone: true }),

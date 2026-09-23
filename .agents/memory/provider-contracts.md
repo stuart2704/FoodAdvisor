@@ -9,8 +9,8 @@ Verify operationally important provider fields against current official endpoint
 
 **How to apply:** When changing provider integrations, independently verify sender/recipient identity, event timestamps, pagination, and delay semantics before relying on them for suppression, delivery confirmation, or scheduling. Keep uncertain behavior disabled rather than claiming live verification from mocked tests.
 
-Stripe connector connections may support authenticated proxy requests without exposing a raw Stripe secret or webhook secret to application code.
+Stripe connector credential fields and sync-package defaults must be verified against the live runtime contract.
 
-**Why:** A secret-key client and sync package compiled successfully but could not initialize against the connected Stripe account; the documented connector proxy initialized correctly.
+**Why:** The live Stripe connector used `settings.secret` rather than the older `settings.secret_key` example and returned separate environment records. `stripe-replit-sync` also defaults `syncBackfill()` to no useful object selection unless `{ object: "all" }` is passed.
 
-**How to apply:** Use the connected Stripe proxy for API operations. When no webhook secret is available, treat an incoming event ID only as a hint and retrieve the authoritative event from Stripe before idempotent processing.
+**How to apply:** Select the exact runtime environment without fallback, validate the configured Price against Stripe, use one webhook-secret ownership model, and pass `{ object: "all" }` for a full backfill.

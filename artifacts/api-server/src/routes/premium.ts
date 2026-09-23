@@ -45,6 +45,7 @@ router.post(
       }
       if (
         message === "This restaurant already has a subscription." ||
+        message === "This restaurant already has a checkout awaiting confirmation." ||
         message === "A claimed business email is required."
       ) {
         res.status(409).json({ success: false, error: message });

@@ -23,6 +23,8 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
+await initializeStripe();
+
 app.listen(port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
@@ -37,9 +39,5 @@ app.listen(port, (err) => {
   startAnalyticsRollupScheduler();
   startGlobalMetricsScheduler();
   startOperationalLogCleanup();
-  void initializeStripe().then(
-    () => logger.info("Stripe access initialized."),
-    (error) =>
-      logger.error({ err: error }, "Stripe access initialization failed."),
-  );
+  logger.info("Stripe access, managed webhook, and catalog sync initialized.");
 });
