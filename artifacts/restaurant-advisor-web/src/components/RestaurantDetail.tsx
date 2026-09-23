@@ -87,6 +87,7 @@ export default function RestaurantDetail() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+              restaurantId: match.id,
               name: match.name,
               city: match.city,
               cuisine: match.types?.[0] || "Restaurant",

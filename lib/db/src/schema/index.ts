@@ -19,6 +19,7 @@
 
 export * from "./restaurants";
 export * from "./aiUsage";
+export * from "./aiDescriptionCache";
 export * from "./operationalLog";
 export * from "./engineHeartbeat";
 export * from "./betterContact";

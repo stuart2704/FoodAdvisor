@@ -1,4 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import { aiDescriptionCacheTable, db } from "@workspace/db";
+import { and, eq, lte } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import rateLimit from "express-rate-limit";
 import OpenAI from "openai";
@@ -79,7 +81,7 @@ const socialLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-const descriptionRequestSchema = z
+const restaurantDetailsRequestSchema = z
   .object({
     name: singleLine(200),
     city: singleLine(150),
@@ -87,6 +89,62 @@ const descriptionRequestSchema = z
     rating: z.number().min(0).max(5).nullable().optional(),
   })
   .strict();
+
+const descriptionRequestSchema = restaurantDetailsRequestSchema.extend({
+  restaurantId: singleLine(512),
+});
+
+const DESCRIPTION_CACHE_VERSION = 1;
+const DESCRIPTION_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1_000;
+const DESCRIPTION_RESERVATION_TTL_MS = 2 * 60 * 1_000;
+const DESCRIPTION_WAIT_ATTEMPTS = 20;
+const DESCRIPTION_WAIT_MS = 250;
+
+function descriptionCacheKey(
+  input: z.infer<typeof descriptionRequestSchema>,
+): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        version: DESCRIPTION_CACHE_VERSION,
+        restaurantId: input.restaurantId,
+        name: input.name,
+        city: input.city,
+        cuisine: input.cuisine,
+        rating: input.rating ?? null,
+      }),
+    )
+    .digest("hex");
+}
+
+async function findFreshDescription(
+  cacheKey: string,
+): Promise<string | null> {
+  const [entry] = await db
+    .select({
+      description: aiDescriptionCacheTable.description,
+      expiresAt: aiDescriptionCacheTable.expiresAt,
+    })
+    .from(aiDescriptionCacheTable)
+    .where(eq(aiDescriptionCacheTable.cacheKey, cacheKey))
+    .limit(1);
+
+  if (!entry || entry.expiresAt.getTime() <= Date.now()) {
+    return null;
+  }
+  return entry.description;
+}
+
+async function waitForDescription(cacheKey: string): Promise<string | null> {
+  for (let attempt = 0; attempt < DESCRIPTION_WAIT_ATTEMPTS; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, DESCRIPTION_WAIT_MS));
+    const description = await findFreshDescription(cacheKey);
+    if (description) {
+      return description;
+    }
+  }
+  return null;
+}
 
 const socialRequestSchema = z
   .object({
@@ -139,13 +197,55 @@ router.post(
       return;
     }
 
+    const { restaurantId, name, city, cuisine, rating } = input.data;
+    const cacheKey = descriptionCacheKey(input.data);
+    const now = new Date();
+
+    const cachedDescription = await findFreshDescription(cacheKey);
+    if (cachedDescription) {
+      res.json({ description: cachedDescription });
+      return;
+    }
+
+    await db
+      .delete(aiDescriptionCacheTable)
+      .where(
+        and(
+          eq(aiDescriptionCacheTable.cacheKey, cacheKey),
+          lte(aiDescriptionCacheTable.expiresAt, now),
+        ),
+      );
+
+    const [reservation] = await db
+      .insert(aiDescriptionCacheTable)
+      .values({
+        cacheKey,
+        restaurantId,
+        description: null,
+        expiresAt: new Date(now.getTime() + DESCRIPTION_RESERVATION_TTL_MS),
+      })
+      .onConflictDoNothing({ target: aiDescriptionCacheTable.cacheKey })
+      .returning({ cacheKey: aiDescriptionCacheTable.cacheKey });
+
+    if (!reservation) {
+      const concurrentDescription = await waitForDescription(cacheKey);
+      if (concurrentDescription) {
+        res.json({ description: concurrentDescription });
+        return;
+      }
+      res.status(503).json({ error: "AI description generation is in progress." });
+      return;
+    }
+
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
+      await db
+        .delete(aiDescriptionCacheTable)
+        .where(eq(aiDescriptionCacheTable.cacheKey, cacheKey));
       res.status(503).json({ error: "AI descriptions are not configured." });
       return;
     }
 
-    const { name, city, cuisine, rating } = input.data;
     const prompt = `
 Write a premium restaurant description for:
 Name: ${name}
@@ -186,12 +286,34 @@ Include:
 
       const description = completion.choices[0]?.message.content?.trim();
       if (!description) {
+        await db
+          .delete(aiDescriptionCacheTable)
+          .where(eq(aiDescriptionCacheTable.cacheKey, cacheKey));
         res.status(502).json({ error: "AI description returned no content." });
         return;
       }
 
+      await db
+        .update(aiDescriptionCacheTable)
+        .set({
+          description,
+          expiresAt: new Date(Date.now() + DESCRIPTION_CACHE_TTL_MS),
+          updatedAt: new Date(),
+        })
+        .where(eq(aiDescriptionCacheTable.cacheKey, cacheKey));
+
       res.json({ description });
     } catch (error) {
+      try {
+        await db
+          .delete(aiDescriptionCacheTable)
+          .where(eq(aiDescriptionCacheTable.cacheKey, cacheKey));
+      } catch (cacheError) {
+        req.log.warn(
+          { err: cacheError },
+          "Failed AI description reservation could not be cleared",
+        );
+      }
       req.log.warn({ err: error }, "AI restaurant description failed");
       res.status(502).json({ error: "AI description is temporarily unavailable." });
     }
@@ -202,7 +324,7 @@ router.post(
   "/seo",
   seoLimiter,
   async (req, res): Promise<void> => {
-    const input = descriptionRequestSchema.safeParse(req.body);
+    const input = restaurantDetailsRequestSchema.safeParse(req.body);
     if (!input.success) {
       res.status(400).json({ error: "Invalid restaurant details." });
       return;
