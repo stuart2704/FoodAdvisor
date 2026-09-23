@@ -31,6 +31,12 @@ body,
   color: #ffffff !important;
 }
 
+table,
+td,
+th {
+  color: #ffffff !important;
+}
+
 .hero {
   background: linear-gradient(135deg, #c63f00, #ff5a00);
   color: white;
