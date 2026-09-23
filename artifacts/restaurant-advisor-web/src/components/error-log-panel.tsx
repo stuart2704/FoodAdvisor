@@ -74,7 +74,7 @@ export default function ErrorLogPanel() {
         <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
           {errors.map((event, index) => (
             <li
-              key={event.id ?? `${event.time}-${index}`}
+              key={`${event.time}-${index}`}
               style={{
                 borderBottom: "1px solid #303030",
                 padding: "8px 0",

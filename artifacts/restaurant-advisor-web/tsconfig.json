@@ -21,13 +21,5 @@
     "jsx": "react-jsx",
     "types": ["vite/client"]
   },
-  "include": [
-    "src/main.tsx",
-    "src/App.tsx",
-    "src/hooks/use-toast.ts",
-    "src/components/Toast.tsx",
-    "src/components/ToastContainer.tsx",
-    "src/components/Layout.tsx",
-    "src/components/RestaurantCard.tsx"
-  ]
+  "include": ["src"]
 }

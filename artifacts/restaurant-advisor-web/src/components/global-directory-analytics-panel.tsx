@@ -46,13 +46,12 @@ interface AnalyticsData {
 }
 
 function isCountRecord(value: unknown): value is Record<string, number> {
-  return (
-    Boolean(value) &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
-    Object.values(value).every(
-      (count) => Number.isSafeInteger(count) && count >= 0,
-    )
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  return Object.values(value).every(
+    (count) => typeof count === "number" && Number.isSafeInteger(count) && count >= 0,
   );
 }
 

@@ -83,7 +83,9 @@ export default function ClaimRestaurant() {
         );
         return;
       }
-      setClaimStatus(claimResult.status);
+      if (claimResult.status) {
+        setClaimStatus(claimResult.status);
+      }
     } catch (err: any) {
       const msg = err?.error || err?.response?.data?.error || err?.message || "An unexpected error occurred.";
       if (msg.toLowerCase().includes('invalid') || msg.toLowerCase().includes('expired')) {
