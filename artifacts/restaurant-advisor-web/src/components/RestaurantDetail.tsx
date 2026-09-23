@@ -1,4 +1,4 @@
-import { useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 
 function formatPrice(level: string | null) {
@@ -284,6 +284,26 @@ export default function RestaurantDetail() {
       <div style={{ fontSize: "1.1rem", opacity: 0.8, marginBottom: "20px" }}>
         {restaurant.address}, {restaurant.city}
       </div>
+
+      {restaurant.claimed === false && (
+        <Link
+          to={`/claim/${encodeURIComponent(restaurant.id)}${
+            claimToken ? `?token=${encodeURIComponent(claimToken)}` : ""
+          }`}
+          style={{
+            display: "inline-block",
+            marginBottom: "24px",
+            padding: "12px 20px",
+            background: "#2563eb",
+            color: "#ffffff",
+            borderRadius: "8px",
+            fontWeight: 700,
+            textDecoration: "none",
+          }}
+        >
+          Claim this restaurant
+        </Link>
+      )}
 
       <div style={{ marginBottom: "20px" }}>
         <strong>Rating:</strong> {restaurant.rating} ⭐
