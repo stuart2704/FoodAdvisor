@@ -61,5 +61,9 @@ const isDirectLoopRunnerExecution =
   /(?:^|[/\\])loopRunner\.(?:[cm]?[jt]s)$/.test(entrypoint);
 
 if (isDirectLoopRunnerExecution) {
-  void loopRunner();
+  if (process.env.NODE_ENV === "production") {
+    logger.info("Loop runner is disabled in production");
+  } else {
+    void loopRunner();
+  }
 }
