@@ -1,30 +1,42 @@
-import { getErrors } from "../lib/dashboard-api";
+import { getEvents } from "../lib/dashboard-api";
 import { useDashboardResource } from "../hooks/use-dashboard-resource";
 
-function isErrorCounts(value: unknown): value is Record<string, number> {
+interface DashboardEvent {
+  id?: string;
+  time: string;
+  type: string;
+  message: string;
+  category?: string;
+}
+
+function isDashboardEvents(value: unknown): value is DashboardEvent[] {
   return (
-    value !== null &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
-    Object.entries(value).every(
-      ([category, count]) =>
-        /^[a-z][a-z0-9_-]{0,63}$/i.test(category) &&
-        typeof count === "number" &&
-        Number.isSafeInteger(count) &&
-        count >= 0,
+    Array.isArray(value) &&
+    value.length <= 200 &&
+    value.every(
+      (event: unknown) => {
+        if (!event || typeof event !== "object") return false;
+        const item = event as DashboardEvent;
+        return (
+          typeof item.time === "string" &&
+          Number.isFinite(Date.parse(item.time)) &&
+          typeof item.type === "string" &&
+          typeof item.message === "string" &&
+          (item.category === undefined || typeof item.category === "string")
+        );
+      },
     )
   );
 }
 
 export default function ErrorLogPanel() {
-  const state = useDashboardResource(getErrors, isErrorCounts);
-  const categories = Object.entries(state.data ?? {}).sort(
-    ([categoryA, countA], [categoryB, countB]) =>
-      countB - countA || categoryA.localeCompare(categoryB),
-  );
+  const state = useDashboardResource(getEvents, isDashboardEvents);
+  const errors = (state.data ?? [])
+    .filter((event) => event.type === "error")
+    .reverse();
 
   if (state.loading) {
-    return <p aria-live="polite">Loading error summary…</p>;
+    return <p aria-live="polite">Loading recent errors…</p>;
   }
 
   if (state.error) {
@@ -50,29 +62,31 @@ export default function ErrorLogPanel() {
       }}
     >
       <h2 id="error-log-title" style={{ marginTop: 0 }}>
-        Error Categories
+        Recent Errors
       </h2>
       <p style={{ color: "#aaa" }}>
-        Counts from the latest 200 process events. Values reset when the server
-        restarts.
+        Error details from the latest 200 process events. This process-local
+        list resets when the server restarts.
       </p>
-      {categories.length === 0 ? (
-        <p>No errors recorded.</p>
+      {errors.length === 0 ? (
+        <p>No recent errors.</p>
       ) : (
         <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-          {categories.map(([category, count]) => (
+          {errors.map((event, index) => (
             <li
-              key={category}
+              key={event.id ?? `${event.time}-${index}`}
               style={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: 16,
                 borderBottom: "1px solid #303030",
                 padding: "8px 0",
               }}
             >
-              <span>{category.replaceAll("_", " ")}</span>
-              <strong>{count.toLocaleString()}</strong>
+              <time dateTime={event.time} style={{ color: "#aaa" }}>
+                {new Date(event.time).toLocaleString()}
+              </time>
+              <strong style={{ display: "block", margin: "4px 0" }}>
+                {(event.category ?? "unknown").replaceAll("_", " ")}
+              </strong>
+              <span>{event.message}</span>
             </li>
           ))}
         </ul>
