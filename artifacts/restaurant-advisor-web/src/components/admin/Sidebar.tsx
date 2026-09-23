@@ -45,7 +45,7 @@ export function Sidebar() {
               padding: "10px 12px",
               borderRadius: "8px",
               background: isActive ? "#d94800" : "transparent",
-              color: isActive ? "#fff" : "#aaa",
+              color: isActive ? "#f97316" : "#aaa",
               fontWeight: isActive ? 700 : 500,
               textDecoration: "none",
             })}
