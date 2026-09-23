@@ -1,0 +1,94 @@
+/* --------------------------------------------------
+   GLOBAL HIGH-CONTRAST OVERRIDE
+-------------------------------------------------- */
+
+.admin-panel,
+.admin-panel * {
+  color: #ffffff !important;
+}
+
+/* --------------------------------------------------
+   STATUS BADGES — HIGH CONTRAST
+-------------------------------------------------- */
+
+.status-healthy {
+  background-color: #059669; /* emerald-600 */
+  color: #ffffff !important;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: 700;
+  display: inline-block;
+}
+
+.status-warning {
+  background-color: #d97706; /* amber-600 */
+  color: #ffffff !important;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: 700;
+  display: inline-block;
+}
+
+.status-unknown {
+  background-color: #6b7280; /* gray-500 */
+  color: #ffffff !important;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: 700;
+  display: inline-block;
+}
+
+/* --------------------------------------------------
+   BUTTONS — HIGH CONTRAST
+-------------------------------------------------- */
+
+.admin-button {
+  background-color: #2563eb; /* blue-600 */
+  color: #ffffff !important;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.admin-button:hover {
+  background-color: #1d4ed8; /* blue-700 */
+  color: #ffffff !important;
+}
+
+/* --------------------------------------------------
+   HEADINGS — HIGH CONTRAST
+-------------------------------------------------- */
+
+.admin-panel h1,
+.admin-panel h2,
+.admin-panel h3,
+.admin-panel h4 {
+  color: #f9fafb !important;
+  font-weight: 700;
+}
+
+/* --------------------------------------------------
+   TABLES — HIGH CONTRAST
+-------------------------------------------------- */
+
+.admin-table th,
+.admin-table td {
+  color: #ffffff !important;
+  border-color: #4b5563 !important;
+}
+
+/* --------------------------------------------------
+   LOGS — HIGH CONTRAST
+-------------------------------------------------- */
+
+.log-entry {
+  color: #ffffff !important;
+  background: #1f2937; /* slate-800 */
+  border: 1px solid #4b5563;
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}

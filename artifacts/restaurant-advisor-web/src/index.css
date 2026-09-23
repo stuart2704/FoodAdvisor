@@ -131,7 +131,7 @@ h1, h2, h3, h4, h5, h6 {
 .admin-table th,
 .admin-table td {
   color: #ffffff !important;
-  border-color: #374151 !important;
+  border-color: #4b5563 !important;
 }
 
 .admin-table tr:hover {
@@ -161,20 +161,20 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .status-warning {
-  background: #f59e0b;
+  background: #d97706;
   color: #ffffff !important;
   padding: 6px 12px;
   border-radius: 6px;
-  font-weight: 600;
+  font-weight: 700;
   display: inline-block;
 }
 
 .status-healthy {
-  background: #16a34a;
+  background: #059669;
   color: #ffffff !important;
   padding: 6px 12px;
   border-radius: 6px;
-  font-weight: 600;
+  font-weight: 700;
   display: inline-block;
 }
 
@@ -183,7 +183,7 @@ h1, h2, h3, h4, h5, h6 {
   color: #ffffff !important;
   padding: 6px 12px;
   border-radius: 6px;
-  font-weight: 600;
+  font-weight: 700;
   display: inline-block;
 }
 
@@ -201,29 +201,29 @@ h1, h2, h3, h4, h5, h6 {
 .admin-panel h3,
 .admin-panel h4 {
   color: #f9fafb !important;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .admin-button {
-  background: #f97316;
+  background: #2563eb;
   color: #ffffff !important;
   padding: 10px 16px;
   border-radius: 8px;
-  font-weight: 600;
+  font-weight: 700;
   border: none;
   cursor: pointer;
   transition: background 0.2s;
 }
 
 .admin-button:hover {
-  background: #ea580c;
+  background: #1d4ed8;
   color: #ffffff !important;
 }
 
 .log-entry {
   color: #ffffff !important;
   background: #1f2937;
-  border: 1px solid #374151;
+  border: 1px solid #4b5563;
   padding: 10px;
   border-radius: 6px;
   margin-bottom: 8px;
