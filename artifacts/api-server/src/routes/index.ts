@@ -1,5 +1,4 @@
 import { Router, type IRouter } from "express";
-import healthRouter from "./health";
 import restaurantImportRouter from "./restaurant-import";
 import nearbyRouter from "./nearby";
 import outreachRouter from "./outreach";
@@ -42,7 +41,6 @@ import betterContactRouter from "./betterContact";
 
 const router: IRouter = Router();
 
-router.use(healthRouter);
 router.use(restaurantImportRouter);
 router.use(nearbyRouter);
 router.use(outreachRouter);

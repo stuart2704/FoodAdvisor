@@ -11,6 +11,7 @@ import cookieParser from "cookie-parser";
 import session from "express-session";
 import pinoHttp from "pino-http";
 import router from "./routes";
+import healthRoute from "./routes/health";
 import aiRoutes, { aiAutomationRouter } from "./routes/ai";
 import authRoutes from "./routes/auth";
 import adminRoutes from "./routes/admin";
@@ -150,6 +151,7 @@ app.use(
   }),
 );
 
+app.use("/api", healthRoute);
 app.use("/api", router);
 app.use("/ai", aiRoutes);
 app.use("/api/ai", aiRoutes);
