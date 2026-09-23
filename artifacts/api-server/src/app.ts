@@ -43,6 +43,7 @@ import dashboardDirectoryMetrics from "./routes/dashboardDirectoryMetrics";
 import dashboardProfileMetrics from "./routes/dashboardProfileMetrics";
 import dashboardClaimPageMetrics from "./routes/dashboardClaimPageMetrics";
 import dashboardAnalytics from "./routes/dashboardAnalytics";
+import devEngineRunner from "./routes/devEngineRunner";
 import { logger } from "./lib/logger";
 import { instantlyWebhookRouter } from "./outreach/instantlyWebhook";
 import {
@@ -157,6 +158,7 @@ app.use("/metrics", metrics);
 app.use("/performance", performanceRoute);
 app.use("/errors", errorMetricsRoute);
 app.use("/health", engineHealth);
+app.use("/dev", devEngineRunner);
 app.use("/auth", authRoutes);
 app.use("/admin", adminRoutes);
 app.use("/status", statusRoutes);

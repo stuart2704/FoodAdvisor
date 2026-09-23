@@ -55,4 +55,11 @@ export async function loopRunner(): Promise<never> {
   }
 }
 
-void loopRunner();
+const entrypoint = process.argv[1];
+const isDirectLoopRunnerExecution =
+  typeof entrypoint === "string" &&
+  /(?:^|[/\\])loopRunner\.(?:[cm]?[jt]s)$/.test(entrypoint);
+
+if (isDirectLoopRunnerExecution) {
+  void loopRunner();
+}
