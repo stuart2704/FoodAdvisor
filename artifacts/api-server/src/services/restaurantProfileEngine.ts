@@ -3,9 +3,11 @@ import {
   restaurantEventsTable,
   restaurantMenuItemsTable,
   restaurantOffersTable,
+  restaurantCollectionMembersTable,
+  restaurantCollectionsTable,
   restaurantsTable,
 } from "@workspace/db";
-import { and, asc, eq, gte, lte } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lte } from "drizzle-orm";
 import { calculateRanking } from "./rankingEngine";
 
 function deriveBadges(restaurant: {
@@ -138,7 +140,7 @@ export async function getRestaurantProfile(
     .limit(1);
   if (!restaurant) return null;
   const today = new Date().toISOString().slice(0, 10);
-  const [menu, offers, events] = await Promise.all([
+  const [menu, offers, events, collectionRows] = await Promise.all([
     db
       .select({
         id: restaurantMenuItemsTable.id,
@@ -192,6 +194,40 @@ export async function getRestaurantProfile(
             asc(restaurantEventsTable.eventTime),
           )
       : Promise.resolve([]),
+    db
+      .select({
+        id: restaurantCollectionsTable.id,
+        title: restaurantCollectionsTable.title,
+        description: restaurantCollectionsTable.description,
+        city: restaurantCollectionsTable.city,
+        restaurantId: restaurantCollectionMembersTable.restaurantId,
+      })
+      .from(restaurantCollectionMembersTable)
+      .innerJoin(
+        restaurantCollectionsTable,
+        eq(
+          restaurantCollectionMembersTable.collectionId,
+          restaurantCollectionsTable.id,
+        ),
+      )
+      .where(
+        inArray(
+          restaurantCollectionMembersTable.collectionId,
+          db
+            .select({ id: restaurantCollectionMembersTable.collectionId })
+            .from(restaurantCollectionMembersTable)
+            .where(
+              eq(
+                restaurantCollectionMembersTable.restaurantId,
+                restaurant.placeId,
+              ),
+            ),
+        ),
+      )
+      .orderBy(
+        asc(restaurantCollectionsTable.title),
+        asc(restaurantCollectionMembersTable.position),
+      ),
   ]);
   const cuisine = restaurant.cuisineTags[0] ?? null;
 
@@ -234,7 +270,21 @@ export async function getRestaurantProfile(
     offers,
     events,
     badges: deriveBadges(restaurant),
-    collections: [],
+    collections: Array.from(
+      collectionRows.reduce((collections, row) => {
+        const collection = collections.get(row.id) ?? {
+          id: row.id,
+          title: row.title,
+          description: row.description,
+          city: row.city,
+          restaurants: [],
+        };
+        collection.restaurants.push(row.restaurantId);
+        collections.set(row.id, collection);
+        return collections;
+      }, new Map<string, RestaurantProfile["collections"][number]>()),
+      ([, collection]) => collection,
+    ),
     bestDishes: [],
     chef: {
       name: null,

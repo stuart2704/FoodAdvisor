@@ -38,6 +38,7 @@ import forecastRouter from "./forecast";
 import photoRouter from "./photo";
 import googleReviewsRouter from "./google-reviews";
 import betterContactRouter from "./betterContact";
+import collectionsRouter from "./collections";
 
 const router: IRouter = Router();
 
@@ -80,5 +81,6 @@ router.use(forecastRouter);
 router.use(photoRouter);
 router.use(googleReviewsRouter);
 router.use(betterContactRouter);
+router.use(collectionsRouter);
 
 export default router;

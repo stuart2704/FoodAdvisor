@@ -27,6 +27,7 @@ import RewardsPage from "./pages/rewards";
 import AboutPage from "./pages/AboutPage";
 import ContactPage from "./pages/ContactPage";
 import RestaurantsPage from "./pages/RestaurantsPage";
+import CityHighlights from "./components/CityHighlights";
 
 function AppRoutes() {
   const location = useLocation();
@@ -56,6 +57,7 @@ function AppRoutes() {
         <Route path="/portal/:token/upgrade/cancel" element={<PortalUpgradePage />} />
         <Route path="/trending" element={<Trending />} />
         <Route path="/city-guide" element={<CityGuide />} />
+        <Route path="/highlights" element={<CityHighlights />} />
         <Route path="/rewards" element={<RewardsPage />} />
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route

@@ -24,3 +24,4 @@ export * from "./operationalLog";
 export * from "./engineHeartbeat";
 export * from "./betterContact";
 export * from "./scraperProxyBudget";
+export * from "./restaurantCollections";
