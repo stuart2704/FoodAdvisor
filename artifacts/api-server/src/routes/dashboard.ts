@@ -1,4 +1,11 @@
 import { db, restaurantsTable } from "@workspace/db";
+import {
+  CreateRestaurantImportPlanBody,
+  CreateRestaurantImportPlanResponse,
+  GetRestaurantImportStatusResponse,
+  RunRestaurantImportBody,
+  RunRestaurantImportResponse,
+} from "@workspace/api-zod";
 import { desc, sql } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import { z } from "zod";
@@ -6,6 +13,11 @@ import { getErrorSummary } from "../dashboard/errorSummary";
 import { getStatusCounts } from "../dashboard/statusStats";
 import { getRecentHealth, computeDailyHealthScore } from "../health/scraperHealth";
 import { adminOnly } from "../middleware/adminOnly";
+import {
+  createImportPlan,
+  getImportStatus,
+  runImport,
+} from "../lib/restaurant-import";
 import { getEvents } from "../utils/eventLog";
 
 const router: IRouter = Router();
@@ -120,6 +132,46 @@ router.get("/restaurants", adminOnly, async (req, res) => {
       success: false,
       error: "Dashboard restaurants are unavailable.",
     });
+  }
+});
+
+router.get("/restaurant-import/status", adminOnly, async (_req, res) => {
+  const status = await getImportStatus();
+  res.json(GetRestaurantImportStatusResponse.parse(status));
+});
+
+router.post("/restaurant-import/plan", adminOnly, async (req, res) => {
+  const parsed = CreateRestaurantImportPlanBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const plan = await createImportPlan(parsed.data);
+  res.json(CreateRestaurantImportPlanResponse.parse(plan));
+});
+
+router.post("/restaurant-import/run", adminOnly, async (req, res) => {
+  const parsed = RunRestaurantImportBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  try {
+    const result = await runImport(parsed.data);
+    res.json(RunRestaurantImportResponse.parse(result));
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.name === "GooglePlacesNotConfigured"
+    ) {
+      res.status(503).json({ error: error.message });
+      return;
+    }
+    if (error instanceof Error && error.message.includes("confirmation")) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+    throw error;
   }
 });
 

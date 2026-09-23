@@ -106,6 +106,150 @@ export const GetDashboardSummaryResponse = zod.object({
 
 
 /**
+ * @summary Get restaurant import budget status for administrators
+ */
+export const getAdminRestaurantImportStatusResponseMonthlyBudgetCentsMultipleOf = 1;
+
+export const getAdminRestaurantImportStatusResponseSpentCentsMultipleOf = 1;
+
+export const getAdminRestaurantImportStatusResponseRemainingCentsMultipleOf = 1;
+
+export const getAdminRestaurantImportStatusResponseCallsUsedMultipleOf = 1;
+
+export const getAdminRestaurantImportStatusResponseRestaurantsImportedMultipleOf = 1;
+
+
+
+export const GetAdminRestaurantImportStatusResponse = zod.object({
+  "monthlyBudgetCents": zod.number().multipleOf(getAdminRestaurantImportStatusResponseMonthlyBudgetCentsMultipleOf),
+  "spentCents": zod.number().multipleOf(getAdminRestaurantImportStatusResponseSpentCentsMultipleOf),
+  "remainingCents": zod.number().multipleOf(getAdminRestaurantImportStatusResponseRemainingCentsMultipleOf),
+  "callsUsed": zod.number().multipleOf(getAdminRestaurantImportStatusResponseCallsUsedMultipleOf),
+  "restaurantsImported": zod.number().multipleOf(getAdminRestaurantImportStatusResponseRestaurantsImportedMultipleOf),
+  "lastRunAt": zod.string().nullable(),
+  "cities": zod.array(zod.string())
+})
+
+
+/**
+ * @summary Preview a budget-safe restaurant import plan as an administrator
+ */
+export const createAdminRestaurantImportPlanBodyCitiesItemMin = 2;
+
+export const createAdminRestaurantImportPlanBodyCitiesMax = 7;
+
+export const createAdminRestaurantImportPlanBodyPerCityLimitDefault = 10;
+export const createAdminRestaurantImportPlanBodyPerCityLimitMax = 20;
+export const createAdminRestaurantImportPlanBodyPerCityLimitMultipleOf = 1;
+
+export const createAdminRestaurantImportPlanBodyMonthlyBudgetCentsMultipleOf = 1;
+
+
+
+export const CreateAdminRestaurantImportPlanBody = zod.object({
+  "cities": zod.array(zod.string().min(createAdminRestaurantImportPlanBodyCitiesItemMin)).min(1).max(createAdminRestaurantImportPlanBodyCitiesMax),
+  "perCityLimit": zod.number().min(1).max(createAdminRestaurantImportPlanBodyPerCityLimitMax).multipleOf(createAdminRestaurantImportPlanBodyPerCityLimitMultipleOf).default(createAdminRestaurantImportPlanBodyPerCityLimitDefault),
+  "monthlyBudgetCents": zod.number().min(1).multipleOf(createAdminRestaurantImportPlanBodyMonthlyBudgetCentsMultipleOf)
+})
+
+export const createAdminRestaurantImportPlanResponseCitiesItemRequestedMultipleOf = 1;
+
+export const createAdminRestaurantImportPlanResponseCitiesItemEstimatedApiCallsMultipleOf = 1;
+
+export const createAdminRestaurantImportPlanResponseCitiesItemEstimatedCostCentsMultipleOf = 1;
+
+export const createAdminRestaurantImportPlanResponseTotalRestaurantsMultipleOf = 1;
+
+export const createAdminRestaurantImportPlanResponseTotalApiCallsMultipleOf = 1;
+
+export const createAdminRestaurantImportPlanResponseEstimatedCostCentsMultipleOf = 1;
+
+export const createAdminRestaurantImportPlanResponseMonthlyBudgetCentsMultipleOf = 1;
+
+
+
+export const CreateAdminRestaurantImportPlanResponse = zod.object({
+  "cities": zod.array(zod.object({
+  "city": zod.string(),
+  "requested": zod.number().multipleOf(createAdminRestaurantImportPlanResponseCitiesItemRequestedMultipleOf),
+  "estimatedApiCalls": zod.number().multipleOf(createAdminRestaurantImportPlanResponseCitiesItemEstimatedApiCallsMultipleOf),
+  "estimatedCostCents": zod.number().multipleOf(createAdminRestaurantImportPlanResponseCitiesItemEstimatedCostCentsMultipleOf),
+  "status": zod.enum(['ready', 'capped', 'skipped'])
+})),
+  "totalRestaurants": zod.number().multipleOf(createAdminRestaurantImportPlanResponseTotalRestaurantsMultipleOf),
+  "totalApiCalls": zod.number().multipleOf(createAdminRestaurantImportPlanResponseTotalApiCallsMultipleOf),
+  "estimatedCostCents": zod.number().multipleOf(createAdminRestaurantImportPlanResponseEstimatedCostCentsMultipleOf),
+  "monthlyBudgetCents": zod.number().multipleOf(createAdminRestaurantImportPlanResponseMonthlyBudgetCentsMultipleOf),
+  "withinBudget": zod.boolean(),
+  "note": zod.string()
+})
+
+
+/**
+ * @summary Run a confirmed budget-capped restaurant import as an administrator
+ */
+export const runAdminRestaurantImportBodyOneCitiesItemMin = 2;
+
+export const runAdminRestaurantImportBodyOneCitiesMax = 7;
+
+export const runAdminRestaurantImportBodyOnePerCityLimitDefault = 10;
+export const runAdminRestaurantImportBodyOnePerCityLimitMax = 20;
+export const runAdminRestaurantImportBodyOnePerCityLimitMultipleOf = 1;
+
+export const runAdminRestaurantImportBodyOneMonthlyBudgetCentsMultipleOf = 1;
+
+
+
+export const RunAdminRestaurantImportBody = zod.object({
+  "cities": zod.array(zod.string().min(runAdminRestaurantImportBodyOneCitiesItemMin)).min(1).max(runAdminRestaurantImportBodyOneCitiesMax),
+  "perCityLimit": zod.number().min(1).max(runAdminRestaurantImportBodyOnePerCityLimitMax).multipleOf(runAdminRestaurantImportBodyOnePerCityLimitMultipleOf).default(runAdminRestaurantImportBodyOnePerCityLimitDefault),
+  "monthlyBudgetCents": zod.number().min(1).multipleOf(runAdminRestaurantImportBodyOneMonthlyBudgetCentsMultipleOf)
+}).and(zod.object({
+  "confirm": zod.boolean()
+}))
+
+export const runAdminRestaurantImportResponseImportedMultipleOf = 1;
+
+export const runAdminRestaurantImportResponseSkippedDuplicatesMultipleOf = 1;
+
+export const runAdminRestaurantImportResponseApiCallsMultipleOf = 1;
+
+export const runAdminRestaurantImportResponseChargedCentsMultipleOf = 1;
+
+export const runAdminRestaurantImportResponseRestaurantsItemLocationOneLatitudeMin = -90;
+export const runAdminRestaurantImportResponseRestaurantsItemLocationOneLatitudeMax = 90;
+
+export const runAdminRestaurantImportResponseRestaurantsItemLocationOneLongitudeMin = -180;
+export const runAdminRestaurantImportResponseRestaurantsItemLocationOneLongitudeMax = 180;
+
+
+
+export const RunAdminRestaurantImportResponse = zod.object({
+  "imported": zod.number().multipleOf(runAdminRestaurantImportResponseImportedMultipleOf),
+  "skippedDuplicates": zod.number().multipleOf(runAdminRestaurantImportResponseSkippedDuplicatesMultipleOf),
+  "apiCalls": zod.number().multipleOf(runAdminRestaurantImportResponseApiCallsMultipleOf),
+  "chargedCents": zod.number().multipleOf(runAdminRestaurantImportResponseChargedCentsMultipleOf),
+  "stoppedBecause": zod.string(),
+  "restaurants": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "address": zod.string(),
+  "city": zod.string(),
+  "location": zod.union([zod.object({
+  "latitude": zod.number().min(runAdminRestaurantImportResponseRestaurantsItemLocationOneLatitudeMin).max(runAdminRestaurantImportResponseRestaurantsItemLocationOneLatitudeMax),
+  "longitude": zod.number().min(runAdminRestaurantImportResponseRestaurantsItemLocationOneLongitudeMin).max(runAdminRestaurantImportResponseRestaurantsItemLocationOneLongitudeMax)
+}),zod.null()]),
+  "rating": zod.number().nullable(),
+  "website": zod.string().nullable(),
+  "googleMapsUrl": zod.string(),
+  "types": zod.array(zod.string()),
+  "outreachStatus": zod.string(),
+  "claimed": zod.boolean()
+}))
+})
+
+
+/**
  * @summary Latest 200 process-local operational events, oldest first
  */
 export const GetDashboardEventsResponseItem = zod.object({

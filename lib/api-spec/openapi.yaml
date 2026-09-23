@@ -116,6 +116,81 @@ paths:
           description: Invalid automation credential
         "503":
           description: Summary could not be read
+  /dashboard/restaurant-import/status:
+    servers: [{ url: / }]
+    get:
+      operationId: getAdminRestaurantImportStatus
+      tags: [restaurants]
+      summary: Get restaurant import budget status for administrators
+      responses:
+        "200":
+          description: Current budget and import status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestaurantImportStatus"
+        "401":
+          description: Admin login required
+  /dashboard/restaurant-import/plan:
+    servers: [{ url: / }]
+    post:
+      operationId: createAdminRestaurantImportPlan
+      tags: [restaurants]
+      summary: Preview a budget-safe restaurant import plan as an administrator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RestaurantImportPlanInput"
+      responses:
+        "200":
+          description: Import plan preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestaurantImportPlan"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Admin login required
+  /dashboard/restaurant-import/run:
+    servers: [{ url: / }]
+    post:
+      operationId: runAdminRestaurantImport
+      tags: [restaurants]
+      summary: Run a confirmed budget-capped restaurant import as an administrator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RestaurantImportRunInput"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestaurantImportRunResult"
+        "400":
+          description: Invalid or unconfirmed request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Admin login required
+        "503":
+          description: Google Places is not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /dashboard/events:
     servers:
       - url: /

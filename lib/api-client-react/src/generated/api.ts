@@ -464,6 +464,225 @@ export function useGetDashboardSummary<TData = Awaited<ReturnType<typeof getDash
 
 
 
+export const getGetAdminRestaurantImportStatusUrl = () => {
+
+
+
+
+  return `/api/dashboard/restaurant-import/status`
+}
+
+/**
+ * @summary Get restaurant import budget status for administrators
+ */
+export const getAdminRestaurantImportStatus = async ( options?: Parameters<typeof customFetch>[1]): Promise<RestaurantImportStatus> => {
+
+  return customFetch<RestaurantImportStatus>(getGetAdminRestaurantImportStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminRestaurantImportStatusQueryKey = () => {
+    return [
+    `/api/dashboard/restaurant-import/status`
+    ] as const;
+    }
+
+
+export const getGetAdminRestaurantImportStatusQueryOptions = <TData = Awaited<ReturnType<typeof getAdminRestaurantImportStatus>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminRestaurantImportStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminRestaurantImportStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminRestaurantImportStatus>>> = ({ signal }) => getAdminRestaurantImportStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminRestaurantImportStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminRestaurantImportStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminRestaurantImportStatus>>>
+export type GetAdminRestaurantImportStatusQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get restaurant import budget status for administrators
+ */
+
+export function useGetAdminRestaurantImportStatus<TData = Awaited<ReturnType<typeof getAdminRestaurantImportStatus>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminRestaurantImportStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminRestaurantImportStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateAdminRestaurantImportPlanUrl = () => {
+
+
+
+
+  return `/api/dashboard/restaurant-import/plan`
+}
+
+/**
+ * @summary Preview a budget-safe restaurant import plan as an administrator
+ */
+export const createAdminRestaurantImportPlan = async (restaurantImportPlanInput: RestaurantImportPlanInput, options?: Parameters<typeof customFetch>[1]): Promise<RestaurantImportPlan> => {
+
+  return customFetch<RestaurantImportPlan>(getCreateAdminRestaurantImportPlanUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(restaurantImportPlanInput)
+  }
+);}
+
+
+
+
+
+export const getCreateAdminRestaurantImportPlanMutationOptions = <TError = ErrorType<ErrorResponse | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAdminRestaurantImportPlan>>, TError,{data: BodyType<RestaurantImportPlanInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createAdminRestaurantImportPlan>>, TError,{data: BodyType<RestaurantImportPlanInput>}, TContext> => {
+
+const mutationKey = ['createAdminRestaurantImportPlan'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createAdminRestaurantImportPlan>>, {data: BodyType<RestaurantImportPlanInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createAdminRestaurantImportPlan(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateAdminRestaurantImportPlanMutationResult = NonNullable<Awaited<ReturnType<typeof createAdminRestaurantImportPlan>>>
+    export type CreateAdminRestaurantImportPlanMutationBody = BodyType<RestaurantImportPlanInput>
+    export type CreateAdminRestaurantImportPlanMutationError = ErrorType<ErrorResponse | void>
+
+    /**
+ * @summary Preview a budget-safe restaurant import plan as an administrator
+ */
+export const useCreateAdminRestaurantImportPlan = <TError = ErrorType<ErrorResponse | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAdminRestaurantImportPlan>>, TError,{data: BodyType<RestaurantImportPlanInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createAdminRestaurantImportPlan>>,
+        TError,
+        {data: BodyType<RestaurantImportPlanInput>},
+        TContext
+      > => {
+      return useMutation(getCreateAdminRestaurantImportPlanMutationOptions(options));
+    }
+
+export const getRunAdminRestaurantImportUrl = () => {
+
+
+
+
+  return `/api/dashboard/restaurant-import/run`
+}
+
+/**
+ * @summary Run a confirmed budget-capped restaurant import as an administrator
+ */
+export const runAdminRestaurantImport = async (restaurantImportRunInput: RestaurantImportRunInput, options?: Parameters<typeof customFetch>[1]): Promise<RestaurantImportRunResult> => {
+
+  return customFetch<RestaurantImportRunResult>(getRunAdminRestaurantImportUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(restaurantImportRunInput)
+  }
+);}
+
+
+
+
+
+export const getRunAdminRestaurantImportMutationOptions = <TError = ErrorType<ErrorResponse | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runAdminRestaurantImport>>, TError,{data: BodyType<RestaurantImportRunInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof runAdminRestaurantImport>>, TError,{data: BodyType<RestaurantImportRunInput>}, TContext> => {
+
+const mutationKey = ['runAdminRestaurantImport'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runAdminRestaurantImport>>, {data: BodyType<RestaurantImportRunInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  runAdminRestaurantImport(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RunAdminRestaurantImportMutationResult = NonNullable<Awaited<ReturnType<typeof runAdminRestaurantImport>>>
+    export type RunAdminRestaurantImportMutationBody = BodyType<RestaurantImportRunInput>
+    export type RunAdminRestaurantImportMutationError = ErrorType<ErrorResponse | void>
+
+    /**
+ * @summary Run a confirmed budget-capped restaurant import as an administrator
+ */
+export const useRunAdminRestaurantImport = <TError = ErrorType<ErrorResponse | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runAdminRestaurantImport>>, TError,{data: BodyType<RestaurantImportRunInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof runAdminRestaurantImport>>,
+        TError,
+        {data: BodyType<RestaurantImportRunInput>},
+        TContext
+      > => {
+      return useMutation(getRunAdminRestaurantImportMutationOptions(options));
+    }
+
 export const getGetDashboardEventsUrl = () => {
 
 

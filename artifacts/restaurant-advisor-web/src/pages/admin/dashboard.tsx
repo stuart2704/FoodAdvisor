@@ -4,6 +4,7 @@ import { RequireAdmin } from "../../components/admin/RequireAdmin";
 import ErrorLogPanel from "../../components/error-log-panel";
 import GmailAutomationPanel from "../../components/gmail-automation-panel";
 import OutreachPanel from "../../components/outreach-panel";
+import RestaurantIngestionPanel from "../../components/restaurant-ingestion-panel";
 import SummaryPanel from "../../components/summary-panel";
 
 const adminLinks = [
@@ -79,6 +80,7 @@ export default function AdminDashboard() {
           <OutreachPanel />
           <GmailAutomationPanel />
           <ErrorLogPanel />
+          <RestaurantIngestionPanel />
         </div>
 
         <nav
