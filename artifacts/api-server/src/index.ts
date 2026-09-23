@@ -35,21 +35,22 @@ const server = app.listen(port, (err) => {
 });
 
 async function initializeAfterListen(): Promise<void> {
+  startWatchRenewal();
+  startWatchHealthCheck();
+  startDailyOutreachScheduler();
+  startDailyRankingScheduler();
+  startAnalyticsRollupScheduler();
+  startGlobalMetricsScheduler();
+  startOperationalLogCleanup();
+  startBetterContactScheduler();
+
   try {
     await initializeStripe();
-    startWatchRenewal();
-    startWatchHealthCheck();
-    startDailyOutreachScheduler();
-    startDailyRankingScheduler();
-    startAnalyticsRollupScheduler();
-    startGlobalMetricsScheduler();
-    startOperationalLogCleanup();
-    startBetterContactScheduler();
     logger.info("Stripe access, managed webhook, and catalog sync initialized.");
   } catch (err) {
-    logger.error({ err }, "Stripe initialization failed");
-    server.close(() => {
-      process.exitCode = 1;
-    });
+    logger.error(
+      { err },
+      "Stripe initialization failed; payment routes remain unavailable.",
+    );
   }
 }
