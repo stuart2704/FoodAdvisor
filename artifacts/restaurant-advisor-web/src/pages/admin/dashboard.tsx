@@ -146,7 +146,7 @@ export default function AdminDashboard() {
               DEVELOPMENT MODE — Engine runner is enabled
             </div>
             <button
-              className="admin-button"
+              className="bg-green-600 text-white"
               type="button"
               disabled={isRunningEngines}
               onClick={() => void startEngines()}
