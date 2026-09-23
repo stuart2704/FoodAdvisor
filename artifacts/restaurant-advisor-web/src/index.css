@@ -25,6 +25,12 @@ body {
   color: #1a1a1a;
 }
 
+body,
+.admin-body,
+.admin-content {
+  color: #ffffff !important;
+}
+
 .hero {
   background: linear-gradient(135deg, #c63f00, #ff5a00);
   color: white;
