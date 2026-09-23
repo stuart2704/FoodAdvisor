@@ -6,6 +6,7 @@ import {
   MAX_NEARBY_RADIUS_MILES,
   MIN_NEARBY_RADIUS_MILES,
 } from "../lib/geo";
+import { PREMIUM_NEARBY_BOOST_MILES } from "../lib/restaurant-ranking";
 import { toRestaurantResponse } from "../lib/restaurant-response";
 
 const router: IRouter = Router();
@@ -41,7 +42,11 @@ router.get("/restaurants/nearby", async (req, res): Promise<void> => {
     greatest(
       0,
       ${distanceMiles} -
-      case when ${restaurantsTable.premium} then 1 else 0 end
+      case
+        when ${restaurantsTable.premium}
+        then ${PREMIUM_NEARBY_BOOST_MILES}
+        else 0
+      end
     )
   `;
 
@@ -58,7 +63,11 @@ router.get("/restaurants/nearby", async (req, res): Promise<void> => {
         sql`${distanceMiles} <= ${radiusMiles}`,
       ),
     )
-    .orderBy(asc(premiumAdjustedDistance), asc(distanceMiles))
+    .orderBy(
+      asc(premiumAdjustedDistance),
+      asc(distanceMiles),
+      asc(restaurantsTable.placeId),
+    )
     .limit(100);
 
   const response = rows.map(({ restaurant, distanceMiles: distance }) =>

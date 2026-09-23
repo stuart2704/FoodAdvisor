@@ -9,7 +9,7 @@ import {
   ListRestaurantsResponse,
 } from "@workspace/api-zod";
 import { db, restaurantsTable } from "@workspace/db";
-import { desc, eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import {
   createImportPlan,
   getImportStatus,
@@ -81,6 +81,7 @@ router.get("/restaurants", async (req, res): Promise<void> => {
     .orderBy(
       desc(restaurantsTable.premium),
       desc(restaurantsTable.importedAt),
+      asc(restaurantsTable.placeId),
     )
     .limit(100);
 
