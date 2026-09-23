@@ -1,3 +1,23 @@
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 30 45% 97%;
+  --foreground: 24 18% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 24 18% 12%;
+  --primary: 18 100% 45%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 28 35% 92%;
+  --secondary-foreground: 24 18% 18%;
+  --muted: 28 22% 92%;
+  --muted-foreground: 24 9% 42%;
+  --destructive: 0 72% 48%;
+  --border: 24 20% 82%;
+  --input: 24 20% 78%;
+  --ring: 18 100% 45%;
+}
+
 body {
   margin: 0;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;

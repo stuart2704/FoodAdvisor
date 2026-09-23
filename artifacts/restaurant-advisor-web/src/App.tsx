@@ -16,6 +16,14 @@ import AdminLogout from "./pages/admin/logout";
 import AdminOutreach from "./pages/admin/outreach";
 import AdminPerformance from "./pages/admin/performance";
 import ManageRestaurantsPage from "./pages/admin-restaurants";
+import ClaimRestaurant from "./pages/claim";
+import ClaimSuccessPage from "./pages/claim-success";
+import PortalPage from "./pages/portal";
+import PortalAnalyticsPage from "./pages/portal-analytics";
+import PortalMenuPage from "./pages/portal-menu";
+import PortalOnboardingPage from "./pages/portal-onboarding";
+import PortalPhotosPage from "./pages/portal-photos";
+import PortalUpgradePage from "./pages/portal-upgrade";
 
 function AppRoutes() {
   const location = useLocation();
@@ -28,6 +36,14 @@ function AppRoutes() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/restaurant/:id" element={<RestaurantDetail />} />
+        <Route path="/claim/:placeId" element={<ClaimRestaurant />} />
+        <Route path="/claim/:id/success" element={<ClaimSuccessPage />} />
+        <Route path="/portal/:token" element={<PortalPage />} />
+        <Route path="/portal/:token/analytics" element={<PortalAnalyticsPage />} />
+        <Route path="/portal/:token/menu" element={<PortalMenuPage />} />
+        <Route path="/portal/:token/onboarding" element={<PortalOnboardingPage />} />
+        <Route path="/portal/:token/photos" element={<PortalPhotosPage />} />
+        <Route path="/portal/:token/upgrade" element={<PortalUpgradePage />} />
         <Route path="/trending" element={<Trending />} />
         <Route path="/city-guide" element={<CityGuide />} />
         <Route path="/owner" element={<OwnerDashboard />} />

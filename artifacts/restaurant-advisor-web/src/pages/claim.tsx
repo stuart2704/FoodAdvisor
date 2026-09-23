@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'wouter';
+import { useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useClaimRestaurant } from '@workspace/api-client-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,6 +16,13 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+interface ClaimResponse {
+  success: boolean;
+  status?: 'basic' | 'already_claimed';
+  portalToken?: string;
+  error?: string;
+}
+
 export default function ClaimRestaurant() {
   const params = useParams<{ placeId: string }>();
   const placeId = params.placeId || '';
@@ -24,6 +30,7 @@ export default function ClaimRestaurant() {
   
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [claimStatus, setClaimStatus] = useState<'basic' | 'already_claimed' | null>(null);
+  const [isPending, setIsPending] = useState(false);
 
   useEffect(() => {
     document.title = "Claim Your Restaurant | The Food Advisor";
@@ -52,18 +59,20 @@ export default function ClaimRestaurant() {
     defaultValues: { email: '' },
   });
 
-  const claimMutation = useClaimRestaurant();
-
-  const isPending = claimMutation.isPending;
-
   const onSubmit = async (values: FormValues) => {
     setErrorMsg(null);
+    setIsPending(true);
     try {
-      const claimResult = await claimMutation.mutateAsync({
-        placeId,
-        data: { email: values.email, claimToken }
+      const response = await fetch(`/api/claim/${encodeURIComponent(placeId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: values.email, claimToken }),
       });
-      const portalToken = (claimResult as typeof claimResult & { portalToken?: string }).portalToken;
+      const claimResult = (await response.json()) as ClaimResponse;
+      if (!response.ok || !claimResult.success) {
+        throw new Error(claimResult.error || `Claim failed (${response.status})`);
+      }
+      const portalToken = claimResult.portalToken;
       if (portalToken) {
         window.location.assign(`/portal/${encodeURIComponent(portalToken)}`);
         return;
@@ -86,6 +95,8 @@ export default function ClaimRestaurant() {
       } else {
         setErrorMsg(msg);
       }
+    } finally {
+      setIsPending(false);
     }
   };
 

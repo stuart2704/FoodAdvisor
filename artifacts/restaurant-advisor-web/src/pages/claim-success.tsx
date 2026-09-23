@@ -1,5 +1,5 @@
 import { CheckCircle2 } from 'lucide-react';
-import { Link, useParams } from 'wouter';
+import { Link, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -24,12 +24,12 @@ export default function ClaimSuccessPage() {
           </p>
           <div className="flex flex-col justify-center gap-3 sm:flex-row">
             <Button asChild>
-              <Link href={`/restaurant/${encodeURIComponent(id)}`}>
+              <Link to={`/restaurant/${encodeURIComponent(id)}`}>
                 View restaurant
               </Link>
             </Button>
             <Button variant="outline" asChild>
-              <Link href="/">Return home</Link>
+              <Link to="/">Return home</Link>
             </Button>
           </div>
         </CardContent>

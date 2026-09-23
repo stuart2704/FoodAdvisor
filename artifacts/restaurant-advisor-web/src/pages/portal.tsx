@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'wouter';
+import { Link, useParams } from 'react-router-dom';
 import { BarChart3, Camera, Crown, ListChecks, Loader2, UtensilsCrossed } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -89,7 +89,7 @@ export default function PortalPage() {
         <div className="grid gap-4 sm:grid-cols-2">
           {sections.map(({ href, label, icon: Icon }) =>
             href ? (
-              <Link key={label} href={href} className="rounded-xl border border-border bg-card p-5 font-semibold transition hover:border-primary">
+              <Link key={label} to={href} className="rounded-xl border border-border bg-card p-5 font-semibold transition hover:border-primary">
                 <Icon className="mb-3 h-5 w-5 text-primary" />{label}
               </Link>
             ) : (

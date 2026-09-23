@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'wouter';
+import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Check, Loader2 } from 'lucide-react';
 
 interface PortalRestaurant {
@@ -96,7 +96,7 @@ export default function PortalOnboardingPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12 md:px-12">
-      <Link href={`/portal/${token}`} className="inline-flex items-center gap-2 font-semibold text-primary">
+      <Link to={`/portal/${token}`} className="inline-flex items-center gap-2 font-semibold text-primary">
         <ArrowLeft className="h-4 w-4" /> Back to portal
       </Link>
       <h1 className="mt-6 font-serif text-4xl font-semibold">Restaurant onboarding</h1>
@@ -119,7 +119,7 @@ export default function PortalOnboardingPage() {
           {current.complete && <Check className="h-5 w-5 text-primary" aria-label="Complete" />}
         </div>
         <p className="mt-3 text-muted-foreground">{current.description}</p>
-        <Link href={current.href} className="mt-6 inline-block font-semibold text-primary hover:underline">
+        <Link to={current.href} className="mt-6 inline-block font-semibold text-primary hover:underline">
           {current.action}
         </Link>
       </section>

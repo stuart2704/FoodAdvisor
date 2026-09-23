@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'wouter';
+import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, BarChart3, Crown, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -100,7 +100,7 @@ export default function PortalAnalyticsPage() {
   return (
     <div className="min-h-screen bg-background p-6 text-foreground md:p-12">
       <main className="mx-auto max-w-3xl">
-        <Link href={`/portal/${token}`} className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-primary">
+        <Link to={`/portal/${token}`} className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-primary">
           <ArrowLeft className="h-4 w-4" /> Back to portal
         </Link>
         <Card>
@@ -150,7 +150,7 @@ export default function PortalAnalyticsPage() {
                   Analytics are a Premium feature. Your Basic listing remains active.
                 </p>
                 <Button asChild>
-                  <Link href={`/portal/${token}/upgrade`}>
+                  <Link to={`/portal/${token}/upgrade`}>
                     <Crown className="mr-2 h-4 w-4" /> View Premium Options
                   </Link>
                 </Button>
