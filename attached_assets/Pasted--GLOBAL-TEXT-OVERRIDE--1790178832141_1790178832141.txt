@@ -1,0 +1,94 @@
+/* --------------------------------------------------
+   GLOBAL TEXT OVERRIDE
+-------------------------------------------------- */
+
+.admin-panel, 
+.admin-panel * {
+  color: #ffffff !important;
+}
+
+/* --------------------------------------------------
+   STATUS BADGES (FIXED)
+-------------------------------------------------- */
+
+.status-healthy {
+  background-color: #16a34a; /* green-600 */
+  color: #ffffff !important;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.status-warning {
+  background-color: #f59e0b; /* amber-500 */
+  color: #ffffff !important;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.status-unknown {
+  background-color: #6b7280; /* gray-500 */
+  color: #ffffff !important;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+/* --------------------------------------------------
+   BUTTONS (FIXED)
+-------------------------------------------------- */
+
+.admin-button {
+  background-color: #f97316; /* orange-500 */
+  color: #ffffff !important;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.admin-button:hover {
+  background-color: #ea580c; /* orange-600 */
+  color: #ffffff !important;
+}
+
+/* --------------------------------------------------
+   HEADINGS (FIXED)
+-------------------------------------------------- */
+
+.admin-panel h1,
+.admin-panel h2,
+.admin-panel h3,
+.admin-panel h4 {
+  color: #f9fafb !important;
+  font-weight: 600;
+}
+
+/* --------------------------------------------------
+   TABLES (FIXED)
+-------------------------------------------------- */
+
+.admin-table th,
+.admin-table td {
+  color: #ffffff !important;
+  border-color: #374151 !important;
+}
+
+/* --------------------------------------------------
+   LOGS (FIXED)
+-------------------------------------------------- */
+
+.log-entry {
+  color: #ffffff !important;
+  background: #1f2937;
+  border: 1px solid #374151;
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
