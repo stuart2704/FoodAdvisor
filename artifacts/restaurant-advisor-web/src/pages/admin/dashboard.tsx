@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { AdminLayout } from "../../components/admin/AdminLayout";
 import { RequireAdmin } from "../../components/admin/RequireAdmin";
+import OutreachPanel from "../../components/outreach-panel";
 import SummaryPanel from "../../components/summary-panel";
 
 const adminLinks = [
@@ -73,6 +74,7 @@ export default function AdminDashboard() {
 
         <div style={{ marginBottom: "24px" }}>
           <SummaryPanel />
+          <OutreachPanel />
         </div>
 
         <nav
