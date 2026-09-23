@@ -1,0 +1,133 @@
+import { useEffect, useState } from "react";
+
+interface Restaurant {
+  id: string;
+  name: string;
+  city: string;
+  country: string;
+  category: string;
+  status: string;
+}
+
+interface Analytics {
+  total: number;
+  byCountry: Record<string, number>;
+  byCity: Record<string, number>;
+  byCategory: Record<string, number>;
+  byStatus: Record<string, number>;
+}
+
+export default function GlobalDirectoryAnalyticsPanel() {
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  async function loadData() {
+    try {
+      const res = await fetch("/dashboard/restaurants?page=1&limit=100", {
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        setError(`Backend returned ${res.status}`);
+        setLoading(false);
+        return;
+      }
+
+      const data = await res.json();
+      const items: Restaurant[] = data.items || [];
+      setRestaurants(items);
+
+      const analyticsData: Analytics = {
+        total: items.length,
+        byCountry: {},
+        byCity: {},
+        byCategory: {},
+        byStatus: {},
+      };
+
+      for (const r of items) {
+        analyticsData.byCountry[r.country] =
+          (analyticsData.byCountry[r.country] || 0) + 1;
+
+        analyticsData.byCity[r.city] =
+          (analyticsData.byCity[r.city] || 0) + 1;
+
+        analyticsData.byCategory[r.category] =
+          (analyticsData.byCategory[r.category] || 0) + 1;
+
+        analyticsData.byStatus[r.status] =
+          (analyticsData.byStatus[r.status] || 0) + 1;
+      }
+
+      setAnalytics(analyticsData);
+    } catch {
+      setError("Network or server error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  if (loading) return <p>Loading global analytics…</p>;
+
+  if (error)
+    return (
+      <div style={{ color: "red" }}>
+        <p>Error: {error}</p>
+        <button onClick={loadData}>Retry</button>
+      </div>
+    );
+
+  if (!analytics) return <p>No analytics available.</p>;
+
+  return (
+    <div style={{ marginTop: "30px" }}>
+      <h2>Global Directory Analytics</h2>
+
+      <ul>
+        <li>Total Restaurants: {analytics.total}</li>
+      </ul>
+
+      <h3>By Country</h3>
+      <ul>
+        {Object.entries(analytics.byCountry).map(([country, count]) => (
+          <li key={country}>
+            {country}: {count}
+          </li>
+        ))}
+      </ul>
+
+      <h3>By City</h3>
+      <ul>
+        {Object.entries(analytics.byCity).map(([city, count]) => (
+          <li key={city}>
+            {city}: {count}
+          </li>
+        ))}
+      </ul>
+
+      <h3>By Category</h3>
+      <ul>
+        {Object.entries(analytics.byCategory).map(([cat, count]) => (
+          <li key={cat}>
+            {cat}: {count}
+          </li>
+        ))}
+      </ul>
+
+      <h3>By Status</h3>
+      <ul>
+        {Object.entries(analytics.byStatus).map(([status, count]) => (
+          <li key={status}>
+            {status}: {count}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
