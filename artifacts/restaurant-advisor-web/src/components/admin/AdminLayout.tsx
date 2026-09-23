@@ -4,10 +4,10 @@ import { Sidebar } from "./Sidebar";
 export function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <main
+      className="text-white"
       style={{
         minHeight: "100vh",
-        background: "#0f0f0f",
-        color: "#e6e6e6",
+        backgroundColor: "#0d0d0d",
         padding: "24px"
       }}
     >
