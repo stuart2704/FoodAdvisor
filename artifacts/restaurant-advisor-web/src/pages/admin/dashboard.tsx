@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { AdminLayout } from "../../components/admin/AdminLayout";
 import { RequireAdmin } from "../../components/admin/RequireAdmin";
+import SummaryPanel from "../../components/summary-panel";
 
 const adminLinks = [
   {
@@ -69,6 +70,10 @@ export default function AdminDashboard() {
             Sign out
           </button>
         </header>
+
+        <div style={{ marginBottom: "24px" }}>
+          <SummaryPanel />
+        </div>
 
         <nav
           aria-label="Admin dashboard"

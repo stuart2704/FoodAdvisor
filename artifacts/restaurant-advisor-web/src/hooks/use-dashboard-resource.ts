@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { DashboardRequestOptions } from '@/lib/dashboard-api';
+import type { DashboardRequestOptions } from '../lib/dashboard-api';
 
 export function useDashboardResource<T>(
   load: (options?: DashboardRequestOptions) => Promise<{ data: T }>,
