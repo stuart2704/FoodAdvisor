@@ -45,7 +45,10 @@ import dashboardClaimPageMetrics from "./routes/dashboardClaimPageMetrics";
 import dashboardAnalytics from "./routes/dashboardAnalytics";
 import { logger } from "./lib/logger";
 import { instantlyWebhookRouter } from "./outreach/instantlyWebhook";
-import { handleWebhook as handleStripeWebhook } from "./services/stripeService";
+import {
+  handleWebhook as handleStripeWebhook,
+  StripeWebhookSignatureError,
+} from "./services/stripeService";
 import {
   CLERK_PROXY_PATH,
   clerkProxyMiddleware,
@@ -105,8 +108,13 @@ app.post(
       await handleStripeWebhook(req.body as Buffer, signature);
       res.json({ received: true });
     } catch (error) {
+      if (error instanceof StripeWebhookSignatureError) {
+        req.log.warn("Stripe webhook signature validation failed");
+        res.status(400).json({ error: "Invalid Stripe webhook signature." });
+        return;
+      }
       req.log.error({ err: error }, "Stripe webhook processing failed");
-      res.status(400).json({ error: "Invalid Stripe webhook." });
+      res.status(500).json({ error: "Stripe webhook processing failed." });
     }
   },
 );

@@ -11,6 +11,7 @@
 - [Personalization privacy](personalization-privacy.md) — personalize only for consented pseudonymous IDs; store structured preferences, preserve Premium tiers, and keep private fields out of AI.
 - [Verification and rewards authority](verification-rewards-authority.md) — derive verification and rewards from protected server events; never accept browser-selected status, user IDs, or point amounts.
 - [Stripe environment separation](stripe-environment-separation.md) — keep sandbox prices development-only; production Stripe setup must create and configure its own live price.
+- [Stripe sync lifecycle](stripe-sync-lifecycle.md) — close fresh sync pools, scope signing secrets to endpoints, and retry entitlement reconciliation independently of sync deduplication.
 - [GitHub push authentication](github-push-authentication.md) — OAuth may work through the connector while Git CLI stays unauthorized; never force-push as a workaround.
 - [External hosting connectors](external-hosting-connectors.md) — Replit connector clients need direct provider-credential fallbacks on non-Replit hosts.
 - [Clerk OAuth preview hosts](clerk-oauth-preview-hosts.md) — verify provider redirects on the actual preview host; injected test hosts can resolve a different Clerk context.

@@ -90,8 +90,9 @@ export const restaurantsTable = pgTable(
     onboardingStatus: text("onboarding_status"),
     stripeCustomerId: text("stripe_customer_id"),
     stripeSubscriptionId: text("stripe_subscription_id"),
-    stripeCheckoutAttemptId: text("stripe_checkout_attempt_id"),
     stripeCheckoutSessionId: text("stripe_checkout_session_id"),
+    stripeCheckoutAttemptId: text("stripe_checkout_attempt_id"),
+    stripeCheckoutAttempt: integer("stripe_checkout_attempt").notNull().default(0),
     premium: boolean("premium").notNull().default(false),
     premiumSince: timestamp("premium_since", { withTimezone: true }),
     premiumCancelledAt: timestamp("premium_cancelled_at", { withTimezone: true }),
@@ -101,6 +102,10 @@ export const restaurantsTable = pgTable(
     index("restaurants_brand_idx").on(table.brand),
     uniqueIndex("restaurants_unsubscribe_token_hash_unique").on(
       table.unsubscribeTokenHash,
+    ),
+    uniqueIndex("restaurants_stripe_customer_unique").on(table.stripeCustomerId),
+    uniqueIndex("restaurants_stripe_subscription_unique").on(
+      table.stripeSubscriptionId,
     ),
   ],
 );

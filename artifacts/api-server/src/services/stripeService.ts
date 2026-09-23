@@ -5,13 +5,14 @@ import {
   restaurantsTable,
   stripeProcessedEventsTable,
 } from "@workspace/db";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { assertPublicHttpsUrl } from "../lib/public-url";
 import { validateToken } from "./portalTokenService";
 import {
-  getPremiumPriceId,
+  closeStripeSync,
   getStripeSync,
   getUncachableStripeClient,
+  verifyStripeEvent,
 } from "./stripeClient";
 
 export async function createCheckoutSession(
@@ -20,129 +21,156 @@ export async function createCheckoutSession(
   const placeId = await validateToken(portalToken);
   if (!placeId) throw new Error("Invalid or expired portal login.");
   const stripe = await getUncachableStripeClient();
+  const configuredPrice = await stripe.prices.retrieve(premiumPriceId());
+  assertPremiumPrice(configuredPrice);
   const publicUrl = await assertPublicHttpsUrl(process.env.PUBLIC_APP_URL, {
     canonical: true,
   });
-  const encodedToken = encodeURIComponent(portalToken);
-
-  const reservation = await db.transaction(async (tx) => {
-    await tx.execute(
-      sql`select pg_advisory_xact_lock(hashtext(${`stripe-checkout:${placeId}`}))`,
-    );
+  return db.transaction(async (tx) => {
+    await lockRestaurant(tx, placeId);
     const [restaurant] = await tx
       .select({
         placeId: restaurantsTable.placeId,
         name: restaurantsTable.name,
         email: restaurantsTable.claimEmail,
+        claimStatus: restaurantsTable.claimStatus,
         customerId: restaurantsTable.stripeCustomerId,
         subscriptionId: restaurantsTable.stripeSubscriptionId,
-        checkoutAttemptId: restaurantsTable.stripeCheckoutAttemptId,
         checkoutSessionId: restaurantsTable.stripeCheckoutSessionId,
+        checkoutAttempt: restaurantsTable.stripeCheckoutAttempt,
         premium: restaurantsTable.premium,
       })
       .from(restaurantsTable)
       .where(eq(restaurantsTable.placeId, placeId))
       .limit(1);
-    if (!restaurant?.email) {
+    if (!restaurant?.email || restaurant.claimStatus === null) {
       throw new Error("A claimed business email is required.");
     }
     if (restaurant.premium || restaurant.subscriptionId) {
       throw new Error("This restaurant already has a subscription.");
     }
-    const checkoutAttemptId =
-      restaurant.checkoutAttemptId ?? crypto.randomUUID();
-    if (!restaurant.checkoutAttemptId) {
-      await tx
-        .update(restaurantsTable)
-        .set({ stripeCheckoutAttemptId: checkoutAttemptId })
-        .where(eq(restaurantsTable.placeId, restaurant.placeId));
-    }
-    return { ...restaurant, checkoutAttemptId };
-  });
 
-  if (reservation.checkoutSessionId) {
-    const existingSession = await stripe.checkout.sessions.retrieve(
-      reservation.checkoutSessionId,
+    let customerId = restaurant.customerId;
+    if (!customerId) {
+      const customer = await stripe.customers.create(
+        {
+          email: restaurant.email,
+          name: restaurant.name,
+          metadata: { restaurantId: restaurant.placeId },
+        },
+        { idempotencyKey: `restaurant-customer-${restaurant.placeId}` },
+      );
+      customerId = customer.id;
+    }
+
+    if (restaurant.checkoutSessionId) {
+      const existingSession = await stripe.checkout.sessions.retrieve(
+        restaurant.checkoutSessionId,
+        { expand: ["line_items.data.price"] },
+      );
+      if (isExpectedOpenCheckout(existingSession, restaurant.placeId, customerId)) {
+        return existingSession.url!;
+      }
+      if (existingSession.status === "open") {
+        await stripe.checkout.sessions.expire(existingSession.id);
+      }
+    }
+
+    const attempt = restaurant.checkoutAttempt + 1;
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: "subscription",
+        customer: customerId,
+        line_items: [{ price: configuredPrice.id, quantity: 1 }],
+        // Keep idempotent request parameters independent of rotating portal
+        // tokens. The frontend retains its authenticated portal context while
+        // Stripe redirects to these stable completion/cancellation routes.
+        success_url: `${publicUrl}/portal/upgrade/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${publicUrl}/portal/upgrade/cancel`,
+        metadata: { restaurantId: restaurant.placeId },
+        subscription_data: {
+          metadata: { restaurantId: restaurant.placeId },
+        },
+      },
+      {
+        idempotencyKey: `premium-checkout-${restaurant.placeId}-${attempt}`,
+      },
     );
-    if (
-      existingSession.mode !== "subscription" ||
-      existingSession.metadata?.restaurantId !== reservation.placeId
-    ) {
-      throw new Error("Stored Stripe checkout did not match the restaurant.");
-    }
-    if (existingSession.status === "open" && existingSession.url) {
-      return existingSession.url;
-    }
-    if (existingSession.status === "complete") {
-      throw new Error("This restaurant already has a checkout awaiting confirmation.");
-    }
-    await db
+    if (!session.url) throw new Error("Stripe checkout URL was not returned.");
+    await tx
       .update(restaurantsTable)
       .set({
-        stripeCheckoutAttemptId: null,
-        stripeCheckoutSessionId: null,
+        stripeCustomerId: customerId,
+        stripeCheckoutSessionId: session.id,
+        stripeCheckoutAttempt: attempt,
       })
-      .where(
-        and(
-          eq(restaurantsTable.placeId, reservation.placeId),
-          eq(
-            restaurantsTable.stripeCheckoutSessionId,
-            reservation.checkoutSessionId,
-          ),
-          isNull(restaurantsTable.stripeSubscriptionId),
-        ),
-      );
-    return createCheckoutSession(portalToken);
-  }
-
-  let customerId = reservation.customerId;
-  if (!customerId) {
-    const customer = await stripe.customers.create({
-      email: reservation.email!,
-      name: reservation.name,
-      metadata: { restaurantId: reservation.placeId },
-    }, {
-      idempotencyKey: `restaurant-customer-${reservation.placeId}`,
-    });
-    customerId = customer.id;
-    await db
-      .update(restaurantsTable)
-      .set({ stripeCustomerId: customerId })
-      .where(eq(restaurantsTable.placeId, reservation.placeId));
-  }
-
-  const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    customer: customerId,
-    line_items: [{ price: getPremiumPriceId(), quantity: 1 }],
-    success_url: `${publicUrl}/portal/${encodedToken}/upgrade?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${publicUrl}/portal/${encodedToken}/upgrade?checkout=cancelled`,
-    metadata: { restaurantId: reservation.placeId },
-    subscription_data: {
-      metadata: { restaurantId: reservation.placeId },
-    },
-  }, {
-    idempotencyKey: `restaurant-checkout-${reservation.checkoutAttemptId}`,
+      .where(eq(restaurantsTable.placeId, restaurant.placeId));
+    return session.url;
   });
-  if (!session.url) throw new Error("Stripe checkout URL was not returned.");
-  const [stored] = await db
+}
+
+async function applyCheckoutCompleted(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  session: Stripe.Checkout.Session,
+  subscription: Stripe.Subscription,
+): Promise<void> {
+  assertPremiumSubscription(session, subscription);
+  const restaurantId = session.metadata!.restaurantId;
+  const customerId = idOf(session.customer)!;
+
+  await lockRestaurant(tx, restaurantId);
+  const [existing] = await tx
+    .select({
+      placeId: restaurantsTable.placeId,
+      claimStatus: restaurantsTable.claimStatus,
+      claimEmail: restaurantsTable.claimEmail,
+      customerId: restaurantsTable.stripeCustomerId,
+      subscriptionId: restaurantsTable.stripeSubscriptionId,
+      premium: restaurantsTable.premium,
+    })
+    .from(restaurantsTable)
+    .where(eq(restaurantsTable.placeId, restaurantId))
+    .limit(1);
+  if (
+    !existing ||
+    existing.claimStatus === null ||
+    !existing.claimEmail ||
+    existing.customerId !== customerId
+  ) {
+    throw new Error("Stripe customer was not mapped to a claimed restaurant.");
+  }
+  if (
+    existing.subscriptionId !== null &&
+    existing.subscriptionId !== subscription.id
+  ) {
+    throw new Error("Restaurant already has a different Stripe subscription.");
+  }
+
+  const [updated] = await tx
     .update(restaurantsTable)
-    .set({ stripeCheckoutSessionId: session.id })
+    .set({
+      premium: true,
+      premiumSince: existing.premium ? undefined : new Date(),
+      premiumCancelledAt: null,
+      stripeSubscriptionId: subscription.id,
+      stripeCheckoutSessionId: session.id,
+    })
     .where(
       and(
-        eq(restaurantsTable.placeId, reservation.placeId),
-        eq(
-          restaurantsTable.stripeCheckoutAttemptId,
-          reservation.checkoutAttemptId,
-        ),
-        isNull(restaurantsTable.stripeSubscriptionId),
+        eq(restaurantsTable.placeId, restaurantId),
+        eq(restaurantsTable.stripeCustomerId, customerId),
+        eq(restaurantsTable.claimStatus, existing.claimStatus),
       ),
     )
     .returning({ placeId: restaurantsTable.placeId });
-  if (!stored) {
-    throw new Error("The restaurant checkout reservation changed unexpectedly.");
+  if (!updated) throw new Error("Stripe restaurant mapping changed.");
+  if (!existing.premium) {
+    await tx.insert(analyticsEventsTable).values({
+      restaurantId,
+      type: "premium_conversion",
+      metadata: {},
+    });
   }
-  return session.url;
 }
 
 export async function getCheckoutCompletion(
@@ -174,140 +202,48 @@ export async function getCheckoutCompletion(
   };
 }
 
-interface PremiumActivation {
-  kind: "activate";
-  restaurantId: string;
-  customerId: string;
-  subscriptionId: string;
-}
-
-interface PremiumCancellation {
-  kind: "cancel";
-  restaurantId: string;
-  customerId: string;
-  subscriptionId: string;
-}
-
-interface CheckoutReservationRelease {
-  kind: "release";
-  restaurantId: string;
-  checkoutSessionId: string;
-}
-
-type PremiumEventAction =
-  | PremiumActivation
-  | PremiumCancellation
-  | CheckoutReservationRelease;
-
 function idOf(
-  value: string | { id: string } | null,
+  value: string | { id: string } | Stripe.DeletedCustomer | null,
 ): string | null {
   return typeof value === "string" ? value : value?.id ?? null;
 }
 
-function activationFromSubscription(
-  subscription: Stripe.Subscription,
-): PremiumActivation | null {
-  if (
-    subscription.status !== "active" &&
-    subscription.status !== "trialing"
-  ) {
-    return null;
-  }
-  const restaurantId = subscription.metadata.restaurantId;
-  const customerId = idOf(subscription.customer);
-  const onlyItem = subscription.items.data[0];
-  const isExactPremiumPlan =
-    subscription.items.data.length === 1 &&
-    onlyItem?.price.id === getPremiumPriceId() &&
-    onlyItem.quantity === 1;
-  if (!restaurantId || !customerId || !isExactPremiumPlan) return null;
-  return {
-    kind: "activate",
-    restaurantId,
-    customerId,
-    subscriptionId: subscription.id,
-  };
-}
-
-async function actionFromVerifiedEvent(
-  event: Stripe.Event,
-): Promise<PremiumEventAction | null> {
-  if (
-    event.type === "checkout.session.async_payment_failed" ||
-    event.type === "checkout.session.expired"
-  ) {
-    const session = event.data.object as Stripe.Checkout.Session;
-    const restaurantId = session.metadata?.restaurantId;
-    if (!restaurantId) return null;
-    return {
-      kind: "release",
-      restaurantId,
-      checkoutSessionId: session.id,
-    };
-  }
-
-  if (
-    event.type === "checkout.session.completed" ||
-    event.type === "checkout.session.async_payment_succeeded"
-  ) {
-    const session = event.data.object as Stripe.Checkout.Session;
-    if (
-      session.mode !== "subscription" ||
-      (session.payment_status !== "paid" &&
-        session.payment_status !== "no_payment_required")
-    ) {
-      return null;
-    }
-    const subscriptionId = idOf(session.subscription);
-    if (!subscriptionId) return null;
-    const stripe = await getUncachableStripeClient();
-    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-    const activation = activationFromSubscription(subscription);
-    if (
-      activation &&
-      session.metadata?.restaurantId &&
-      activation.restaurantId !== session.metadata.restaurantId
-    ) {
-      throw new Error("Stripe checkout and subscription metadata did not match.");
-    }
-    return activation;
-  }
-
-  if (
-    event.type === "customer.subscription.created" ||
-    event.type === "customer.subscription.updated" ||
-    event.type === "customer.subscription.resumed"
-  ) {
-    const eventSubscription = event.data.object as Stripe.Subscription;
-    const stripe = await getUncachableStripeClient();
-    const currentSubscription = await stripe.subscriptions.retrieve(
-      eventSubscription.id,
-    );
-    return activationFromSubscription(currentSubscription);
-  }
-
-  if (event.type === "customer.subscription.deleted") {
-    const subscription = event.data.object as Stripe.Subscription;
-    const restaurantId = subscription.metadata.restaurantId;
-    const customerId = idOf(subscription.customer);
-    if (!restaurantId || !customerId) {
-      throw new Error("Stripe subscription metadata was incomplete.");
-    }
-    return {
-      kind: "cancel",
-      restaurantId,
-      customerId,
-      subscriptionId: subscription.id,
-    };
-  }
-
-  return null;
+function isSignatureError(error: unknown): boolean {
+  return (
+    error instanceof Stripe.errors.StripeSignatureVerificationError ||
+    (typeof error === "object" &&
+      error !== null &&
+      "type" in error &&
+      error.type === "StripeSignatureVerificationError")
+  );
 }
 
 async function applyVerifiedEvent(event: Stripe.Event): Promise<void> {
-  const action = await actionFromVerifiedEvent(event);
-  if (!action) return;
+  let subscription: Stripe.Subscription | null = null;
+  const isCheckoutEvent =
+    event.type === "checkout.session.completed" ||
+    event.type === "checkout.session.async_payment_succeeded";
+  const checkoutSession = isCheckoutEvent
+    ? (event.data.object as Stripe.Checkout.Session)
+    : null;
+  const shouldActivate =
+    checkoutSession !== null && checkoutSession.payment_status === "paid";
+  if (
+    event.type === "checkout.session.async_payment_succeeded" &&
+    !shouldActivate
+  ) {
+    throw new Error("Stripe async payment success event was not paid.");
+  }
+  if (shouldActivate) {
+    const subscriptionId = idOf(checkoutSession.subscription);
+    if (!subscriptionId) {
+      throw new Error("Stripe checkout subscription was missing.");
+    }
+    const stripe = await getUncachableStripeClient();
+    subscription = await stripe.subscriptions.retrieve(subscriptionId, {
+      expand: ["items.data.price"],
+    });
+  }
 
   await db.transaction(async (tx) => {
     const [reserved] = await tx
@@ -317,116 +253,17 @@ async function applyVerifiedEvent(event: Stripe.Event): Promise<void> {
       .returning({ eventId: stripeProcessedEventsTable.eventId });
     if (!reserved) return;
 
-    if (action.kind === "activate") {
-      const [existing] = await tx
-        .select({
-          placeId: restaurantsTable.placeId,
-          claimEmail: restaurantsTable.claimEmail,
-          claimStatus: restaurantsTable.claimStatus,
-          premium: restaurantsTable.premium,
-          customerId: restaurantsTable.stripeCustomerId,
-        })
-        .from(restaurantsTable)
-        .where(eq(restaurantsTable.placeId, action.restaurantId))
-        .limit(1);
-      if (!existing?.claimEmail || !existing.claimStatus) {
-        throw new Error("Stripe restaurant mapping was not a completed claim.");
-      }
-      if (existing.customerId !== action.customerId) {
-        throw new Error("Stripe customer did not match the restaurant claim.");
-      }
-      const [updated] = await tx
-        .update(restaurantsTable)
-        .set({
-          premium: true,
-          premiumSince: new Date(),
-          premiumCancelledAt: null,
-          stripeCustomerId: action.customerId,
-          stripeSubscriptionId: action.subscriptionId,
-          stripeCheckoutAttemptId: null,
-          stripeCheckoutSessionId: null,
-        })
-        .where(eq(restaurantsTable.placeId, action.restaurantId))
-        .returning({ placeId: restaurantsTable.placeId });
-      if (!updated) throw new Error("Stripe restaurant mapping was missing.");
-      if (!existing.premium) {
-        await tx.insert(analyticsEventsTable).values({
-          restaurantId: action.restaurantId,
-          type: "premium_conversion",
-          metadata: {},
-        });
-      }
-    }
-
-    if (action.kind === "release") {
-      await tx
-        .update(restaurantsTable)
-        .set({
-          stripeCheckoutAttemptId: null,
-          stripeCheckoutSessionId: null,
-        })
-        .where(
-          and(
-            eq(restaurantsTable.placeId, action.restaurantId),
-            eq(
-              restaurantsTable.stripeCheckoutSessionId,
-              action.checkoutSessionId,
-            ),
-            isNull(restaurantsTable.stripeSubscriptionId),
-          ),
-        );
-    }
-
-    if (action.kind === "cancel") {
-      const [existing] = await tx
-        .select({
-          customerId: restaurantsTable.stripeCustomerId,
-          checkoutSessionId: restaurantsTable.stripeCheckoutSessionId,
-          subscriptionId: restaurantsTable.stripeSubscriptionId,
-        })
-        .from(restaurantsTable)
-        .where(eq(restaurantsTable.placeId, action.restaurantId))
-        .limit(1);
-      if (!existing) throw new Error("Stripe restaurant mapping was missing.");
-      if (existing.customerId !== action.customerId) {
-        throw new Error("Stripe customer did not match the restaurant claim.");
-      }
-      if (existing.subscriptionId === null) {
-        if (!existing.checkoutSessionId) return;
-        const stripe = await getUncachableStripeClient();
-        const checkoutSession = await stripe.checkout.sessions.retrieve(
-          existing.checkoutSessionId,
-        );
-        if (idOf(checkoutSession.subscription) !== action.subscriptionId) return;
-        await tx
-          .update(restaurantsTable)
-          .set({
-            stripeCheckoutAttemptId: null,
-            stripeCheckoutSessionId: null,
-          })
-          .where(
-            and(
-              eq(restaurantsTable.placeId, action.restaurantId),
-              eq(
-                restaurantsTable.stripeCheckoutSessionId,
-                existing.checkoutSessionId,
-              ),
-              isNull(restaurantsTable.stripeSubscriptionId),
-            ),
-          );
-        return;
-      }
-      if (existing.subscriptionId !== action.subscriptionId) return;
-      const [updated] = await tx
-        .update(restaurantsTable)
-        .set({
-          premium: false,
-          premiumCancelledAt: new Date(),
-          stripeSubscriptionId: null,
-        })
-        .where(eq(restaurantsTable.placeId, action.restaurantId))
-        .returning({ placeId: restaurantsTable.placeId });
-      if (!updated) throw new Error("Stripe restaurant mapping was missing.");
+    if (shouldActivate) {
+      await applyCheckoutCompleted(
+        tx,
+        checkoutSession!,
+        subscription!,
+      );
+    } else if (event.type === "customer.subscription.deleted") {
+      await applySubscriptionDeleted(
+        tx,
+        event.data.object as Stripe.Subscription,
+      );
     }
   });
 }
@@ -436,22 +273,18 @@ export async function handleWebhook(
   signature: string,
 ): Promise<void> {
   if (!Buffer.isBuffer(payload)) throw new Error("Stripe payload must be raw.");
-  const stripeSync = await getStripeSync();
-  await stripeSync.processWebhook(payload, signature);
-
   let event: Stripe.Event;
   try {
-    event = JSON.parse(payload.toString("utf8")) as Stripe.Event;
-  } catch {
-    throw new Error("Stripe event body was invalid.");
+    event = await verifyStripeEvent(payload, signature);
+  } catch (error) {
+    if (isSignatureError(error)) throw new StripeWebhookSignatureError(error);
+    throw error;
   }
-  if (
-    !event ||
-    typeof event.id !== "string" ||
-    !/^evt_[A-Za-z0-9]{8,128}$/.test(event.id) ||
-    typeof event.type !== "string"
-  ) {
-    throw new Error("Stripe event envelope was invalid.");
+  const sync = await getStripeSync();
+  try {
+    await sync.processEvent(event);
+  } finally {
+    await closeStripeSync(sync);
   }
   await applyVerifiedEvent(event);
 }
@@ -461,3 +294,156 @@ export default {
   getCheckoutCompletion,
   handleWebhook,
 };
+
+const PREMIUM_AMOUNT = 9_900;
+
+function premiumPriceId(): string {
+  const value = process.env.STRIPE_PREMIUM_PRICE_ID;
+  if (!value || !/^price_[A-Za-z0-9]+$/.test(value)) {
+    throw new Error("STRIPE_PREMIUM_PRICE_ID is not configured.");
+  }
+  return value;
+}
+
+async function lockRestaurant(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  placeId: string,
+): Promise<void> {
+  await tx.execute(sql`
+    select ${restaurantsTable.placeId}
+      from ${restaurantsTable}
+     where ${restaurantsTable.placeId} = ${placeId}
+     for update
+  `);
+}
+
+async function applySubscriptionDeleted(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  subscription: Stripe.Subscription,
+): Promise<void> {
+  const restaurantId = subscription.metadata.restaurantId;
+  const customerId = idOf(subscription.customer);
+  if (!restaurantId || !customerId) {
+    throw new Error("Stripe subscription metadata was incomplete.");
+  }
+  await lockRestaurant(tx, restaurantId);
+  const [restaurant] = await tx
+    .select({
+      customerId: restaurantsTable.stripeCustomerId,
+      subscriptionId: restaurantsTable.stripeSubscriptionId,
+    })
+    .from(restaurantsTable)
+    .where(eq(restaurantsTable.placeId, restaurantId))
+    .limit(1);
+  if (!restaurant || restaurant.customerId !== customerId) {
+    throw new Error("Stripe customer was not mapped to this restaurant.");
+  }
+  // A delayed deletion for an older subscription must not remove a newer
+  // entitlement. It is nevertheless successfully processed and acknowledged.
+  if (restaurant.subscriptionId !== subscription.id) return;
+  await tx
+    .update(restaurantsTable)
+    .set({
+      premium: false,
+      premiumCancelledAt: new Date(),
+      stripeSubscriptionId: null,
+      stripeCheckoutSessionId: null,
+    })
+    .where(
+      and(
+        eq(restaurantsTable.placeId, restaurantId),
+        eq(restaurantsTable.stripeCustomerId, customerId),
+        eq(restaurantsTable.stripeSubscriptionId, subscription.id),
+      ),
+    );
+}
+
+export function assertPremiumSubscription(
+  session: Stripe.Checkout.Session,
+  subscription: Stripe.Subscription,
+): void {
+  const restaurantId = session.metadata?.restaurantId;
+  const subscriptionRestaurantId = subscription.metadata.restaurantId;
+  const sessionCustomerId = idOf(session.customer);
+  const subscriptionCustomerId = idOf(subscription.customer);
+  const sessionSubscriptionId = idOf(session.subscription);
+  const items = subscription.items.data;
+  const item = items[0];
+  const price = item?.price;
+
+  if (
+    session.mode !== "subscription" ||
+    session.status !== "complete" ||
+    session.payment_status !== "paid" ||
+    session.amount_total !== PREMIUM_AMOUNT ||
+    session.currency?.toLowerCase() !== PREMIUM_CURRENCY ||
+    !restaurantId ||
+    subscriptionRestaurantId !== restaurantId ||
+    sessionSubscriptionId !== subscription.id ||
+    !sessionCustomerId ||
+    subscriptionCustomerId !== sessionCustomerId ||
+    subscription.status !== "active" ||
+    items.length !== 1 ||
+    item.quantity !== 1 ||
+    price.id !== premiumPriceId()
+  ) {
+    throw new Error("Stripe subscription did not match the Premium plan.");
+  }
+  assertPremiumPrice(price);
+  if (session.livemode !== subscription.livemode) {
+    throw new Error("Stripe checkout and subscription modes did not match.");
+  }
+}
+
+const PREMIUM_CURRENCY = "gbp";
+
+function isExpectedOpenCheckout(
+  session: Stripe.Checkout.Session,
+  restaurantId: string,
+  customerId: string,
+): boolean {
+  const item = session.line_items?.data[0];
+  const price =
+    item?.price && typeof item.price !== "string" ? item.price : null;
+  if (
+    session.status !== "open" ||
+    !session.url ||
+    session.mode !== "subscription" ||
+    session.metadata?.restaurantId !== restaurantId ||
+    idOf(session.customer) !== customerId ||
+    session.amount_total !== PREMIUM_AMOUNT ||
+    session.currency?.toLowerCase() !== PREMIUM_CURRENCY ||
+    session.line_items?.data.length !== 1 ||
+    item?.quantity !== 1 ||
+    !price
+  ) {
+    return false;
+  }
+  try {
+    assertPremiumPrice(price);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function assertPremiumPrice(price: Stripe.Price): void {
+  if (
+    price.id !== premiumPriceId() ||
+    price.active !== true ||
+    price.type !== "recurring" ||
+    price.currency.toLowerCase() !== PREMIUM_CURRENCY ||
+    price.unit_amount !== PREMIUM_AMOUNT ||
+    price.recurring?.interval !== "month" ||
+    price.recurring.interval_count !== 1
+  ) {
+    throw new Error("Configured Stripe Price is not £99 GBP monthly.");
+  }
+}
+
+export class StripeWebhookSignatureError extends Error {
+  constructor(cause: unknown) {
+    super("Invalid Stripe webhook signature.", { cause });
+    this.name = "StripeWebhookSignatureError";
+  }
+}

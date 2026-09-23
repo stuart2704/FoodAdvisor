@@ -44,6 +44,10 @@ function AppRoutes() {
         <Route path="/portal/:token/onboarding" element={<PortalOnboardingPage />} />
         <Route path="/portal/:token/photos" element={<PortalPhotosPage />} />
         <Route path="/portal/:token/upgrade" element={<PortalUpgradePage />} />
+        <Route path="/portal/upgrade/success" element={<PortalUpgradePage />} />
+        <Route path="/portal/upgrade/cancel" element={<PortalUpgradePage />} />
+        <Route path="/portal/:token/upgrade/success" element={<PortalUpgradePage />} />
+        <Route path="/portal/:token/upgrade/cancel" element={<PortalUpgradePage />} />
         <Route path="/trending" element={<Trending />} />
         <Route path="/city-guide" element={<CityGuide />} />
         <Route path="/owner" element={<OwnerDashboard />} />

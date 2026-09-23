@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useLocation } from 'react-router-dom';
 import { ArrowLeft, Crown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,28 +10,62 @@ interface PortalResponse {
 }
 
 export default function PortalUpgradePage() {
-  const { token = '' } = useParams<{ token: string }>();
+  const { token: routeToken = '' } = useParams<{ token: string }>();
+  const [returnToken] = useState(() => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem('premiumCheckoutReturn') ?? 'null');
+      return saved && typeof saved.token === 'string' && saved.expires > Date.now() ? saved.token as string : '';
+    } catch { return ''; }
+  });
+  const token = routeToken || returnToken;
+  const location = useLocation();
+  const awaitingConfirmation = location.pathname.endsWith('/success');
+  const cancelled = location.pathname.endsWith('/cancel');
   const [portal, setPortal] = useState<PortalResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    void fetch(`/api/portal/${encodeURIComponent(token)}`, {
+    let active = true;
+    let timer: ReturnType<typeof setTimeout>;
+    let attempts = 0;
+    setPortal(null);
+    if (!token) {
+      setPortal({ success: false });
+      return;
+    }
+    async function refresh() {
+      try {
+        const response = await fetch(`/api/portal/${encodeURIComponent(token)}`, {
       cache: 'no-store',
       referrerPolicy: 'no-referrer',
-    })
-      .then(async (response) => {
+        });
+        if (response.status === 401 || response.status === 403 || response.status === 404) {
+          if (active) setPortal({ success: false });
+          return;
+        }
         if (!response.ok) throw new Error();
-        return (await response.json()) as PortalResponse;
-      })
-      .then(setPortal)
-      .catch(() => setPortal({ success: false }));
-  }, [token]);
+        const data = (await response.json()) as PortalResponse;
+        if (!active) return;
+        setPortal(data);
+        if (awaitingConfirmation && data.success && !data.restaurant?.premium && ++attempts < 30) {
+          timer = setTimeout(refresh, 3000);
+        }
+      } catch {
+        if (active) setError('Unable to load subscription status. Please refresh to try again.');
+      }
+    }
+    void refresh();
+    return () => { active = false; clearTimeout(timer); };
+  }, [token, awaitingConfirmation]);
 
   async function upgrade() {
     setLoading(true);
     setError('');
     try {
+      sessionStorage.setItem('premiumCheckoutReturn', JSON.stringify({
+        token, expires: Date.now() + 24 * 60 * 60 * 1000,
+      }));
       const response = await fetch('/api/premium/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -46,7 +80,7 @@ export default function PortalUpgradePage() {
         throw new Error(data.error ?? 'Premium checkout is unavailable.');
       }
       const checkoutUrl = new URL(data.url);
-      if (checkoutUrl.protocol !== 'https:' || !checkoutUrl.hostname.endsWith('stripe.com')) {
+      if (checkoutUrl.protocol !== 'https:' || checkoutUrl.hostname !== 'checkout.stripe.com') {
         throw new Error('The checkout destination was invalid.');
       }
       window.location.assign(checkoutUrl.href);
@@ -57,10 +91,11 @@ export default function PortalUpgradePage() {
   }
 
   if (!portal) {
+    if (error) return <div role="alert" className="p-6">{error}</div>;
     return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-7 w-7 animate-spin text-primary" /></div>;
   }
   if (!portal.success || !portal.restaurant) {
-    return <div className="flex min-h-screen items-center justify-center p-6">Invalid or expired login link.</div>;
+    return <div className="flex min-h-screen items-center justify-center p-6">Please reopen your secure owner portal link to check your subscription. Payment status is only shown to the listing owner.</div>;
   }
 
   return (
@@ -83,12 +118,15 @@ export default function PortalUpgradePage() {
             ) : (
               <>
                 <p className="text-muted-foreground">
-                  Upgrade your restaurant listing to the configured Premium subscription.
+                  {awaitingConfirmation
+                    ? 'Your checkout has returned. We are waiting for Stripe to confirm payment before activating Premium. You can safely return to your portal; please do not pay again.'
+                    : 'Upgrade your restaurant listing to Premium for £99 GBP per month.'}
                 </p>
-                <Button onClick={upgrade} disabled={loading}>
+                {cancelled && <p>Checkout was cancelled. Your existing listing is unchanged.</p>}
+                {!awaitingConfirmation && <Button onClick={upgrade} disabled={loading}>
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {loading ? 'Opening checkout…' : 'Upgrade Now'}
-                </Button>
+                </Button>}
               </>
             )}
             {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
