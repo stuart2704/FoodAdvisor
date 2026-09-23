@@ -37,6 +37,12 @@ th {
   color: #ffffff !important;
 }
 
+.admin-sidebar,
+.admin-nav,
+.admin-menu a {
+  color: #ffffff !important;
+}
+
 .hero {
   background: linear-gradient(135deg, #c63f00, #ff5a00);
   color: white;
