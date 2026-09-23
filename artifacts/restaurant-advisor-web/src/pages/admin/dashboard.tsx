@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { AdminLayout } from "../../components/admin/AdminLayout";
 import { RequireAdmin } from "../../components/admin/RequireAdmin";
+import ErrorLogPanel from "../../components/error-log-panel";
 import GmailAutomationPanel from "../../components/gmail-automation-panel";
 import OutreachPanel from "../../components/outreach-panel";
 import SummaryPanel from "../../components/summary-panel";
@@ -77,6 +78,7 @@ export default function AdminDashboard() {
           <SummaryPanel />
           <OutreachPanel />
           <GmailAutomationPanel />
+          <ErrorLogPanel />
         </div>
 
         <nav
