@@ -1,6 +1,14 @@
 import { useState } from "react";
 
-export default function OwnerDashboard() {
+interface OwnerDashboardProps {
+  token: string;
+  restaurantName: string;
+}
+
+export default function OwnerDashboard({
+  token,
+  restaurantName,
+}: OwnerDashboardProps) {
   const [seoText, setSeoText] = useState("");
   const [loading, setLoading] = useState(false);
   const [socialPosts, setSocialPosts] = useState("");
@@ -10,15 +18,12 @@ export default function OwnerDashboard() {
   function generateSEO() {
     setLoading(true);
 
-    fetch("https://the-food-advisor-api.onrender.com/ai/seo", {
+    fetch(`/api/portal/${encodeURIComponent(token)}/marketing/seo`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: "Your Restaurant Name",
-        city: "Your City",
-        cuisine: "Your Cuisine",
-        rating: 4.7
-      })
+      cache: "no-store",
+      referrerPolicy: "no-referrer",
+      body: JSON.stringify({})
     })
       .then(async res => {
         const data = await res.json();
@@ -36,15 +41,12 @@ export default function OwnerDashboard() {
     setLoadingSocial(true);
     setSocialPosts("");
 
-    fetch("https://the-food-advisor-api.onrender.com/ai/social", {
+    fetch(`/api/portal/${encodeURIComponent(token)}/marketing/social`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: "Your Restaurant Name",
-        city: "Your City",
-        cuisine: "Your Cuisine",
-        tone
-      })
+      cache: "no-store",
+      referrerPolicy: "no-referrer",
+      body: JSON.stringify({ tone })
     })
       .then(async res => {
         const data = await res.json();
@@ -62,8 +64,10 @@ export default function OwnerDashboard() {
 
   return (
     <div className="section">
-      <h1>Restaurant Owner Dashboard</h1>
-      <p>Manage your listing, add photos, menus, opening hours, and more.</p>
+      <h2 className="font-serif text-3xl font-semibold">Marketing tools</h2>
+      <p className="mt-2 text-muted-foreground">
+        Generate content using the verified listing for {restaurantName}.
+      </p>
 
       <div
         style={{

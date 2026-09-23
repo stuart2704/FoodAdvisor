@@ -290,17 +290,13 @@ test("failed generations clear their reservation and are never cached as content
   assert.equal(globalThis.__aiRouteState.openAiCalls, 2);
 });
 
-test("SEO keeps accepting its existing payload without a restaurant ID", async () => {
-  resetState();
-  const result = await post("/seo", {
-    name: "Example Restaurant",
-    city: "London",
-    cuisine: "Italian",
-    rating: 4.5,
-  });
-
-  assert.equal(result.statusCode, 200);
-  assert.equal(globalThis.__aiRouteState.openAiCalls, 1);
+test("owner marketing generation is not exposed on the public AI router", () => {
+  assert.equal(
+    bundled.router.stack.some((entry) =>
+      ["/seo", "/social"].includes(entry.route?.path),
+    ),
+    false,
+  );
 });
 
 test.after(async () => {

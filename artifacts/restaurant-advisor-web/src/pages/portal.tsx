@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { BarChart3, Camera, Crown, ListChecks, Loader2, UtensilsCrossed } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import OwnerDashboard from '@/components/OwnerDashboard';
 
 interface PortalResponse {
   success: boolean;
@@ -13,6 +14,7 @@ interface PortalResponse {
     website: string | null;
     onboardingStatus: string | null;
     premium: boolean;
+    marketingEligible: boolean;
   };
   error?: string;
 }
@@ -101,6 +103,9 @@ export default function PortalPage() {
             ),
           )}
         </div>
+        {restaurant.marketingEligible && (
+          <OwnerDashboard token={token} restaurantName={restaurant.name} />
+        )}
       </main>
     </div>
   );

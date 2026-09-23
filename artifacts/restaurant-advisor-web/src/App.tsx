@@ -2,7 +2,6 @@ import { AuthenticateWithRedirectCallback } from "@clerk/react";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import RestaurantDetail from "./components/RestaurantDetail";
-import OwnerDashboard from "./components/OwnerDashboard";
 import Trending from "./components/Trending";
 import Home from "./components/Home";
 import CityGuide from "./components/CityGuide";
@@ -57,7 +56,6 @@ function AppRoutes() {
         <Route path="/portal/:token/upgrade/cancel" element={<PortalUpgradePage />} />
         <Route path="/trending" element={<Trending />} />
         <Route path="/city-guide" element={<CityGuide />} />
-        <Route path="/owner" element={<OwnerDashboard />} />
         <Route path="/rewards" element={<RewardsPage />} />
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route
