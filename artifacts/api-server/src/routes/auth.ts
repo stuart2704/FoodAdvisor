@@ -79,9 +79,9 @@ router.post("/login", loginLimiter, async (req, res): Promise<void> => {
   try {
     const [emailMatches, passwordMatches] = await Promise.all([
       Promise.resolve(equalEmail(parsed.data.email, adminEmail)),
-      passwordHash
-        ? bcrypt.compare(parsed.data.password, passwordHash)
-        : Promise.resolve(equalPassword(parsed.data.password, adminPassword!)),
+      adminPassword
+        ? Promise.resolve(equalPassword(parsed.data.password, adminPassword))
+        : bcrypt.compare(parsed.data.password, passwordHash!),
     ]);
     if (!emailMatches || !passwordMatches) {
       res.status(401).json({ success: false, error: "Invalid email or password." });
