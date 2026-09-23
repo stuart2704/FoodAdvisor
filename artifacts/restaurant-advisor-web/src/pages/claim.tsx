@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { AlertCircle, ShieldCheck, UtensilsCrossed, Check, Loader2 } from 'lucide-react';
+import { AlertCircle, ShieldCheck, Check, Loader2 } from 'lucide-react';
 
 const formSchema = z.object({
   email: z.string().min(1, "Email is required").email("Please enter a valid email address"),
@@ -103,17 +103,10 @@ export default function ClaimRestaurant() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans flex flex-col selection:bg-primary/20 selection:text-primary">
-      {/* Header */}
-      <header className="bg-background/90 backdrop-blur-md border-b border-border px-6 py-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
-        <div className="flex items-center gap-3 max-w-6xl mx-auto w-full">
-          <div className="bg-primary text-primary-foreground p-2 rounded-lg shadow-sm">
-            <UtensilsCrossed className="h-5 w-5" />
-          </div>
-          <h1 className="font-serif text-2xl font-semibold tracking-tight">The Food Advisor</h1>
-        </div>
-      </header>
-
+    <div
+      className="min-h-screen font-sans flex flex-col selection:bg-primary/20 selection:text-primary"
+      style={{ background: '#fbf8f5', color: '#2d211d' }}
+    >
       <main className="flex-1 flex flex-col lg:flex-row items-center justify-center p-6 md:p-12 max-w-6xl mx-auto w-full gap-12 lg:gap-20">
         
         {/* Information Side */}
@@ -150,10 +143,15 @@ export default function ClaimRestaurant() {
 
         {/* Form Side */}
         <div className="w-full max-w-md animate-in fade-in slide-in-from-right-8 duration-700 delay-150 fill-mode-both">
-          <Card className="shadow-2xl border-card-border/60 bg-card/80 backdrop-blur-xl relative overflow-hidden">
+          <Card
+            className="shadow-2xl border-card-border/60 backdrop-blur-xl relative overflow-hidden"
+            style={{ background: 'rgba(255, 255, 255, 0.94)', color: '#2d211d' }}
+          >
             <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-primary via-primary/80 to-primary/40"></div>
             <CardHeader className="pb-6 pt-8 px-8">
-              <CardTitle className="text-2xl font-serif">Claim your free basic listing</CardTitle>
+              <CardTitle className="text-2xl font-serif" style={{ color: '#2d211d' }}>
+                Claim your free basic listing
+              </CardTitle>
               <CardDescription className="text-base mt-2">
                 Basic listing claims are free. Paid £99/month verification is currently unavailable.
               </CardDescription>
