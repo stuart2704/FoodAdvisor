@@ -2,7 +2,14 @@ import { db, engineHeartbeatsTable } from "@workspace/db";
 
 export type EngineStatus = "online" | "offline";
 
-const ONLINE_WINDOW_MS = 30_000;
+const DEFAULT_ONLINE_WINDOW_MS = 5 * 60_000;
+const ONLINE_WINDOWS_MS: Readonly<Record<string, number>> = {
+  api: 45_000,
+  database: 45_000,
+  queue: 45 * 60_000,
+  ai: 4 * 60 * 60_000,
+  automation: 4 * 60 * 60_000,
+};
 
 function normalizeEngine(engine: string): string {
   return engine
@@ -33,9 +40,19 @@ export async function getEngineStatuses(): Promise<
   return Object.fromEntries(
     rows.map((row) => [
       row.engine,
-      now - row.lastHeartbeat.getTime() < ONLINE_WINDOW_MS
-        ? "online"
-        : "offline",
+      getHeartbeatStatus(row.engine, row.lastHeartbeat, now),
     ]),
   );
+}
+
+export function getHeartbeatStatus(
+  engine: string,
+  lastHeartbeat: Date,
+  now = Date.now(),
+): EngineStatus {
+  const normalized = normalizeEngine(engine);
+  const onlineWindow =
+    ONLINE_WINDOWS_MS[normalized] ?? DEFAULT_ONLINE_WINDOW_MS;
+  const age = now - lastHeartbeat.getTime();
+  return age >= 0 && age < onlineWindow ? "online" : "offline";
 }

@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import updateGlobalMetrics from "../automation/globalMetrics";
 import { logger } from "../lib/logger";
+import { recordHeartbeat } from "../services/engineHeartbeat";
 
 let running = false;
 
@@ -13,6 +14,7 @@ export function startGlobalMetricsScheduler(): void {
     running = true;
     try {
       const metrics = await updateGlobalMetrics();
+      await recordHeartbeat("queue");
       logger.info(
         { updatedAt: metrics.updatedAt },
         "Global metrics snapshot recorded.",

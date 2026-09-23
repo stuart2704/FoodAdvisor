@@ -2,6 +2,7 @@ import cron from "node-cron";
 import outreachEngine from "../automation/outreachEngine";
 import { recordSchedulerRun } from "../dashboard/schedulerState";
 import { logger } from "../lib/logger";
+import { recordHeartbeat } from "../services/engineHeartbeat";
 
 const OUTREACH_RUN_TIME = "every 3 hours";
 const OUTREACH_RUN_CRON = "0 */3 * * *";
@@ -15,6 +16,12 @@ async function runScheduledDailyOutreach(): Promise<void> {
     const result = await outreachEngine();
     const outreach =
       result.outreach.status === "completed" ? result.outreach.result : null;
+    if (result.success) {
+      await Promise.all([
+        recordHeartbeat("ai"),
+        recordHeartbeat("automation"),
+      ]);
+    }
     recordSchedulerRun(
       "daily-outreach",
       startedAt,
