@@ -2,9 +2,11 @@ import {
   db,
   restaurantEventsTable,
   restaurantOffersTable,
+  restaurantChefProfilesTable,
+  chefPhotoUploadIntentsTable,
   restaurantsTable,
 } from "@workspace/db";
-import { and, asc, eq, gte } from "drizzle-orm";
+import { and, asc, eq, gte, gt, isNull, lt } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { validateToken } from "../services/portalTokenService";
@@ -18,6 +20,15 @@ import {
   seoLimiter,
   socialLimiter,
 } from "./ai";
+import {
+  CHEF_IMAGE_MAX_BYTES,
+  CHEF_IMAGE_TYPES,
+  createChefObjectPath,
+  createChefUploadUrl,
+  deleteChefObject,
+  finalizeChefObject,
+  streamChefObject,
+} from "../lib/chefObjectStorage";
 
 const router: IRouter = Router();
 const tokenParamsSchema = z.object({
@@ -111,6 +122,35 @@ const eventBodySchema = z
     }
   });
 
+const evidenceUrlSchema = z.string().trim().url().max(2_048);
+const chefBodySchema = z
+  .object({
+    name: z.string().trim().min(1).max(120).nullable(),
+    bio: z.string().trim().max(2_000).nullable(),
+    philosophy: z.string().trim().max(1_000).nullable(),
+    awards: z.array(z.string().trim().min(1).max(240)).max(8),
+    awardEvidenceUrls: z.array(evidenceUrlSchema).max(8),
+    signatureDishes: z.array(z.string().trim().min(1).max(180)).max(12),
+    dishEvidenceUrls: z.array(evidenceUrlSchema).max(12),
+    removePhoto: z.boolean().optional().default(false),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.awardEvidenceUrls.length > value.awards.length) {
+      context.addIssue({ code: "custom", path: ["awardEvidenceUrls"], message: "Evidence cannot exceed awards." });
+    }
+    if (value.dishEvidenceUrls.length > value.signatureDishes.length) {
+      context.addIssue({ code: "custom", path: ["dishEvidenceUrls"], message: "Evidence cannot exceed signature dishes." });
+    }
+  });
+const chefUploadSchema = z.object({
+  contentType: z.enum(CHEF_IMAGE_TYPES),
+  sizeBytes: z.number().int().positive().max(CHEF_IMAGE_MAX_BYTES),
+}).strict();
+const chefFinalizeSchema = chefUploadSchema.extend({
+  objectPath: z.string().regex(/^\/objects\/chef\/[0-9a-f-]{36}$/),
+}).strict();
+
 function setPortalPrivacyHeaders(res: {
   setHeader(name: string, value: string): unknown;
 }) {
@@ -134,6 +174,262 @@ function invalidPortalLink(res: {
 }) {
   res.status(404).json({ success: false, error: "Invalid or expired login link." });
 }
+
+function emptyChef() {
+  return {
+    name: null,
+    bio: null,
+    philosophy: null,
+    awards: [],
+    awardEvidenceUrls: [],
+    signatureDishes: [],
+    dishEvidenceUrls: [],
+    photoObjectPath: null,
+    photoMimeType: null,
+    photoSizeBytes: null,
+    moderationStatus: "pending",
+    verifiedAt: null,
+    rejectionReason: null,
+  };
+}
+
+function publicChef(row: typeof restaurantChefProfilesTable.$inferSelect | undefined) {
+  if (!row || row.moderationStatus !== "approved") return emptyChef();
+  return {
+    name: row.name,
+    bio: row.bio,
+    philosophy: row.philosophy,
+    awards: row.awards,
+    awardEvidenceUrls: row.awardEvidenceUrls,
+    signatureDishes: row.signatureDishes,
+    dishEvidenceUrls: row.dishEvidenceUrls,
+    photoObjectPath: row.photoObjectPath,
+    photoMimeType: row.photoMimeType,
+    photoSizeBytes: row.photoSizeBytes,
+    moderationStatus: row.moderationStatus,
+    verifiedAt: row.verifiedAt,
+    rejectionReason: null,
+  };
+}
+
+router.get("/portal/:token/chef", async (req, res): Promise<void> => {
+  setPortalPrivacyHeaders(res);
+  const params = tokenParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    invalidPortalLink(res);
+    return;
+  }
+  const placeId = await getVerifiedOwnerPlaceId(params.data.token);
+  if (!placeId) {
+    invalidPortalLink(res);
+    return;
+  }
+  const [chef] = await db
+    .select()
+    .from(restaurantChefProfilesTable)
+    .where(eq(restaurantChefProfilesTable.restaurantId, placeId))
+    .limit(1);
+  res.json({ success: true, chef: chef ?? emptyChef() });
+});
+
+router.get("/portal/:token/chef/photo", async (req, res): Promise<void> => {
+  setPortalPrivacyHeaders(res);
+  const params = tokenParamsSchema.safeParse(req.params);
+  if (!params.success) { invalidPortalLink(res); return; }
+  const placeId = await getVerifiedOwnerPlaceId(params.data.token);
+  if (!placeId) { invalidPortalLink(res); return; }
+  const [chef] = await db.select({ photoObjectPath: restaurantChefProfilesTable.photoObjectPath })
+    .from(restaurantChefProfilesTable)
+    .where(eq(restaurantChefProfilesTable.restaurantId, placeId)).limit(1);
+  if (!chef?.photoObjectPath) { res.status(404).json({ error: "Object not found." }); return; }
+  await streamChefObject(chef.photoObjectPath, res, "private, no-store");
+});
+
+router.put("/portal/:token/chef", async (req, res): Promise<void> => {
+  setPortalPrivacyHeaders(res);
+  const params = tokenParamsSchema.safeParse(req.params);
+  const body = chefBodySchema.safeParse(req.body);
+  if (!params.success) {
+    invalidPortalLink(res);
+    return;
+  }
+  if (!body.success) {
+    res.status(400).json({ success: false, error: body.error.issues[0]?.message ?? "Invalid chef profile." });
+    return;
+  }
+  const placeId = await getVerifiedOwnerPlaceId(params.data.token);
+  if (!placeId) {
+    invalidPortalLink(res);
+    return;
+  }
+  const [existing] = await db
+    .select({ photoObjectPath: restaurantChefProfilesTable.photoObjectPath, photoMimeType: restaurantChefProfilesTable.photoMimeType, photoSizeBytes: restaurantChefProfilesTable.photoSizeBytes })
+    .from(restaurantChefProfilesTable)
+    .where(eq(restaurantChefProfilesTable.restaurantId, placeId))
+    .limit(1);
+  const { removePhoto, ...chefData } = body.data;
+  const values = {
+    restaurantId: placeId,
+    ...chefData,
+    photoObjectPath: removePhoto ? null : existing?.photoObjectPath ?? null,
+    photoMimeType: removePhoto ? null : existing?.photoMimeType ?? null,
+    photoSizeBytes: removePhoto ? null : existing?.photoSizeBytes ?? null,
+    moderationStatus: "pending",
+    verifiedAt: null,
+    reviewedBy: null,
+    rejectionReason: null,
+  } as const;
+  const [chef] = existing
+    ? await db.update(restaurantChefProfilesTable).set(values).where(eq(restaurantChefProfilesTable.restaurantId, placeId)).returning()
+    : await db.insert(restaurantChefProfilesTable).values(values).returning();
+  if (removePhoto && existing?.photoObjectPath) {
+    try { await deleteChefObject(existing.photoObjectPath); } catch (error) {
+      req.log.warn({ err: error }, "Chef photo cleanup failed");
+    }
+  }
+  res.json({ success: true, chef });
+});
+
+router.delete("/portal/:token/chef", async (req, res): Promise<void> => {
+  setPortalPrivacyHeaders(res);
+  const params = tokenParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    invalidPortalLink(res);
+    return;
+  }
+  const placeId = await getVerifiedOwnerPlaceId(params.data.token);
+  if (!placeId) {
+    invalidPortalLink(res);
+    return;
+  }
+  const [chef] = await db.select({ photoObjectPath: restaurantChefProfilesTable.photoObjectPath })
+    .from(restaurantChefProfilesTable)
+    .where(eq(restaurantChefProfilesTable.restaurantId, placeId)).limit(1);
+  await db.delete(restaurantChefProfilesTable).where(eq(restaurantChefProfilesTable.restaurantId, placeId));
+  if (chef?.photoObjectPath) {
+    try { await deleteChefObject(chef.photoObjectPath); } catch (error) {
+      req.log.warn({ err: error }, "Chef photo cleanup failed");
+    }
+  }
+  res.json({ success: true });
+});
+
+router.post("/portal/:token/chef/photo/upload-intent", async (req, res): Promise<void> => {
+  setPortalPrivacyHeaders(res);
+  const params = tokenParamsSchema.safeParse(req.params);
+  const body = chefUploadSchema.safeParse(req.body);
+  if (!params.success) {
+    invalidPortalLink(res);
+    return;
+  }
+  if (!body.success) {
+    res.status(400).json({ success: false, error: "Only JPEG, PNG, and WebP images up to 5 MiB are accepted." });
+    return;
+  }
+  const placeId = await getVerifiedOwnerPlaceId(params.data.token);
+  if (!placeId) {
+    invalidPortalLink(res);
+    return;
+  }
+  await db.delete(chefPhotoUploadIntentsTable).where(
+    and(eq(chefPhotoUploadIntentsTable.restaurantId, placeId), lt(chefPhotoUploadIntentsTable.expiresAt, new Date())),
+  );
+  const active = await db.select({ id: chefPhotoUploadIntentsTable.id })
+    .from(chefPhotoUploadIntentsTable)
+    .where(and(eq(chefPhotoUploadIntentsTable.restaurantId, placeId), gt(chefPhotoUploadIntentsTable.expiresAt, new Date()), isNull(chefPhotoUploadIntentsTable.consumedAt)))
+    .limit(3);
+  if (active.length >= 3) {
+    res.status(429).json({ success: false, error: "Too many active photo uploads." });
+    return;
+  }
+  const objectPath = createChefObjectPath();
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+  let uploadUrl: string;
+  try {
+    uploadUrl = await createChefUploadUrl(objectPath, body.data.contentType, body.data.sizeBytes);
+    await db.insert(chefPhotoUploadIntentsTable).values({
+      objectPath, restaurantId: placeId, contentType: body.data.contentType,
+      sizeBytes: body.data.sizeBytes, expiresAt,
+    }).returning({ id: chefPhotoUploadIntentsTable.id });
+  } catch (error) {
+    req.log.warn({ err: error }, "Chef photo upload intent creation failed");
+    res.status(503).json({ success: false, error: "Photo uploads are temporarily unavailable." });
+    return;
+  }
+  res.status(201).json({
+    success: true,
+    objectPath,
+    uploadUrl,
+    uploadMethod: "PUT",
+    uploadHeaders: { "Content-Type": body.data.contentType },
+    expiresInSeconds: 900,
+  });
+});
+
+router.post("/portal/:token/chef/photo/finalize", async (req, res): Promise<void> => {
+  setPortalPrivacyHeaders(res);
+  const params = tokenParamsSchema.safeParse(req.params);
+  const body = chefFinalizeSchema.safeParse(req.body);
+  if (!params.success) {
+    invalidPortalLink(res);
+    return;
+  }
+  if (!body.success) {
+    res.status(400).json({ success: false, error: "Invalid photo upload." });
+    return;
+  }
+  const placeId = await getVerifiedOwnerPlaceId(params.data.token);
+  if (!placeId) {
+    invalidPortalLink(res);
+    return;
+  }
+  const [intent] = await db.update(chefPhotoUploadIntentsTable).set({ consumedAt: new Date() }).where(and(
+    eq(chefPhotoUploadIntentsTable.restaurantId, placeId),
+    eq(chefPhotoUploadIntentsTable.objectPath, body.data.objectPath),
+    eq(chefPhotoUploadIntentsTable.contentType, body.data.contentType),
+    eq(chefPhotoUploadIntentsTable.sizeBytes, body.data.sizeBytes),
+    isNull(chefPhotoUploadIntentsTable.consumedAt),
+    gt(chefPhotoUploadIntentsTable.expiresAt, new Date()),
+  )).returning();
+  if (!intent) {
+    res.status(400).json({ success: false, error: "Invalid, expired, or already-used photo upload." });
+    return;
+  }
+  try {
+    await finalizeChefObject(body.data.objectPath, body.data.contentType, body.data.sizeBytes, placeId);
+  } catch (error) {
+    req.log.warn({ err: error }, "Chef photo finalization failed");
+    res.status(400).json({ success: false, error: "The uploaded image could not be verified." });
+    return;
+  }
+  const [existing] = await db.select().from(restaurantChefProfilesTable).where(eq(restaurantChefProfilesTable.restaurantId, placeId)).limit(1);
+  const values = {
+    restaurantId: placeId,
+    name: existing?.name ?? null,
+    bio: existing?.bio ?? null,
+    philosophy: existing?.philosophy ?? null,
+    awards: existing?.awards ?? [],
+    awardEvidenceUrls: existing?.awardEvidenceUrls ?? [],
+    signatureDishes: existing?.signatureDishes ?? [],
+    dishEvidenceUrls: existing?.dishEvidenceUrls ?? [],
+    photoObjectPath: body.data.objectPath,
+    photoMimeType: body.data.contentType,
+    photoSizeBytes: body.data.sizeBytes,
+    moderationStatus: "pending",
+    verifiedAt: null,
+    reviewedBy: null,
+    rejectionReason: null,
+  } as const;
+  const [chef] = existing
+    ? await db.update(restaurantChefProfilesTable).set(values).where(eq(restaurantChefProfilesTable.restaurantId, placeId)).returning()
+    : await db.insert(restaurantChefProfilesTable).values(values).returning();
+  if (existing?.photoObjectPath && existing.photoObjectPath !== body.data.objectPath) {
+    try { await deleteChefObject(existing.photoObjectPath); } catch (error) {
+      req.log.warn({ err: error }, "Previous chef photo cleanup failed");
+    }
+  }
+  res.json({ success: true, chef });
+});
 
 async function getVerifiedMarketingDetails(token: string) {
   const placeId = await validateToken(token);

@@ -5,6 +5,7 @@ import {
   restaurantOffersTable,
   restaurantCollectionMembersTable,
   restaurantCollectionsTable,
+  restaurantChefProfilesTable,
   restaurantsTable,
 } from "@workspace/db";
 import { and, asc, eq, gte, inArray, lte } from "drizzle-orm";
@@ -107,6 +108,7 @@ export interface RestaurantProfile {
     awards: string[];
     philosophy: string | null;
     photo: string | null;
+    verifiedAt: Date | null;
   };
   googleMapsUrl: string;
   rating: number | null;
@@ -140,7 +142,7 @@ export async function getRestaurantProfile(
     .limit(1);
   if (!restaurant) return null;
   const today = new Date().toISOString().slice(0, 10);
-  const [menu, offers, events, collectionRows] = await Promise.all([
+  const [menu, chefRow, offers, events, collectionRows] = await Promise.all([
     db
       .select({
         id: restaurantMenuItemsTable.id,
@@ -155,6 +157,16 @@ export async function getRestaurantProfile(
         asc(restaurantMenuItemsTable.category),
         asc(restaurantMenuItemsTable.name),
       ),
+    db
+      .select()
+      .from(restaurantChefProfilesTable)
+      .where(
+        and(
+          eq(restaurantChefProfilesTable.restaurantId, restaurant.placeId),
+          eq(restaurantChefProfilesTable.moderationStatus, "approved"),
+        ),
+      )
+      .limit(1),
     restaurant.claimedAt
       ? db
           .select({
@@ -286,14 +298,27 @@ export async function getRestaurantProfile(
       ([, collection]) => collection,
     ),
     bestDishes: [],
-    chef: {
-      name: null,
-      bio: null,
-      signatureDishes: [],
-      awards: [],
-      philosophy: null,
-      photo: null,
-    },
+    chef: chefRow[0]
+      ? {
+          name: chefRow[0].name,
+          bio: chefRow[0].bio,
+          signatureDishes: chefRow[0].signatureDishes,
+          awards: chefRow[0].awards,
+          philosophy: chefRow[0].philosophy,
+          photo: chefRow[0].photoObjectPath
+            ? `/api/storage/objects/chef/${chefRow[0].photoObjectPath.split("/").at(-1)}`
+            : null,
+          verifiedAt: chefRow[0].verifiedAt,
+        }
+      : {
+          name: null,
+          bio: null,
+          signatureDishes: [],
+          awards: [],
+          philosophy: null,
+          photo: null,
+          verifiedAt: null,
+        },
     googleMapsUrl: restaurant.googleMapsUrl,
     rating: restaurant.rating,
     lat: restaurant.latitude,

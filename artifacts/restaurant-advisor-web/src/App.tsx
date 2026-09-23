@@ -15,6 +15,7 @@ import AdminLogout from "./pages/admin/logout";
 import AdminOutreach from "./pages/admin/outreach";
 import AdminPerformance from "./pages/admin/performance";
 import ManageRestaurantsPage from "./pages/admin-restaurants";
+import AdminChefReviewPage from "./pages/admin-chef-review";
 import ClaimRestaurant from "./pages/claim";
 import ClaimSuccessPage from "./pages/claim-success";
 import PortalPage from "./pages/portal";
@@ -75,6 +76,7 @@ function AppRoutes() {
         <Route path="/admin/errors" element={<AdminErrors />} />
         <Route path="/admin/outreach" element={<AdminOutreach />} />
         <Route path="/admin/restaurants" element={<ManageRestaurantsPage />} />
+        <Route path="/admin/chef-review" element={<AdminChefReviewPage />} />
         <Route path="/admin/logs" element={<AdminLogs />} />
       </Routes>
     </>

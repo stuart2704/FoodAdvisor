@@ -23,6 +23,35 @@ interface RestaurantEvent {
   price: string;
 }
 
+interface EvidenceItem {
+  value: string;
+  evidenceUrl: string;
+}
+
+interface ChefProfile {
+  name: string;
+  bio: string;
+  philosophy: string;
+  signatureDishes: EvidenceItem[];
+  awards: EvidenceItem[];
+  photo: string;
+  photoObjectPath?: string | null;
+  moderationStatus?: "pending" | "approved" | "rejected";
+  verifiedAt?: string | null;
+  rejectionReason?: string | null;
+}
+
+const emptyChef: ChefProfile = {
+  name: "",
+  bio: "",
+  philosophy: "",
+  signatureDishes: [],
+  awards: [],
+  photo: "",
+  photoObjectPath: null,
+};
+const CHEF_LIMITS = { name: 120, bio: 2000, philosophy: 1000, award: 240, dish: 180, evidence: 2048 };
+
 const emptyOffer = {
   title: "",
   description: "",
@@ -61,6 +90,13 @@ export default function OwnerDashboard({
   const [eventSaving, setEventSaving] = useState(false);
   const [eventMessage, setEventMessage] = useState("");
   const [eventError, setEventError] = useState("");
+  const [chef, setChef] = useState<ChefProfile>(emptyChef);
+  const [chefLoading, setChefLoading] = useState(true);
+  const [chefSaving, setChefSaving] = useState(false);
+  const [chefMessage, setChefMessage] = useState("");
+  const [chefError, setChefError] = useState("");
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [removePhoto, setRemovePhoto] = useState(false);
 
   const loadOffers = useCallback(async () => {
     setOfferLoading(true);
@@ -98,15 +134,193 @@ export default function OwnerDashboard({
     }
   }, [token]);
 
+  const loadChef = useCallback(async () => {
+    setChefLoading(true);
+    setChefError("");
+    try {
+      const response = await fetch(`/api/portal/${encodeURIComponent(token)}/chef`, {
+        cache: "no-store",
+        referrerPolicy: "no-referrer",
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Chef profile could not be loaded.");
+      const value = data.chef ?? data;
+      const normalizeItems = (items: unknown, evidence: unknown): EvidenceItem[] =>
+        Array.isArray(items)
+          ? items
+              .slice(0, 12)
+              .filter((item): item is string => typeof item === "string")
+              .map((item, index) => ({
+                value: item,
+                evidenceUrl: Array.isArray(evidence) && typeof evidence[index] === "string" ? evidence[index] : "",
+              }))
+          : [];
+      setChef({
+        name: typeof value.name === "string" ? value.name : "",
+        bio: typeof value.bio === "string" ? value.bio : "",
+        philosophy: typeof value.philosophy === "string" ? value.philosophy : "",
+        signatureDishes: normalizeItems(value.signatureDishes, value.dishEvidenceUrls),
+        awards: normalizeItems(value.awards, value.awardEvidenceUrls),
+        photo: typeof value.photoObjectPath === "string" ? `/api/portal/${encodeURIComponent(token)}/chef/photo` : "",
+        photoObjectPath: typeof value.photoObjectPath === "string" ? value.photoObjectPath : null,
+        moderationStatus: value.moderationStatus === "approved" || value.moderationStatus === "rejected" ? value.moderationStatus : "pending",
+        verifiedAt: typeof value.verifiedAt === "string" ? value.verifiedAt : null,
+        rejectionReason: typeof value.rejectionReason === "string" ? value.rejectionReason : null,
+      });
+    } catch (error) {
+      setChefError(error instanceof Error ? error.message : "Chef profile could not be loaded.");
+    } finally {
+      setChefLoading(false);
+    }
+  }, [token]);
+
   useEffect(() => {
     if (verified) {
       void loadOffers();
       void loadEvents();
+      void loadChef();
     } else {
       setOfferLoading(false);
       setEventLoading(false);
     }
-  }, [loadEvents, loadOffers, verified]);
+  }, [loadChef, loadEvents, loadOffers, verified]);
+
+  function updateChef<K extends keyof ChefProfile>(key: K, value: ChefProfile[K]) {
+    setChef((current) => ({ ...current, [key]: value }));
+    setChefMessage("");
+    setChefError("");
+  }
+
+  function updateChefItem(
+    key: "signatureDishes" | "awards",
+    index: number,
+    field: keyof EvidenceItem,
+    value: string,
+  ) {
+    setChef((current) => ({
+      ...current,
+      [key]: current[key].map((item, itemIndex) => itemIndex === index ? { ...item, [field]: value } : item),
+    }));
+  }
+
+  function addChefItem(key: "signatureDishes" | "awards") {
+    if (chef[key].length >= (key === "awards" ? 8 : 12)) return;
+    updateChef(key, [...chef[key], { value: "", evidenceUrl: "" }]);
+  }
+
+  function removeChefItem(key: "signatureDishes" | "awards", index: number) {
+    updateChef(key, chef[key].filter((_, itemIndex) => itemIndex !== index));
+  }
+
+  async function uploadChefPhoto(file: File) {
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setChefError("Chef photos must be JPEG, PNG, or WebP images.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setChefError("Chef photos must be 5 MiB or smaller.");
+      return;
+    }
+    setPhotoUploading(true);
+    setChefError("");
+    try {
+      const intentResponse = await fetch(`/api/portal/${encodeURIComponent(token)}/chef/photo/upload-intent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contentType: file.type, sizeBytes: file.size }),
+      });
+      const intent = await intentResponse.json();
+      if (!intentResponse.ok || !intent.uploadUrl || intent.uploadMethod !== "PUT" || !intent.uploadHeaders) {
+        throw new Error(intent.error || "Photo upload could not be started.");
+      }
+      const uploadResponse = await fetch(intent.uploadUrl, {
+        method: intent.uploadMethod,
+        headers: intent.uploadHeaders,
+        body: file,
+      });
+      if (!uploadResponse.ok) throw new Error("Photo upload failed. Please try again.");
+      const finalizeResponse = await fetch(`/api/portal/${encodeURIComponent(token)}/chef/photo/finalize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ objectPath: intent.objectPath, contentType: file.type, sizeBytes: file.size }),
+      });
+      const finalized = await finalizeResponse.json();
+      if (!finalizeResponse.ok) throw new Error(finalized.error || "Photo could not be attached.");
+      const finalizedChef = finalized.chef ?? finalized;
+      updateChef("photo", typeof finalizedChef.photoObjectPath === "string" ? `/api/portal/${encodeURIComponent(token)}/chef/photo` : "");
+      setChef((current) => ({ ...current, photoObjectPath: finalizedChef.photoObjectPath ?? null }));
+      setRemovePhoto(false);
+      setChefMessage("Photo uploaded. Save the profile to submit it for review.");
+    } catch (error) {
+      setChefError(error instanceof Error ? error.message : "Photo upload failed.");
+    } finally {
+      setPhotoUploading(false);
+    }
+  }
+
+  async function saveChef(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const items = [...chef.signatureDishes, ...chef.awards];
+    if (!chef.name.trim() && !chef.bio.trim() && !chef.philosophy.trim() && items.length === 0 && !chef.photo) {
+      setChefError("Add at least one chef detail before saving.");
+      return;
+    }
+    if (items.some((item) => !item.value.trim() || !item.evidenceUrl.trim())) {
+      setChefError("Every award and signature dish needs an attributable evidence URL.");
+      return;
+    }
+    setChefSaving(true);
+    setChefError("");
+    setChefMessage("");
+    try {
+      const response = await fetch(`/api/portal/${encodeURIComponent(token)}/chef`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({
+          name: chef.name.trim() || null,
+          bio: chef.bio.trim() || null,
+          philosophy: chef.philosophy.trim() || null,
+          signatureDishes: chef.signatureDishes.map((item) => item.value.trim()),
+          dishEvidenceUrls: chef.signatureDishes.map((item) => item.evidenceUrl.trim()),
+          awards: chef.awards.map((item) => item.value.trim()),
+          awardEvidenceUrls: chef.awards.map((item) => item.evidenceUrl.trim()),
+          removePhoto,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Chef profile could not be saved.");
+      const result = data.chef ?? data;
+      setChef((current) => ({ ...current, moderationStatus: result.moderationStatus ?? "pending", verifiedAt: result.verifiedAt ?? null, rejectionReason: result.rejectionReason ?? null, photoObjectPath: removePhoto ? null : current.photoObjectPath, photo: removePhoto ? "" : current.photo }));
+      setRemovePhoto(false);
+      setChefMessage(result.moderationStatus === "approved" ? "Chef profile updated." : "Chef profile submitted for admin review.");
+    } catch (error) {
+      setChefError(error instanceof Error ? error.message : "Chef profile could not be saved.");
+    } finally {
+      setChefSaving(false);
+    }
+  }
+
+  async function removeChef() {
+    if (!window.confirm("Remove this chef profile from your listing?")) return;
+    setChefSaving(true);
+    setChefError("");
+    try {
+      const response = await fetch(`/api/portal/${encodeURIComponent(token)}/chef`, {
+        method: "DELETE",
+        cache: "no-store",
+        referrerPolicy: "no-referrer",
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Chef profile could not be removed.");
+      setChef(emptyChef);
+      setChefMessage("Chef profile removed from review and the public listing.");
+    } catch (error) {
+      setChefError(error instanceof Error ? error.message : "Chef profile could not be removed.");
+    } finally {
+      setChefSaving(false);
+    }
+  }
 
   async function saveOffer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -262,6 +476,70 @@ export default function OwnerDashboard({
       <p className="mt-2 text-muted-foreground">
         Generate content using the verified listing for {restaurantName}.
       </p>
+
+      {verified && <div className="mt-10 rounded-2xl bg-white p-6">
+        <h2 className="text-2xl font-semibold">Chef profile</h2>
+        <p className="mt-2 text-muted-foreground">
+          Share facts you can substantiate. Awards and signature dishes stay hidden until an administrator verifies them.
+        </p>
+        {chefLoading ? <p className="mt-6">Loading chef profile…</p> : <form onSubmit={saveChef} className="mt-6 grid gap-4">
+          <label className="grid gap-1">
+            <span className="font-medium">Chef name</span>
+            <input maxLength={CHEF_LIMITS.name} value={chef.name} onChange={(event) => updateChef("name", event.target.value)} className="rounded-lg border px-3 py-2" />
+          </label>
+          <label className="grid gap-1">
+            <span className="font-medium">Biography</span>
+            <textarea maxLength={CHEF_LIMITS.bio} rows={4} value={chef.bio} onChange={(event) => updateChef("bio", event.target.value)} className="rounded-lg border px-3 py-2" />
+            <span className="text-xs text-muted-foreground">{chef.bio.length}/{CHEF_LIMITS.bio}</span>
+          </label>
+          <label className="grid gap-1">
+            <span className="font-medium">Cooking philosophy</span>
+            <textarea maxLength={CHEF_LIMITS.philosophy} rows={3} value={chef.philosophy} onChange={(event) => updateChef("philosophy", event.target.value)} className="rounded-lg border px-3 py-2" />
+          </label>
+          {(["signatureDishes", "awards"] as const).map((key) => (
+            <fieldset key={key} className="grid gap-3 rounded-xl border p-4">
+              <legend className="px-1 font-semibold">{key === "awards" ? "Awards" : "Signature dishes"}</legend>
+              <p className="text-sm text-muted-foreground">Each item needs a public source that helps our team verify it.</p>
+              {chef[key].map((item, index) => (
+                <div key={`${key}-${index}`} className="grid gap-2 rounded-lg bg-muted/40 p-3 sm:grid-cols-[1fr_1fr_auto]">
+                  <input required maxLength={key === "awards" ? CHEF_LIMITS.award : CHEF_LIMITS.dish} aria-label={`${key === "awards" ? "Award" : "Signature dish"} ${index + 1}`} placeholder={key === "awards" ? "Award or recognition" : "Dish name"} value={item.value} onChange={(event) => updateChefItem(key, index, "value", event.target.value)} className="rounded-lg border px-3 py-2" />
+                  <input required type="url" maxLength={CHEF_LIMITS.evidence} aria-label="Evidence URL" placeholder="Evidence URL (https://…)" value={item.evidenceUrl} onChange={(event) => updateChefItem(key, index, "evidenceUrl", event.target.value)} className="rounded-lg border px-3 py-2" />
+                  <button type="button" onClick={() => removeChefItem(key, index)} className="rounded-lg border px-3 py-2 text-red-700">Remove</button>
+                </div>
+              ))}
+              <button type="button" onClick={() => addChefItem(key)} disabled={chef[key].length >= (key === "awards" ? 8 : 12)} className="w-fit rounded-lg border px-4 py-2 font-medium disabled:opacity-50">
+                Add {key === "awards" ? "award" : "dish"}
+              </button>
+            </fieldset>
+          ))}
+          <div className="grid gap-2">
+            <label htmlFor="chef-photo" className="font-medium">Chef photo</label>
+            <input id="chef-photo" type="file" accept="image/jpeg,image/png,image/webp" disabled={photoUploading} onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void uploadChefPhoto(file);
+              event.currentTarget.value = "";
+            }} />
+            <span className="text-xs text-muted-foreground">JPEG, PNG, or WebP, up to 5 MiB.</span>
+            {chef.photo && !removePhoto && <div className="flex items-center gap-3">
+              <img src={chef.photo} alt="Current chef profile" className="h-20 w-20 rounded-xl object-cover" />
+              <button type="button" onClick={() => { setRemovePhoto(true); setChefMessage("Photo removal will take effect when you save the profile."); }} className="text-sm font-medium text-red-700">Remove photo</button>
+            </div>}
+            {removePhoto && <p className="text-sm text-muted-foreground">Photo marked for removal. Save the profile to apply this change.</p>}
+          </div>
+          {chef.moderationStatus && <p className="rounded-lg bg-muted/50 px-3 py-2 text-sm" role="status">
+            Status: <strong>{chef.moderationStatus}</strong>. {chef.moderationStatus === "pending" ? "An administrator must review changes before they appear publicly." : chef.moderationStatus === "rejected" ? "Please correct the details and resubmit." : "This profile is approved for public display."}
+          </p>}
+          {chef.rejectionReason && <p className="text-sm text-red-700" role="alert">Review feedback: {chef.rejectionReason}</p>}
+          {chefMessage && <p className="text-sm text-green-700" role="status">{chefMessage}</p>}
+          {chefError && <p className="text-sm text-red-700" role="alert">{chefError}</p>}
+          <div className="flex flex-wrap gap-3">
+            <button type="submit" disabled={chefSaving || photoUploading} className="rounded-lg bg-[#d94800] px-5 py-3 font-medium text-white disabled:opacity-60">
+              {chefSaving ? "Saving…" : "Save chef profile"}
+            </button>
+            {(chef.name || chef.bio || chef.philosophy || chef.photo || chef.signatureDishes.length || chef.awards.length) ? <button type="button" disabled={chefSaving} onClick={() => void removeChef()} className="rounded-lg border px-5 py-3 font-medium text-red-700">Remove profile</button> : null}
+          </div>
+        </form>}
+      </div>}
 
       {verified && <div className="mt-10 rounded-2xl bg-white p-6">
         <h2 className="text-2xl font-semibold">Time-limited offers</h2>

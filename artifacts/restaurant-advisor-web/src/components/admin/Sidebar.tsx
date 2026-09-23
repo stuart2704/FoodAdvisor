@@ -6,6 +6,7 @@ const sections = [
   { to: "/admin/errors", label: "Errors" },
   { to: "/admin/outreach", label: "Outreach" },
   { to: "/admin/restaurants", label: "Restaurants" },
+  { to: "/admin/chef-review", label: "Chef review" },
   { to: "/admin/logs", label: "Logs" },
 ] as const;
 

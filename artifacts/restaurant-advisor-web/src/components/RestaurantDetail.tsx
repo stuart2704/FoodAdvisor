@@ -14,10 +14,20 @@ function formatPrice(level: string | null) {
   );
 }
 
+interface ChefProfile {
+  name: string | null;
+  bio: string | null;
+  philosophy: string | null;
+  photo: string | null;
+  signatureDishes: string[];
+  awards: string[];
+  verifiedAt: string | null;
+  status?: string;
+}
 export default function RestaurantDetail() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
-  const [restaurant, setRestaurant] = useState<any>(null);
+  const [restaurant, setRestaurant] = useState<RestaurantData | null>(null);
   const [aiDescription, setAiDescription] = useState("");
   const [reviews, setReviews] = useState<any[]>([]);
   const [hours, setHours] = useState<string[]>([]);
@@ -58,7 +68,7 @@ export default function RestaurantDetail() {
       if (!response.ok) {
         throw new Error(data.error || "The claim could not be submitted.");
       }
-      setRestaurant((current: any) => ({ ...current, claimed: true }));
+       setRestaurant((current) => current ? { ...current, claimed: true } : current);
       window.alert("Your restaurant claim has been verified.");
     } catch (error) {
       window.alert(
@@ -81,7 +91,10 @@ export default function RestaurantDetail() {
       })
       .then(payload => {
         const match = payload.data ?? payload;
-        setRestaurant(match);
+        if (match && typeof match === "object") {
+          const value = match as RestaurantData;
+          setRestaurant({ ...value, chef: normalizeChef(value.chef) });
+        }
         if (match?.id) {
           fetch("/ai/describe", {
             method: "POST",
@@ -346,9 +359,9 @@ export default function RestaurantDetail() {
 
       <div style={{ marginBottom: "20px" }}>
         <strong>Website:</strong>{" "}
-        <a href={restaurant.website} target="_blank" rel="noreferrer">
+        {restaurant.website ? <a href={restaurant.website} target="_blank" rel="noreferrer">
           {restaurant.website}
-        </a>
+        </a> : "Not available"}
       </div>
 
       <div style={{ marginBottom: "20px" }}>
@@ -556,6 +569,16 @@ export default function RestaurantDetail() {
             {restaurant.chef.name && (
               <h3 style={{ marginTop: "16px" }}>{restaurant.chef.name}</h3>
             )}
+            {restaurant.chef.verifiedAt && (
+              <p style={{ color: "#55704f", fontSize: "0.9rem", fontWeight: 600 }}>
+                Verified by The Food Advisor on{" "}
+                {new Date(restaurant.chef.verifiedAt).toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })}
+              </p>
+            )}
             {restaurant.chef.bio && <p>{restaurant.chef.bio}</p>}
 
             {restaurant.chef.signatureDishes?.length > 0 && (
@@ -690,4 +713,45 @@ export default function RestaurantDetail() {
       )}
     </div>
   );
+}
+
+function normalizeChef(value: unknown): ChefProfile | null {
+  if (!value || typeof value !== "object") return null;
+  const chef = value as Record<string, unknown>;
+  const items = (candidate: unknown): string[] =>
+    Array.isArray(candidate)
+      ? candidate
+          .map((item) => typeof item === "string" ? item : item && typeof item === "object" && typeof (item as Record<string, unknown>).value === "string" ? (item as Record<string, string>).value : "")
+          .filter(Boolean)
+          .slice(0, 10)
+      : [];
+  const stringOrNull = (candidate: unknown) => typeof candidate === "string" && candidate.trim() ? candidate : null;
+  return {
+    name: stringOrNull(chef.name),
+    bio: stringOrNull(chef.bio),
+    philosophy: stringOrNull(chef.philosophy),
+    photo: stringOrNull(chef.photo),
+    signatureDishes: items(chef.signatureDishes),
+    awards: items(chef.awards),
+    verifiedAt: typeof chef.verifiedAt === "string" ? chef.verifiedAt : null,
+    status: typeof chef.status === "string" ? chef.status : undefined,
+  };
+}
+
+interface RestaurantData {
+  id: string;
+  name: string;
+  city: string;
+  address: string;
+  website: string | null;
+  bookingUrl: string | null;
+  googleMapsUrl: string;
+  rating: number | null;
+  claimed: boolean;
+  badges?: string[];
+  offers?: Array<{ title: string; description: string; startDate: string; endDate: string }>;
+  events?: Array<{ title: string; description: string; date: string; time: string; price: string }>;
+  bestDishes?: Array<{ name: string; description: string; reason: string }>;
+  chef?: ChefProfile | null;
+  [key: string]: unknown;
 }

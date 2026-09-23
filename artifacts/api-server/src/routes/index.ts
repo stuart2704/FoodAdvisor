@@ -39,6 +39,7 @@ import photoRouter from "./photo";
 import googleReviewsRouter from "./google-reviews";
 import betterContactRouter from "./betterContact";
 import collectionsRouter from "./collections";
+import chefStorageRouter from "./chefStorage";
 
 const router: IRouter = Router();
 
@@ -82,5 +83,6 @@ router.use(photoRouter);
 router.use(googleReviewsRouter);
 router.use(betterContactRouter);
 router.use(collectionsRouter);
+router.use(chefStorageRouter);
 
 export default router;

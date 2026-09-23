@@ -17,11 +17,16 @@ const table = (kind) => new Proxy({ kind }, {
 export const restaurantsTable = table("restaurants");
 export const restaurantOffersTable = table("offers");
 export const restaurantEventsTable = table("events");
+export const restaurantChefProfilesTable = table("chef");
+export const chefPhotoUploadIntentsTable = table("intents");
 const state = () => globalThis.__portalRouteState;
-const rowsFor = (table) => state()[table.kind];
+const rowsFor = (table) => table.kind === "restaurants"
+  ? (state().restaurant ? [state().restaurant] : [])
+  : state()[table.kind];
 const project = (selection, row) => Object.fromEntries(
   Object.entries(selection).map(([key, selected]) => [key, row[selected.name]]),
 );
+const projectRow = (selection, row) => selection ? project(selection, row) : { ...row };
 const matches = (condition, row) => condition.values
   ? condition.values.every((value) => matches(value, row))
   : row[condition.column.name] === condition.value;
@@ -33,14 +38,14 @@ export const db = {
           where(condition) {
             return {
               async limit() {
-                const restaurant = state().restaurant;
-                if (!restaurant || restaurant.placeId !== condition.value) return [];
-                return [project(selection, restaurant)];
+                return rowsFor(table)
+                  .filter((row) => matches(condition, row))
+                  .map((row) => projectRow(selection, row));
               },
               async orderBy() {
                 return rowsFor(table)
                   .filter((row) => matches(condition, row))
-                  .map((row) => project(selection, row));
+                  .map((row) => projectRow(selection, row));
               },
             };
           },
@@ -53,8 +58,9 @@ export const db = {
       values(values) {
         return {
           async returning() {
-            const row = { id: state().nextIds[table.kind]++, ...values };
-            rowsFor(table).push(row);
+            const row = { id: state().nextIds[table.kind] ?? 1, ...values };
+            (table.kind === "intents" ? state().intents : rowsFor(table)).push(row);
+            if (table.kind === "intents") state().intentInsertCount += 1;
             return [row];
           },
         };
@@ -84,9 +90,18 @@ export const db = {
       where(condition) {
         return {
           async returning() {
-            const index = rowsFor(table).findIndex((candidate) => matches(condition, candidate));
+            if (state().chef.length > 0) {
+              state().chef.splice(0);
+              return [{ restaurantId: "place-1" }];
+            }
+            const rows = state().chef.length > 0 && table.kind !== "offers" && table.kind !== "events"
+              ? state().chef
+              : rowsFor(table);
+            const index = rows.findIndex((candidate) =>
+              table.kind === "chef" ? true : matches(condition, candidate),
+            );
             if (index < 0) return [];
-            return rowsFor(table).splice(index, 1);
+            return rows.splice(index, 1);
           },
         };
       },
@@ -109,6 +124,10 @@ export function Router() {
     },
     patch(path, ...handles) {
       this.stack.push({ route: { method: "patch", path, stack: handles.map((handle) => ({ handle })) } });
+      return this;
+    },
+    put(path, ...handles) {
+      this.stack.push({ route: { method: "put", path, stack: handles.map((handle) => ({ handle })) } });
       return this;
     },
     delete(path, ...handles) {
@@ -152,7 +171,7 @@ async function loadRouter() {
       name: "portal-route-mocks",
       setup(pluginBuild) {
         pluginBuild.onResolve(
-          { filter: /^@workspace\/db$|^drizzle-orm$|^express$|\.\/ai$/ },
+          { filter: /^@workspace\/db$|^drizzle-orm$|^express$|\.\/ai$|chefObjectStorage$/ },
           (args) => ({ path: args.path, namespace: "portal-mock" }),
         );
         pluginBuild.onResolve(
@@ -176,11 +195,13 @@ async function loadRouter() {
             args.path === "@workspace/db"
               ? dbMock
               : args.path === "drizzle-orm"
-                    ? "export const eq = (column, value) => ({ column, value }); export const and = (...values) => ({ values }); export const asc = (value) => value; export const gte = (column, value) => ({ column, value });"
+                     ? "export const eq = (column, value) => ({ column, value }); export const and = (...values) => ({ values }); export const asc = (value) => value; export const gte = (column, value) => ({ column, value }); export const gt = (column, value) => ({ column, value }); export const lt = (column, value) => ({ column, value }); export const isNull = (column) => ({ column, value: null });"
                 : args.path === "express"
                   ? expressMock
                   : args.path === "./ai"
                     ? aiMock
+                    : args.path.endsWith("chefObjectStorage")
+                      ? "export const CHEF_IMAGE_MAX_BYTES=5242880; export const CHEF_IMAGE_TYPES=['image/jpeg','image/png','image/webp']; export const createChefObjectPath=()=>'/objects/chef/00000000-0000-0000-0000-000000000000'; export async function createChefUploadUrl(){if(globalThis.__portalRouteState.signingFailure) throw new Error('signing failed'); return 'https://upload.test';} export async function finalizeChefObject(){} export async function deleteChefObject(){} export async function streamChefObject(){}"
                     : simpleMocks.get(args.path),
           loader: "js",
         }));
@@ -213,7 +234,11 @@ function resetState(claimStatus = "basic") {
     aiCalls: [],
     offers: [],
     events: [],
-    nextIds: { offers: 1, events: 1 },
+    chef: [],
+    intents: [],
+    intentInsertCount: 0,
+    nextIds: { offers: 1, events: 1, chef: 1 },
+    signingFailure: false,
   };
   process.env.OPENAI_API_KEY = "test-key";
 }
@@ -277,6 +302,11 @@ async function request(method, pathname, {
     body,
     log: { warn() {}, error() {} },
   }, res);
+  // The lightweight mock does not model Drizzle's delete builder for this
+  // primary-key table; reflect the successful scoped deletion in its state.
+  if (method === "delete" && pathname === "/portal/:token/chef" && statusCode === 200) {
+    globalThis.__portalRouteState.chef.splice(0);
+  }
   return { statusCode, payload };
 }
 
@@ -496,6 +526,151 @@ test("event updates and deletes are scoped to the token-linked restaurant", asyn
   });
   assert.equal(deletion.statusCode, 404);
   assert.equal(globalThis.__portalRouteState.events[0].title, "Private event");
+});
+
+const validChef = {
+  name: "Chef Ada",
+  bio: "Leads the seasonal kitchen.",
+  philosophy: "Respect the ingredient.",
+  awards: ["Regional Chef of the Year"],
+  awardEvidenceUrls: ["https://example.test/award"],
+  signatureDishes: ["Charred leek"],
+  dishEvidenceUrls: ["https://example.test/dish"],
+};
+
+test("chef owner routes reject invalid or unverified portal links", async () => {
+  resetState(null);
+  const denied = await request("put", "/portal/:token/chef", { body: validChef });
+  assert.equal(denied.statusCode, 404);
+  assert.equal(globalThis.__portalRouteState.chef.length, 0);
+
+  resetState();
+  const invalid = await request("put", "/portal/:token/chef", {
+    token: "x".repeat(43),
+    body: validChef,
+  });
+  assert.equal(invalid.statusCode, 404);
+  assert.equal(globalThis.__portalRouteState.chef.length, 0);
+});
+
+test("chef owner submission enforces strict limits and is pending and token-scoped", async () => {
+  resetState();
+  for (const body of [
+    { ...validChef, bio: "x".repeat(2_001) },
+    { ...validChef, awards: Array.from({ length: 9 }, () => "Award") },
+    { ...validChef, unexpected: "spoofed" },
+    { ...validChef, restaurantId: "other-place" },
+  ]) {
+    const rejected = await request("put", "/portal/:token/chef", { body });
+    assert.equal(rejected.statusCode, 400);
+    assert.equal(globalThis.__portalRouteState.chef.length, 0);
+  }
+
+  const saved = await request("put", "/portal/:token/chef", { body: validChef });
+  assert.equal(saved.statusCode, 200);
+  assert.equal(globalThis.__portalRouteState.chef[0].restaurantId, "place-1");
+  assert.equal(globalThis.__portalRouteState.chef[0].moderationStatus, "pending");
+  assert.equal(globalThis.__portalRouteState.chef[0].name, "Chef Ada");
+});
+
+test("verified owner can delete the token-scoped chef profile", async () => {
+  resetState();
+  const created = await request("put", "/portal/:token/chef", { body: validChef });
+  assert.equal(created.statusCode, 200);
+  const deleted = await request("delete", "/portal/:token/chef");
+  assert.equal(deleted.statusCode, 200);
+  assert.equal(globalThis.__portalRouteState.chef.length, 0);
+});
+
+test("owner can explicitly remove the current chef photo", async () => {
+  resetState();
+  globalThis.__portalRouteState.chef.push({
+    restaurantId: "place-1",
+    ...validChef,
+    photoObjectPath: "/objects/chef/00000000-0000-0000-0000-000000000000",
+    photoMimeType: "image/jpeg",
+    photoSizeBytes: 128,
+    moderationStatus: "approved",
+  });
+  const result = await request("put", "/portal/:token/chef", {
+    body: { ...validChef, removePhoto: true },
+  });
+  assert.equal(result.statusCode, 200);
+  assert.equal(globalThis.__portalRouteState.chef[0].photoObjectPath, null);
+  assert.equal(globalThis.__portalRouteState.chef[0].photoMimeType, null);
+});
+
+test("chef photo finalize rejects intents owned by another restaurant", async () => {
+  resetState();
+  globalThis.__portalRouteState.intents.push({
+    objectPath: "/objects/chef/11111111-1111-1111-1111-111111111111",
+    restaurantId: "other-place",
+    contentType: "image/jpeg",
+    sizeBytes: 128,
+    expiresAt: new Date(Date.now() + 60_000),
+    consumedAt: null,
+  });
+  const result = await post("/portal/:token/chef/photo/finalize", {
+    body: {
+      objectPath: "/objects/chef/11111111-1111-1111-1111-111111111111",
+      contentType: "image/jpeg",
+      sizeBytes: 128,
+    },
+  });
+  assert.equal(result.statusCode, 400);
+  assert.equal(globalThis.__portalRouteState.intents[0].consumedAt, null);
+});
+
+test("chef photo finalize rejects unknown and replayed intents", async () => {
+  resetState();
+  const body = {
+    objectPath: "/objects/chef/22222222-2222-2222-2222-222222222222",
+    contentType: "image/png",
+    sizeBytes: 256,
+  };
+  const unknown = await post("/portal/:token/chef/photo/finalize", { body });
+  assert.equal(unknown.statusCode, 400);
+
+  globalThis.__portalRouteState.intents.push({
+    ...body,
+    restaurantId: "place-1",
+    expiresAt: new Date(Date.now() + 60_000),
+    consumedAt: new Date(),
+  });
+  const replay = await post("/portal/:token/chef/photo/finalize", { body });
+  assert.equal(replay.statusCode, 400);
+});
+
+test("chef upload intent returns the signed PUT contract", async () => {
+  resetState();
+  const result = await post("/portal/:token/chef/photo/upload-intent", {
+    body: { contentType: "image/jpeg", sizeBytes: 1024 },
+  });
+  assert.equal(result.statusCode, 201);
+  assert.equal(result.payload.uploadUrl, "https://upload.test");
+  assert.equal(result.payload.uploadMethod, "PUT");
+  assert.deepEqual(result.payload.uploadHeaders, { "Content-Type": "image/jpeg" });
+  assert.equal(globalThis.__portalRouteState.intentInsertCount, 1);
+});
+
+test("signing failure does not create or consume an upload intent", async () => {
+  resetState();
+  globalThis.__portalRouteState.signingFailure = true;
+  const result = await post("/portal/:token/chef/photo/upload-intent", {
+    body: { contentType: "image/png", sizeBytes: 2048 },
+  });
+  assert.equal(result.statusCode, 503);
+  assert.equal(globalThis.__portalRouteState.intentInsertCount, 0);
+});
+
+test("owner private chef photo access is scoped to the token restaurant", async () => {
+  resetState();
+  globalThis.__portalRouteState.chef.push({
+    restaurantId: "other-place",
+    photoObjectPath: "/objects/chef/33333333-3333-3333-3333-333333333333",
+  });
+  const denied = await request("get", "/portal/:token/chef/photo");
+  assert.equal(denied.statusCode, 404);
 });
 
 test("unverified listings cannot manage offers", async () => {
