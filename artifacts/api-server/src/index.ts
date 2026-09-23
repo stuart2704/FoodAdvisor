@@ -8,6 +8,7 @@ import { startDailyRankingScheduler } from "./cron/dailyRankings";
 import { startAnalyticsRollupScheduler } from "./cron/analyticsRollup";
 import { startGlobalMetricsScheduler } from "./cron/globalMetrics";
 import { startOperationalLogCleanup } from "./cron/operationalLogCleanup";
+import { startBetterContactScheduler } from "./cron/betterContact";
 
 const rawPort = process.env["PORT"];
 
@@ -39,5 +40,6 @@ app.listen(port, (err) => {
   startAnalyticsRollupScheduler();
   startGlobalMetricsScheduler();
   startOperationalLogCleanup();
+  startBetterContactScheduler();
   logger.info("Stripe access, managed webhook, and catalog sync initialized.");
 });
