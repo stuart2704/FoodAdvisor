@@ -18,68 +18,96 @@
   --ring: 18 100% 45%;
 }
 
+/* --------------------------------------------------
+   GLOBAL
+-------------------------------------------------- */
+
 body {
+  background: #0d0d0d;
+  color: #ffffff;
+  font-family: Inter, system-ui, sans-serif;
   margin: 0;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  background: #fdf8f3;
-  color: #1a1a1a;
+  padding: 0;
 }
 
-body,
-.admin-body,
-.admin-content {
-  color: #ffffff !important;
+.admin-container {
+  padding: 30px;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
-table,
-td,
-th {
-  color: #ffffff !important;
+/* --------------------------------------------------
+   HEADINGS
+-------------------------------------------------- */
+
+h1, h2, h3, h4, h5, h6 {
+  color: #f9fafb;
+  font-weight: 600;
+  margin-bottom: 12px;
 }
 
-.admin-sidebar,
-.admin-nav,
-.admin-menu a {
-  color: #ffffff !important;
+/* --------------------------------------------------
+   SIDEBAR
+-------------------------------------------------- */
+
+.admin-sidebar {
+  background: #111827;
+  width: 240px;
+  height: 100vh;
+  padding: 20px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  border-right: 1px solid #374151;
 }
 
-.status-online {
-  background: #10b981;
+.admin-sidebar a {
+  display: block;
   color: #ffffff;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 0.75rem;
+  padding: 10px 0;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.admin-sidebar a:hover {
+  color: #38bdf8;
+}
+
+.admin-sidebar a.active {
+  color: #f97316;
   font-weight: 600;
 }
 
-.status-warning {
-  background: #f97316;
+/* --------------------------------------------------
+   TOP BAR
+-------------------------------------------------- */
+
+.admin-topbar {
+  background: #1f2937;
+  padding: 16px;
+  border-bottom: 1px solid #374151;
+  color: #ffffff;
+  font-weight: 600;
+  margin-left: 240px;
 }
 
-.status-offline {
-  background: #ef4444;
-  color: #ffffff;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
+/* --------------------------------------------------
+   CARDS
+-------------------------------------------------- */
 
 .admin-card {
   background: #1f2937;
   border: 1px solid #374151;
   border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
   padding: 20px;
   margin-bottom: 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
 }
 
-.admin-card h2 {
-  color: #f9fafb;
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin-bottom: 12px;
-}
+/* --------------------------------------------------
+   TABLES
+-------------------------------------------------- */
 
 .admin-table {
   width: 100%;
@@ -91,6 +119,7 @@ th {
   font-weight: 500;
   padding: 12px;
   border-bottom: 1px solid #374151;
+  text-align: left;
 }
 
 .admin-table td {
@@ -103,11 +132,40 @@ th {
   background: #111827;
 }
 
-.admin-container {
-  padding: 30px;
-  max-width: 1200px;
-  margin: 0 auto;
+/* --------------------------------------------------
+   STATUS BADGES
+-------------------------------------------------- */
+
+.status-online {
+  background: #10b981;
+  color: #ffffff;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
+
+.status-offline {
+  background: #ef4444;
+  color: #ffffff;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-warning {
+  background: #f97316;
+  color: #ffffff;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* --------------------------------------------------
+   BUTTONS
+-------------------------------------------------- */
 
 .admin-button {
   background: #f97316;
@@ -115,6 +173,8 @@ th {
   padding: 10px 16px;
   border-radius: 8px;
   font-weight: 600;
+  border: none;
+  cursor: pointer;
   transition: background 0.2s;
 }
 
@@ -122,34 +182,32 @@ th {
   background: #ea580c;
 }
 
-.admin-sidebar {
+/* --------------------------------------------------
+   INPUTS
+-------------------------------------------------- */
+
+.admin-input {
   background: #111827;
+  border: 1px solid #374151;
   color: #ffffff;
-  padding: 20px;
+  padding: 10px;
+  border-radius: 8px;
+  width: 100%;
 }
 
-.admin-sidebar a {
-  color: #f9fafb;
-  display: block;
-  padding: 10px 0;
-  font-weight: 500;
+.admin-input:focus {
+  border-color: #f97316;
+  outline: none;
 }
 
-.admin-sidebar a.active {
-  color: #f97316;
-}
+/* --------------------------------------------------
+   SPACING UTILITIES
+-------------------------------------------------- */
 
-.admin-sidebar a:hover {
-  color: #38bdf8;
-}
-
-.admin-topbar {
-  background: #1f2937;
-  padding: 16px;
-  border-bottom: 1px solid #374151;
-  color: #ffffff;
-  font-weight: 600;
-}
+.mt-20 { margin-top: 20px; }
+.mb-20 { margin-bottom: 20px; }
+.pt-20 { padding-top: 20px; }
+.pb-20 { padding-bottom: 20px; }
 
 .hero {
   background: linear-gradient(135deg, #c63f00, #ff5a00);

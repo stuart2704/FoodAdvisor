@@ -13,13 +13,6 @@ export function Sidebar() {
   return (
     <aside
       className="admin-system-navigation admin-sidebar"
-      style={{
-        position: "sticky",
-        top: "24px",
-        alignSelf: "start",
-        border: "1px solid #292929",
-        borderRadius: "12px"
-      }}
     >
       <div
         style={{

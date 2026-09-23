@@ -1,0 +1,190 @@
+/* --------------------------------------------------
+   GLOBAL
+-------------------------------------------------- */
+
+body {
+  background: #0d0d0d;
+  color: #ffffff;
+  font-family: Inter, system-ui, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-container {
+  padding: 30px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* --------------------------------------------------
+   HEADINGS
+-------------------------------------------------- */
+
+h1, h2, h3, h4, h5, h6 {
+  color: #f9fafb;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+/* --------------------------------------------------
+   SIDEBAR
+-------------------------------------------------- */
+
+.admin-sidebar {
+  background: #111827;
+  width: 240px;
+  height: 100vh;
+  padding: 20px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  border-right: 1px solid #374151;
+}
+
+.admin-sidebar a {
+  display: block;
+  color: #ffffff;
+  padding: 10px 0;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.admin-sidebar a:hover {
+  color: #38bdf8;
+}
+
+.admin-sidebar a.active {
+  color: #f97316;
+  font-weight: 600;
+}
+
+/* --------------------------------------------------
+   TOP BAR
+-------------------------------------------------- */
+
+.admin-topbar {
+  background: #1f2937;
+  padding: 16px;
+  border-bottom: 1px solid #374151;
+  color: #ffffff;
+  font-weight: 600;
+  margin-left: 240px;
+}
+
+/* --------------------------------------------------
+   CARDS
+-------------------------------------------------- */
+
+.admin-card {
+  background: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+}
+
+/* --------------------------------------------------
+   TABLES
+-------------------------------------------------- */
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-table th {
+  color: #f9fafb;
+  font-weight: 500;
+  padding: 12px;
+  border-bottom: 1px solid #374151;
+  text-align: left;
+}
+
+.admin-table td {
+  color: #ffffff;
+  padding: 12px;
+  border-bottom: 1px solid #374151;
+}
+
+.admin-table tr:hover {
+  background: #111827;
+}
+
+/* --------------------------------------------------
+   STATUS BADGES
+-------------------------------------------------- */
+
+.status-online {
+  background: #10b981;
+  color: #ffffff;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-offline {
+  background: #ef4444;
+  color: #ffffff;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-warning {
+  background: #f97316;
+  color: #ffffff;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* --------------------------------------------------
+   BUTTONS
+-------------------------------------------------- */
+
+.admin-button {
+  background: #f97316;
+  color: #ffffff;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.admin-button:hover {
+  background: #ea580c;
+}
+
+/* --------------------------------------------------
+   INPUTS
+-------------------------------------------------- */
+
+.admin-input {
+  background: #111827;
+  border: 1px solid #374151;
+  color: #ffffff;
+  padding: 10px;
+  border-radius: 8px;
+  width: 100%;
+}
+
+.admin-input:focus {
+  border-color: #f97316;
+  outline: none;
+}
+
+/* --------------------------------------------------
+   SPACING UTILITIES
+-------------------------------------------------- */
+
+.mt-20 { margin-top: 20px; }
+.mb-20 { margin-bottom: 20px; }
+.pt-20 { padding-top: 20px; }
+.pb-20 { padding-bottom: 20px; }
