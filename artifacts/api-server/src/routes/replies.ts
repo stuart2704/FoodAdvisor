@@ -3,9 +3,11 @@ import { Router, type IRouter } from "express";
 import {
   ClassifyIncomingReplyBody,
   ClassifyIncomingReplyResponse,
+  PollGmailRepliesResponse,
   PollInstantlyRepliesResponse,
 } from "@workspace/api-zod";
 import { processIncomingReply } from "../services/replyClassifier/processIncomingReply";
+import { pollGmailReplies } from "../services/gmail/gmailWebhookHandler";
 import { pollInstantlyReplies } from "../services/instantly/instantlyService";
 
 const router: IRouter = Router();
@@ -55,6 +57,21 @@ router.post("/automation/instantly/replies", async (req, res): Promise<void> => 
     const message = error instanceof Error ? error.message : "Instantly reply polling failed.";
     req.log.warn("Instantly reply polling did not run");
     res.status(503).json({ error: message });
+  }
+});
+
+// Gmail polling derives restaurant ownership and reply contents exclusively
+// from durable outbound-thread mappings and Gmail itself.
+router.post("/automation/gmail/replies", async (req, res): Promise<void> => {
+  if (!validAutomationToken(req.header("authorization"))) {
+    res.status(401).json({ error: "Invalid automation credential." });
+    return;
+  }
+  try {
+    res.json(PollGmailRepliesResponse.parse(await pollGmailReplies()));
+  } catch {
+    req.log.warn("Gmail reply polling did not run");
+    res.status(503).json({ error: "Gmail reply polling is temporarily unavailable." });
   }
 });
 

@@ -1,12 +1,13 @@
 import {
   db,
+  gmailOutreachThreadsTable,
   outreachAuditTable,
   processedGmailMessagesTable,
   processedInstantlyFollowupMessagesTable,
   processedInstantlyMessagesTable,
   restaurantsTable,
 } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { logEvent } from "../../utils/eventLog";
 import { enqueueAllInstantlyCancellationIntents } from "../instantly/cancellationIntents";
 import { classifyReply, type ReplyClassification } from "./classifyReply";
@@ -98,8 +99,21 @@ export async function processIncomingReply(
 export async function processGmailIncomingReply(
   input: GmailIncomingReply,
 ): Promise<ProcessResult> {
+  if (!input.body.trim() || Buffer.byteLength(input.body, "utf8") > 10_000) {
+    throw new Error("Gmail reply body exceeded the size limit.");
+  }
   const classification = classifyReply(input.body);
   const result = await db.transaction<ProcessResult>(async (tx) => {
+    // Recheck ownership at the write boundary, not just in individual readers.
+    const [mapping] = await tx.select()
+      .from(gmailOutreachThreadsTable)
+      .where(and(
+        eq(gmailOutreachThreadsTable.threadId, input.gmailThreadId),
+        eq(gmailOutreachThreadsTable.placeId, input.placeId),
+      )).limit(1);
+    if (!mapping || mapping.sentMessageId === input.gmailMessageId) {
+      throw new Error("Gmail reply ownership could not be verified.");
+    }
     const [reserved] = await tx
       .insert(processedGmailMessagesTable)
       .values({
@@ -119,17 +133,8 @@ export async function processGmailIncomingReply(
   });
   // Record success only after the transaction has committed.
   if (result.status === "processed") {
-    if (
-      result.classification.category === "interested" ||
-      result.classification.category === "upgrade"
-    ) {
-      await escalatePositiveReply({
-        placeId: input.placeId,
-        body: input.body,
-        from: input.from,
-        gmailThreadId: input.gmailThreadId,
-      });
-    }
+    // Gmail recognition is strictly read-only at the provider. In particular,
+    // positive classifications must not enter the email-sending escalation path.
     logEvent("success", "Reply processed");
   }
   return result;

@@ -30,6 +30,7 @@ import type {
   GetDashboardEvents200Item,
   GetDashboardSummary200,
   GetGmailWatchStatus200,
+  GmailReplyPollResult,
   GmailWatch,
   HealthStatus,
   IncomingReplyInput,
@@ -1660,6 +1661,78 @@ export const usePollInstantlyReplies = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getPollInstantlyRepliesMutationOptions(options));
+    }
+
+export const getPollGmailRepliesUrl = () => {
+
+
+
+
+  return `/api/automation/gmail/replies`
+}
+
+/**
+ * Derives reply contents and restaurant ownership only from Gmail and durable outbound-thread mappings; callers cannot select either.
+ * @summary Reconcile a bounded Gmail inbox pass against stored outbound threads
+ */
+export const pollGmailReplies = async ( options?: Parameters<typeof customFetch>[1]): Promise<GmailReplyPollResult> => {
+
+  return customFetch<GmailReplyPollResult>(getPollGmailRepliesUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getPollGmailRepliesMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pollGmailReplies>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof pollGmailReplies>>, TError,void, TContext> => {
+
+const mutationKey = ['pollGmailReplies'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof pollGmailReplies>>, void> = () => {
+
+
+          return  pollGmailReplies(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PollGmailRepliesMutationResult = NonNullable<Awaited<ReturnType<typeof pollGmailReplies>>>
+
+    export type PollGmailRepliesMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Reconcile a bounded Gmail inbox pass against stored outbound threads
+ */
+export const usePollGmailReplies = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pollGmailReplies>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof pollGmailReplies>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getPollGmailRepliesMutationOptions(options));
     }
 
 export const getAdminRenewGmailWatchUrl = () => {

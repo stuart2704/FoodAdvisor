@@ -24,6 +24,7 @@ export * from './getDashboardSummary200';
 export * from './getDashboardSummary200HealthScope';
 export * from './getDashboardSummary200RecentEventsItem';
 export * from './getGmailWatchStatus200';
+export * from './gmailReplyPollResult';
 export * from './gmailWatch';
 export * from './healthStatus';
 export * from './incomingReplyInput';

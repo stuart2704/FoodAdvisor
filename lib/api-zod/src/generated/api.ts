@@ -649,6 +649,33 @@ export const PollInstantlyRepliesResponse = zod.object({
 
 
 /**
+ * Derives reply contents and restaurant ownership only from Gmail and durable outbound-thread mappings; callers cannot select either.
+ * @summary Reconcile a bounded Gmail inbox pass against stored outbound threads
+ */
+export const pollGmailRepliesResponseSearchedThreadsMin = 0;
+
+export const pollGmailRepliesResponseMatchedThreadsMin = 0;
+
+export const pollGmailRepliesResponseProcessedMin = 0;
+
+export const pollGmailRepliesResponseSkippedMin = 0;
+
+export const pollGmailRepliesResponseFailedMin = 0;
+
+
+
+export const PollGmailRepliesResponse = zod.object({
+  "searchedThreads": zod.number().int().min(pollGmailRepliesResponseSearchedThreadsMin),
+  "matchedThreads": zod.number().int().min(pollGmailRepliesResponseMatchedThreadsMin),
+  "processed": zod.number().int().min(pollGmailRepliesResponseProcessedMin),
+  "skipped": zod.number().int().min(pollGmailRepliesResponseSkippedMin),
+  "failed": zod.number().int().min(pollGmailRepliesResponseFailedMin),
+  "capped": zod.boolean(),
+  "errors": zod.array(zod.string())
+})
+
+
+/**
  * @summary Renew Gmail Watch through the protected admin route
  */
 export const adminRenewGmailWatchResponseResultHistoryIdRegExp = new RegExp('^[1-9][0-9]{0,19}$');

@@ -22,6 +22,7 @@ export interface GmailMessage extends GmailMessageSummary {
 
 interface GmailMessagePart {
   mimeType?: string;
+  filename?: string;
   headers?: Array<{ name?: string; value?: string }>;
   body?: { data?: string; size?: number; attachmentId?: string };
   parts?: GmailMessagePart[];
@@ -376,6 +377,13 @@ const MAX_MIME_NODES = 100;
 const MAX_MIME_DEPTH = 10;
 
 export function decodeBoundedPlainText(message: GmailMessage): string | null {
+  // Prefer the plain alternative; HTML-only replies are sanitized by the shared
+  // classifier. Never render or fetch any content referenced by their markup.
+  return decodeBoundedTextPart(message, "text/plain") ??
+    decodeBoundedTextPart(message, "text/html");
+}
+
+function decodeBoundedTextPart(message: GmailMessage, mimeType: string): string | null {
   let visited = 0;
   let bytes = 0;
   const chunks: string[] = [];
@@ -385,7 +393,12 @@ export function decodeBoundedPlainText(message: GmailMessage): string | null {
     if (visited > MAX_MIME_NODES || depth > MAX_MIME_DEPTH) {
       throw new Error("Gmail MIME structure exceeded safety limits.");
     }
-    if (part.mimeType?.toLowerCase().startsWith("text/plain") && part.body?.data) {
+    // Do not classify attached documents or forwarded messages as a new reply.
+    if (part.filename || part.mimeType?.toLowerCase() === "message/rfc822" ||
+        part.headers?.some((header) =>
+          header.name?.toLowerCase() === "content-disposition" &&
+          /^\s*attachment\b/i.test(header.value ?? ""))) return;
+    if (part.mimeType?.toLowerCase().split(";")[0]?.trim() === mimeType && part.body?.data) {
       // Reject before decoding to avoid allocating an unexpectedly large body.
       if (
         (typeof part.body.size === "number" && part.body.size > MAX_BODY_BYTES) ||
@@ -406,5 +419,9 @@ export function decodeBoundedPlainText(message: GmailMessage): string | null {
 
   if (message.payload) visit(message.payload, 0);
   const body = chunks.join("\n").trim();
+  // Separators and replacement characters from invalid UTF-8 count too.
+  if (Buffer.byteLength(body, "utf8") > MAX_BODY_BYTES) {
+    throw new Error("Gmail reply body exceeded the size limit.");
+  }
   return body || null;
 }

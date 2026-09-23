@@ -359,6 +359,21 @@ export interface InstantlyReplyPollResult {
   failed: number;
 }
 
+export interface GmailReplyPollResult {
+  /** @minimum 0 */
+  searchedThreads: number;
+  /** @minimum 0 */
+  matchedThreads: number;
+  /** @minimum 0 */
+  processed: number;
+  /** @minimum 0 */
+  skipped: number;
+  /** @minimum 0 */
+  failed: number;
+  capped: boolean;
+  errors: string[];
+}
+
 export interface RestaurantImportRunResult {
   imported: number;
   skippedDuplicates: number;

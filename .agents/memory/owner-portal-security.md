@@ -9,8 +9,8 @@ Portal bearer tokens must be cryptographically random, stored only as hashes, ex
 
 **How to apply:** Validate tokens server-side on every portal data route, disable caching, and never expose admin, outreach, recipient, or cross-restaurant data.
 
-Reply bodies remain transient inputs and are not copied into dashboard storage. Lead escalation may act automatically only after the existing Gmail or Instantly ownership and message-id checks have accepted the inbound reply.
+Reply bodies remain transient inputs and are not copied into dashboard storage. Gmail reply recognition must never send mail, including positive-reply escalation. Any separate sending workflow needs its own explicit authorization; Instantly escalation still requires ownership and message-id checks.
 
-**Why:** Raw replies may contain personal or confidential content, and caller-supplied classification requests are not evidence that a restaurant replied.
+**Why:** Raw replies may contain personal or confidential content, and caller-supplied classification requests are not evidence that a restaurant replied. The Gmail recognition request explicitly forbids sending; a trusted positive classification does not override that restriction.
 
 **How to apply:** Dashboard escalation records status and timestamps only. Claim-click and onboarding signals must come from verified claim tokens and successful claim transitions, not arbitrary browser event payloads.

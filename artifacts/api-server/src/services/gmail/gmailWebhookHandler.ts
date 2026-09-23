@@ -122,7 +122,8 @@ export async function drainStagedGmailMessages(
         .from(gmailOutreachThreadsTable)
         .where(eq(gmailOutreachThreadsTable.threadId, row.threadId))
         .limit(1);
-      if (!mapping || summary.id === mapping.sentMessageId || summary.labelIds.includes("SENT")) {
+      if (!mapping || summary.id !== row.messageId || summary.id === mapping.sentMessageId ||
+          summary.labelIds.some((label) => label === "SENT" || label === "DRAFT")) {
         await db
           .update(gmailHistoryMessagesTable)
           .set({ status: "skipped", tombstonedAt: new Date(), updatedAt: new Date() })
@@ -134,7 +135,9 @@ export async function drainStagedGmailMessages(
       try {
         message = await getFullMessage(row.messageId);
         const body = decodeBoundedPlainText(message);
-        if (!body || message.threadId !== row.threadId || message.labelIds.includes("SENT")) {
+        if (!body || message.id !== row.messageId || message.threadId !== row.threadId ||
+            message.id === mapping.sentMessageId ||
+            message.labelIds.some((label) => label === "SENT" || label === "DRAFT")) {
           await db
             .update(gmailHistoryMessagesTable)
             .set({ status: "skipped", tombstonedAt: new Date(), updatedAt: new Date() })
@@ -228,8 +231,9 @@ export async function processGmailMessageIds(
         .limit(1);
       if (
         !mapping ||
+        summary.id !== messageId ||
         summary.id === mapping.sentMessageId ||
-        summary.labelIds.includes("SENT")
+        summary.labelIds.some((label) => label === "SENT" || label === "DRAFT")
       ) {
         result.skipped += 1;
         continue;
@@ -242,8 +246,9 @@ export async function processGmailMessageIds(
       const message = await getFullMessage(messageId);
       if (
         message.threadId !== mapping.threadId ||
+        message.id !== messageId ||
         message.id === mapping.sentMessageId ||
-        message.labelIds.includes("SENT")
+        message.labelIds.some((label) => label === "SENT" || label === "DRAFT")
       ) {
         result.skipped += 1;
         continue;
@@ -280,8 +285,8 @@ export interface GmailPollingResult {
 }
 
 /**
- * Read-only Gmail polling entry point. The legacy filename is retained by
- * request, but this is intentionally not a webhook or push handler.
+ * Read-only Gmail polling entry point, sharing the trusted classifier with
+ * authenticated push delivery. Neither path may send or modify Gmail messages.
  */
 export async function pollGmailReplies(): Promise<GmailPollingResult> {
   let attempted = 0;
@@ -315,7 +320,7 @@ export async function pollGmailReplies(): Promise<GmailPollingResult> {
         (message) =>
           message.threadId === mapping.threadId &&
           message.id !== mapping.sentMessageId &&
-          !message.labelIds.includes("SENT"),
+          !message.labelIds.some((label) => label === "SENT" || label === "DRAFT"),
       );
       if (!eligible.length) {
         result.skipped += 1;
@@ -342,7 +347,8 @@ export async function pollGmailReplies(): Promise<GmailPollingResult> {
           const message = await getFullMessage(summary.id);
           if (
             message.threadId !== mapping.threadId ||
-            message.labelIds.includes("SENT") ||
+            message.id !== summary.id ||
+            message.labelIds.some((label) => label === "SENT" || label === "DRAFT") ||
             message.id === mapping.sentMessageId
           ) {
             result.skipped += 1;
