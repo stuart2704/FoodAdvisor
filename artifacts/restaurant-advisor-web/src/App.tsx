@@ -24,6 +24,7 @@ import PortalMenuPage from "./pages/portal-menu";
 import PortalOnboardingPage from "./pages/portal-onboarding";
 import PortalPhotosPage from "./pages/portal-photos";
 import PortalUpgradePage from "./pages/portal-upgrade";
+import RewardsPage from "./pages/rewards";
 
 function AppRoutes() {
   const location = useLocation();
@@ -51,6 +52,7 @@ function AppRoutes() {
         <Route path="/trending" element={<Trending />} />
         <Route path="/city-guide" element={<CityGuide />} />
         <Route path="/owner" element={<OwnerDashboard />} />
+        <Route path="/rewards" element={<RewardsPage />} />
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route
           path="/admin/github/sso-callback"

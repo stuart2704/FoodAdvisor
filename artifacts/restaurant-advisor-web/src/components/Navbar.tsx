@@ -5,6 +5,7 @@ const navigation = [
   { to: "/", label: "Home" },
   { to: "/trending", label: "Trending" },
   { to: "/city-guide", label: "City Food Guide" },
+  { to: "/rewards", label: "Rewards" },
   { to: "/owner", label: "For Restaurants" }
 ];
 

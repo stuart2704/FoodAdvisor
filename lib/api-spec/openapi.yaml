@@ -18,7 +18,33 @@ tags:
     description: Protected inbound outreach reply classification
   - name: gmail
     description: Gmail watch renewal and authenticated Pub/Sub push
+  - name: rewards
+    description: Authenticated diner reward balances and activity
 paths:
+  /rewards:
+    get:
+      operationId: getRewards
+      tags: [rewards]
+      summary: Get the signed-in diner's reward balance and recent earnings
+      responses:
+        "200":
+          description: Current points balance and recent reward events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RewardsResponse"
+        "401":
+          description: Sign-in is required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Rewards are temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /cities:
     get:
       operationId: listCities
@@ -759,6 +785,58 @@ components:
         type: string
         minLength: 1
   schemas:
+    RewardActivity:
+      type: object
+      additionalProperties: false
+      required: [id, action, points, createdAt]
+      properties:
+        id:
+          type: integer
+        action:
+          type: string
+          enum: [review, booking]
+        points:
+          type: integer
+          minimum: 0
+        createdAt:
+          type: string
+          format: date-time
+    RewardsPolicy:
+      type: object
+      additionalProperties: false
+      required: [review, booking]
+      properties:
+        review:
+          type: integer
+          const: 10
+        booking:
+          type: integer
+          const: 5
+    RewardsData:
+      type: object
+      additionalProperties: false
+      required: [points, activity, policy]
+      properties:
+        points:
+          type: integer
+          minimum: 0
+        activity:
+          type: array
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/RewardActivity"
+        policy:
+          $ref: "#/components/schemas/RewardsPolicy"
+    RewardsResponse:
+      type: object
+      additionalProperties: false
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          $ref: "#/components/schemas/RewardsData"
     CitySummary:
       type: object
       required: [city, slug, count]

@@ -50,6 +50,7 @@ import type {
   RestaurantImportRunInput,
   RestaurantImportRunResult,
   RestaurantImportStatus,
+  RewardsResponse,
   UnsubscribeResult
 } from './api.schemas';
 
@@ -79,6 +80,83 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetRewardsUrl = () => {
+
+
+
+
+  return `/api/rewards`
+}
+
+/**
+ * @summary Get the signed-in diner's reward balance and recent earnings
+ */
+export const getRewards = async ( options?: Parameters<typeof customFetch>[1]): Promise<RewardsResponse> => {
+
+  return customFetch<RewardsResponse>(getGetRewardsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetRewardsQueryKey = () => {
+    return [
+    `/api/rewards`
+    ] as const;
+    }
+
+
+export const getGetRewardsQueryOptions = <TData = Awaited<ReturnType<typeof getRewards>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRewards>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRewardsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRewards>>> = ({ signal }) => getRewards({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRewards>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRewardsQueryResult = NonNullable<Awaited<ReturnType<typeof getRewards>>>
+export type GetRewardsQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Get the signed-in diner's reward balance and recent earnings
+ */
+
+export function useGetRewards<TData = Awaited<ReturnType<typeof getRewards>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRewards>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetRewardsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListCitiesUrl = () => {
 

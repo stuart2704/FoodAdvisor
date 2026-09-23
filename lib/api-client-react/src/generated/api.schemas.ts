@@ -5,6 +5,41 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type RewardActivityAction = typeof RewardActivityAction[keyof typeof RewardActivityAction];
+
+
+export const RewardActivityAction = {
+  review: 'review',
+  booking: 'booking',
+} as const;
+
+export interface RewardActivity {
+  id: number;
+  action: RewardActivityAction;
+  /** @minimum 0 */
+  points: number;
+  createdAt: string;
+}
+
+export const RewardsPolicyValue = {
+  review: 10,
+  booking: 5,
+} as const;
+export type RewardsPolicy = typeof RewardsPolicyValue;
+
+export interface RewardsData {
+  /** @minimum 0 */
+  points: number;
+  /** @maxItems 50 */
+  activity: RewardActivity[];
+  policy: RewardsPolicy;
+}
+
+export interface RewardsResponse {
+  success: true;
+  data: RewardsData;
+}
+
 export interface CitySummary {
   city: string;
   slug: string;

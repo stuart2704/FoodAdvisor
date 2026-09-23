@@ -9,6 +9,35 @@ import * as zod from 'zod';
 
 
 /**
+ * @summary Get the signed-in diner's reward balance and recent earnings
+ */
+export const getRewardsResponseDataPointsMin = 0;
+
+export const getRewardsResponseDataActivityItemPointsMin = 0;
+
+export const getRewardsResponseDataActivityMax = 50;
+
+
+
+export const GetRewardsResponse = zod.object({
+  "success": zod.literal(true),
+  "data": zod.object({
+  "points": zod.number().int().min(getRewardsResponseDataPointsMin),
+  "activity": zod.array(zod.object({
+  "id": zod.number().int(),
+  "action": zod.enum(['review', 'booking']),
+  "points": zod.number().int().min(getRewardsResponseDataActivityItemPointsMin),
+  "createdAt": zod.coerce.date()
+})).max(getRewardsResponseDataActivityMax),
+  "policy": zod.object({
+  "review": zod.literal(10),
+  "booking": zod.literal(5)
+})
+})
+})
+
+
+/**
  * @summary List canonical restaurant cities
  */
 export const listCitiesResponseCountMin = 0;
