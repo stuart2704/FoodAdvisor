@@ -1,5 +1,6 @@
 import { chromium, type Browser, type BrowserContext } from "playwright";
 import { getProxy, type ProxyType } from "./proxyService";
+import { reserveProxyBudget, SESSION_MAX_BYTES } from "./proxyBudget";
 import {
   createGuardedProxy,
   isExecutableFile,
@@ -96,7 +97,10 @@ export async function launchBrowser(type: ProxyType): Promise<LaunchedBrowser> {
 
   try {
     const config = getProxy(type);
-    gateway = await createGuardedProxy(config);
+    // Reserve before any gateway, DNS lookup or browser can reach the provider.
+    // Never refund on failure: even an unsuccessful scan can be billable.
+    await reserveProxyBudget(type, config);
+    gateway = await createGuardedProxy(config, { maxBytes: SESSION_MAX_BYTES });
     browser = await chromium.launch({
       headless: true,
       executablePath: executablePath(),

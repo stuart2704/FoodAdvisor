@@ -22,3 +22,4 @@ export * from "./aiUsage";
 export * from "./operationalLog";
 export * from "./engineHeartbeat";
 export * from "./betterContact";
+export * from "./scraperProxyBudget";

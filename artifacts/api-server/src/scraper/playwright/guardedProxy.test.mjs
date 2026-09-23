@@ -528,6 +528,12 @@ async function loadLauncherModule() {
     playwright: launcherFixture,
     "./proxyService": proxyServiceFixture,
     "./guardedProxy": guardedProxyFixture,
+    "./proxyBudget": `export const SESSION_MAX_BYTES = 16777216;
+      export async function reserveProxyBudget() {
+        const state = globalThis.__offlineLauncherState;
+        state.reservations = (state.reservations ?? 0) + 1;
+        if (state.budgetError) throw new Error("Proxy budget unavailable");
+      }`,
   });
   return launcherModule;
 }
@@ -594,6 +600,7 @@ test("launcher cleans gateway, browser, context, and slot on failed starts", asy
   assert.equal(globalThis.__offlineLauncherState.contextClosed, 1);
   assert.equal(globalThis.__offlineLauncherState.browserClosed, 1);
   assert.equal(globalThis.__offlineLauncherState.gatewayClosed, 1);
+  assert.equal(globalThis.__offlineLauncherState.reservations, 1);
   assert.equal(launcher.activeBrowserSessions(), 0);
 
   resetLauncherState();
@@ -603,6 +610,18 @@ test("launcher cleans gateway, browser, context, and slot on failed starts", asy
   });
   assert.equal(globalThis.__offlineLauncherState.gateways, 1);
   assert.equal(globalThis.__offlineLauncherState.gatewayClosed, 1);
+  assert.equal(launcher.activeBrowserSessions(), 0);
+});
+
+test("budget denial prevents gateway and browser launch and releases the local slot", async () => {
+  const launcher = await loadLauncherModule();
+  resetLauncherState();
+  globalThis.__offlineLauncherState.budgetError = true;
+  await withScrapingEnabled("true", async () => {
+    await assert.rejects(() => launcher.launchBrowser("maps"), /budget unavailable/);
+  });
+  assert.equal(globalThis.__offlineLauncherState.gateways, 0);
+  assert.equal(globalThis.__offlineLauncherState.launches.length, 0);
   assert.equal(launcher.activeBrowserSessions(), 0);
 });
 

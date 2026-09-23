@@ -16,3 +16,4 @@
 - [External hosting connectors](external-hosting-connectors.md) — Replit connector clients need direct provider-credential fallbacks on non-Replit hosts.
 - [Clerk OAuth preview hosts](clerk-oauth-preview-hosts.md) — verify provider redirects on the actual preview host; injected test hosts can resolve a different Clerk context.
 - [Owner contact enrichment](owner-contact-enrichment.md) — explicit paid lookups stay private and outside outreach; ambiguous BetterContact submissions must not be retried.
+- [Proxy billing boundary](proxy-billing-boundary.md) — local byte caps are not invoice caps; require a verified provider session ceiling and retain uncertain reservations.
