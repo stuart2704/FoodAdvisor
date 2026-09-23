@@ -1,12 +1,14 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 
 const navigation = [
-  { to: "/", label: "Home" },
+  { to: "/restaurants", label: "Restaurants" },
   { to: "/trending", label: "Trending" },
   { to: "/city-guide", label: "City Food Guide" },
   { to: "/rewards", label: "Rewards" },
-  { to: "/owner", label: "For Restaurants" }
+  { to: "/owner", label: "For Restaurants" },
+  { to: "/about", label: "About" },
+  { to: "/contact", label: "Contact" }
 ];
 
 export default function Navbar() {
@@ -62,9 +64,13 @@ export default function Navbar() {
 
       <div className="desktop-menu">
         {navigation.map((item) => (
-          <Link className="nav-link" to={item.to} key={item.to}>
+          <NavLink
+            className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}
+            to={item.to}
+            key={item.to}
+          >
             {item.label}
-          </Link>
+          </NavLink>
         ))}
       </div>
 
@@ -98,14 +104,14 @@ export default function Navbar() {
           }}
         >
           {navigation.map((item) => (
-            <Link
-              className="nav-link"
+            <NavLink
+              className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}
               to={item.to}
               key={item.to}
               onClick={() => setOpen(false)}
             >
               {item.label}
-            </Link>
+            </NavLink>
           ))}
         </div>
       )}
@@ -115,7 +121,7 @@ export default function Navbar() {
           .desktop-menu {
             display: flex;
             align-items: center;
-            gap: 24px;
+            gap: 8px;
             font-size: 1rem;
           }
 
@@ -129,7 +135,8 @@ export default function Navbar() {
           }
 
           .nav-link:hover,
-          .nav-link:focus-visible {
+          .nav-link:focus-visible,
+          .nav-link.active {
             color: #fff;
             background: rgba(255,255,255,0.2);
           }
@@ -149,7 +156,7 @@ export default function Navbar() {
             display: none;
           }
 
-          @media (max-width: 768px) {
+          @media (max-width: 1080px) {
             .desktop-menu {
               display: none;
             }
@@ -167,7 +174,8 @@ export default function Navbar() {
             }
 
             .mobile-menu .nav-link:hover,
-            .mobile-menu .nav-link:focus-visible {
+            .mobile-menu .nav-link:focus-visible,
+            .mobile-menu .nav-link.active {
               color: #d94800;
               background: #f7f7f7;
             }

@@ -25,6 +25,9 @@ import PortalOnboardingPage from "./pages/portal-onboarding";
 import PortalPhotosPage from "./pages/portal-photos";
 import PortalUpgradePage from "./pages/portal-upgrade";
 import RewardsPage from "./pages/rewards";
+import AboutPage from "./pages/AboutPage";
+import ContactPage from "./pages/ContactPage";
+import RestaurantsPage from "./pages/RestaurantsPage";
 
 function AppRoutes() {
   const location = useLocation();
@@ -36,6 +39,9 @@ function AppRoutes() {
 
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/restaurants" element={<RestaurantsPage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/contact" element={<ContactPage />} />
         <Route path="/restaurant/:id" element={<RestaurantDetail />} />
         <Route path="/claim/:placeId" element={<ClaimRestaurant />} />
         <Route path="/claim/:id/success" element={<ClaimSuccessPage />} />
