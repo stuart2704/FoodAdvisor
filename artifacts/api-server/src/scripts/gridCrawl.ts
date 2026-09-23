@@ -5,25 +5,18 @@
 import { readFile, writeFile, rename, open } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parseGrid, gridHash, validateProgress, DAILY_GRID_LIMIT, DELAY_BETWEEN_REQUESTS_MS, type GridProgress } from "../lib/gridCrawlPlan";
+import { normaliseCoordinates } from "../lib/geo";
+import { verifiedExistingFields, type NearbyPlace } from "../lib/gridPlaceFields";
 import { cuisineFromRestaurantName } from "../lib/restaurantKeywords";
+import { logEvent } from "../lib/logEvent";
 import { logger } from "../lib/logger";
 
 const MASK = "places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.priceLevel,places.location,places.websiteUri,places.googleMapsUri,places.types";
+const PLACES_URL = "https://places.googleapis.com/v1/places:searchNearby";
 const COST_CENTS = 50; // Conservative estimate for the requested fields, not a guaranteed provider price.
 const RESTAURANTS_PER_POINT = 10;
 
-type Place = {
-  id?: string;
-  displayName?: { text?: string };
-  formattedAddress?: string;
-  rating?: number;
-  userRatingCount?: number;
-  priceLevel?: string;
-  location?: { latitude?: number; longitude?: number };
-  websiteUri?: string;
-  googleMapsUri?: string;
-  types?: string[];
-};
+const REFRESH_AFTER_MS = 720 * 60 * 60 * 1000;
 
 function argumentsForRun(args: string[]) {
   const option = (name: string) => args[args.indexOf(name) + 1];
@@ -49,20 +42,29 @@ async function persistProgress(path: string, progress: GridProgress) {
   await rename(temporary, path);
 }
 
-async function searchNearby(latitude: number, longitude: number, apiKey: string): Promise<Place[]> {
-  const response = await fetch("https://places.googleapis.com/v1/places:searchNearby", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Goog-Api-Key": apiKey, "X-Goog-FieldMask": MASK },
-    body: JSON.stringify({
-      includedTypes: ["restaurant"],
-      maxResultCount: RESTAURANTS_PER_POINT,
-      locationRestriction: { circle: { center: { latitude, longitude }, radius: 1500 } },
-      languageCode: "en",
-    }),
-    signal: AbortSignal.timeout(30_000),
-  });
-  if (!response.ok) throw new Error(`Places Nearby search failed (${response.status}). Stop and inspect provider access before retrying.`);
-  const payload = await response.json() as { places?: Place[] };
+async function searchNearby(latitude: number, longitude: number, apiKey: string): Promise<NearbyPlace[]> {
+  let response: Response;
+  try {
+    response = await fetch(PLACES_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Goog-Api-Key": apiKey, "X-Goog-FieldMask": MASK },
+      body: JSON.stringify({
+        includedTypes: ["restaurant"],
+        maxResultCount: RESTAURANTS_PER_POINT,
+        locationRestriction: { circle: { center: { latitude, longitude }, radius: 1500 } },
+        languageCode: "en",
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch (error) {
+    logEvent("fetch_error", { url: PLACES_URL });
+    throw error;
+  }
+  if (!response.ok) {
+    logEvent("places_request_failed", { status: response.status });
+    throw new Error(`Places Nearby search failed (${response.status}). Stop and inspect provider access before retrying.`);
+  }
+  const payload = await response.json() as { places?: NearbyPlace[] };
   if (payload.places !== undefined && !Array.isArray(payload.places)) throw new Error("Invalid Places response.");
   return payload.places ?? [];
 }
@@ -83,14 +85,14 @@ export async function runDailyCrawl(args: string[]) {
   }
   if (progress.date > today) throw new Error("Progress date is in the future; check your system clock.");
   if (progress.date !== today) progress = { ...progress, date: today, attemptedToday: 0 };
-  logger.info({ total: points.length, next: progress.nextIndex, remainingToday: DAILY_GRID_LIMIT - progress.attemptedToday }, "Grid crawl plan");
+  logEvent("grid_crawl_plan", { total: points.length, next: progress.nextIndex, remainingToday: DAILY_GRID_LIMIT - progress.attemptedToday });
   if (!options.confirm) return; // Default is dry-run. No DB connection or paid request.
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
   if (!apiKey) throw new Error("GOOGLE_MAPS_API_KEY is required; no crawl was started.");
   if (progress.nextIndex >= points.length || progress.attemptedToday >= DAILY_GRID_LIMIT) return;
 
   // Dynamic imports keep dry-run free from database connections.
-  const [{ db, restaurantsTable, restaurantImportRunsTable }, { sql, gte }, { restaurantSlug }] = await Promise.all([
+  const [{ db, restaurantsTable, restaurantImportRunsTable }, { sql, gte, eq, and, or, isNull, lte }, { restaurantSlug }] = await Promise.all([
     import("@workspace/db"),
     import("drizzle-orm"),
     import("../utils/slugify"),
@@ -99,6 +101,14 @@ export async function runDailyCrawl(args: string[]) {
     if (error.code === "EEXIST") throw new Error("Another crawl may be running. Inspect the lock before removing it.");
     throw error;
   });
+  const summary = {
+    points_crawled: 0,
+    inserts: 0,
+    updates: 0,
+    skips: 0,
+    errors: 0,
+    period: "this_run",
+  };
   try {
     while (progress.nextIndex < points.length && progress.attemptedToday < DAILY_GRID_LIMIT) {
       const point = points[progress.nextIndex];
@@ -108,7 +118,7 @@ export async function runDailyCrawl(args: string[]) {
         spent: sql<number>`coalesce(sum(${restaurantImportRunsTable.estimatedCostCents}), 0)`,
       }).from(restaurantImportRunsTable).where(gte(restaurantImportRunsTable.createdAt, monthStart));
       if (Number(usage?.spent ?? 0) + COST_CENTS > options.monthlyBudgetCents) {
-        logger.info("Estimated monthly import budget reached; stopping.");
+        logEvent("grid_crawl_budget_reached");
         break;
       }
       // Reserve before calling Google: on an uncertain failure the reservation
@@ -120,50 +130,102 @@ export async function runDailyCrawl(args: string[]) {
       });
       progress.attemptedToday += 1;
       await persistProgress(options.stateFile, progress);
+      logEvent("crawl_point", {
+        region: point.region,
+        city: point.city,
+        lat: point.latitude,
+        lng: point.longitude,
+      });
       const places = await searchNearby(point.latitude, point.longitude, apiKey);
+      logEvent("cards_found", { count: places.length });
       let imported = 0;
+      let refreshed = 0;
       for (const place of places) {
-        if (!place.id || !place.displayName?.text || !place.formattedAddress) continue;
-        const latitude = place.location?.latitude;
-        const longitude = place.location?.longitude;
-        if (typeof latitude !== "number" || typeof longitude !== "number") continue;
-        const structuredCuisines = (place.types ?? [])
-          .filter((type) => type.endsWith("_restaurant") && type !== "restaurant")
-          .map((type) => type.replace(/_restaurant$/, "").replace(/_/g, " "));
-        const cuisineTags = structuredCuisines.length
-          ? structuredCuisines
-          : cuisineFromRestaurantName(place.displayName.text);
-        const [row] = await db.insert(restaurantsTable).values({
-          placeId: place.id,
-          name: place.displayName.text,
-          address: place.formattedAddress,
-          city: point.city,
-          region: point.region,
-          country: point.country,
-          globalRegion: point.globalRegion,
-          slug: restaurantSlug(place.displayName.text, place.id),
-          rating: typeof place.rating === "number" ? place.rating : null,
-          reviewCount: Number.isSafeInteger(place.userRatingCount) && place.userRatingCount! >= 0
-            ? place.userRatingCount : null,
-          priceLevel: place.priceLevel ?? null,
-          latitude, longitude,
-          currency: point.country === "USA" ? "USD" : point.country === "France" ? "EUR" : "GBP",
-          cuisineTags,
-          cuisines: cuisineTags,
-          website: place.websiteUri ?? null,
-          googleMapsUrl: place.googleMapsUri ?? `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(place.id)}`,
-          types: place.types ?? ["restaurant"],
-        }).onConflictDoNothing({ target: restaurantsTable.placeId }).returning({ placeId: restaurantsTable.placeId });
-        if (row) imported++;
+        if (!place.id) continue;
+        const fields = verifiedExistingFields(place);
+        if (!Object.keys(fields).length) continue;
+        const coordinates = normaliseCoordinates(place.location);
+        if (fields.name && fields.address && coordinates) {
+          const cuisineTags = fields.cuisineTags ?? cuisineFromRestaurantName(fields.name);
+          const [row] = await db.insert(restaurantsTable).values({
+            placeId: place.id,
+            name: fields.name,
+            address: fields.address,
+            city: point.city,
+            region: point.region,
+            country: point.country,
+            globalRegion: point.globalRegion,
+            slug: restaurantSlug(fields.name, place.id),
+            rating: fields.rating ?? null,
+            reviewCount: fields.reviewCount ?? null,
+            priceLevel: fields.priceLevel ?? null,
+            latitude: coordinates.latitude,
+            longitude: coordinates.longitude,
+            currency: point.country === "USA" ? "USD" : point.country === "France" ? "EUR" : "GBP",
+            cuisineTags,
+            cuisines: cuisineTags,
+            website: fields.website ?? null,
+            googleMapsUrl: place.googleMapsUri ?? `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(place.id)}`,
+            types: place.types?.filter((type) => typeof type === "string" && type.length > 0) ?? ["restaurant"],
+          }).onConflictDoNothing({ target: restaurantsTable.placeId }).returning({
+            placeId: restaurantsTable.placeId,
+            name: restaurantsTable.name,
+          });
+          if (row) {
+            imported++;
+            summary.inserts++;
+            logEvent("insert", { name: row.name, place_id: row.placeId });
+            continue;
+          }
+        }
+        // Conflict and freshness check are atomic: a concurrent insert or
+        // refresh cannot be overwritten by an earlier existence check.
+        const [row] = await db.update(restaurantsTable)
+          .set({ ...fields, updatedAt: new Date() })
+          .where(and(
+            eq(restaurantsTable.placeId, place.id),
+            or(
+              isNull(restaurantsTable.updatedAt),
+              lte(restaurantsTable.updatedAt, new Date(Date.now() - REFRESH_AFTER_MS)),
+            ),
+          ))
+          .returning({ placeId: restaurantsTable.placeId, name: restaurantsTable.name });
+        if (row) {
+          refreshed++;
+          summary.updates++;
+          logEvent("update", { name: row.name, place_id: row.placeId });
+        } else {
+          const [existing] = await db.select({
+            name: restaurantsTable.name,
+            placeId: restaurantsTable.placeId,
+            updatedAt: restaurantsTable.updatedAt,
+          }).from(restaurantsTable).where(eq(restaurantsTable.placeId, place.id)).limit(1);
+          if (existing?.updatedAt && existing.updatedAt.getTime() > Date.now() - REFRESH_AFTER_MS) {
+            summary.skips++;
+            logEvent("skip_recent", { name: existing.name, place_id: existing.placeId });
+          }
+        }
       }
       progress.nextIndex++;
       await persistProgress(options.stateFile, progress);
-      logger.info({ point: progress.nextIndex, total: points.length, found: places.length, imported }, "Grid point completed");
+      summary.points_crawled++;
+      logEvent("grid_crawl_point_completed", { point: progress.nextIndex, total: points.length, found: places.length, imported, refreshed });
       if (progress.nextIndex < points.length && progress.attemptedToday < DAILY_GRID_LIMIT) {
+        logEvent("grid_crawl_wait", { delaySeconds: DELAY_BETWEEN_REQUESTS_MS / 1000 });
         await new Promise((done) => setTimeout(done, DELAY_BETWEEN_REQUESTS_MS));
       }
     }
+  } catch (error) {
+    summary.errors++;
+    throw error;
   } finally {
+    logEvent("daily_summary", summary);
+    logEvent("crawler_health", {
+      delay_ms: DELAY_BETWEEN_REQUESTS_MS,
+      attempted_today: progress.attemptedToday,
+      next_index: progress.nextIndex,
+      errors_this_run: summary.errors,
+    });
     await lock.close();
     const { unlink } = await import("node:fs/promises");
     await unlink(`${options.stateFile}.lock`);
