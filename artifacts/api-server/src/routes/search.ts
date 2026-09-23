@@ -92,10 +92,14 @@ async function searchRestaurants(req: Request, res: Response): Promise<void> {
   }
   if (city) conditions.push(ilike(restaurantsTable.city, escapeLike(city)));
   if (region) {
-    conditions.push(ilike(restaurantsTable.region, escapeLike(region)));
+    conditions.push(
+      sql`lower(${restaurantsTable.region}) = lower(${region})`,
+    );
   }
   if (country) {
-    conditions.push(ilike(restaurantsTable.country, escapeLike(country)));
+    conditions.push(
+      sql`lower(${restaurantsTable.country}) = lower(${country})`,
+    );
   }
   if (cuisine) {
     conditions.push(sql`exists (
