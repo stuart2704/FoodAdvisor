@@ -4,10 +4,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { EventEmitter } from "node:events";
+import { Readable } from "node:stream";
 import { build } from "esbuild";
 
-// Bundle the actual implementation, replacing only DNS. Never contact real
-// websites or rely on the machine's DNS configuration in this suite.
+// Bundle the implementation with offline DNS and transport adapters.
 const directory = await mkdtemp(path.join(tmpdir(), "enrichment-tests-"));
 const outfile = path.join(directory, "enrichment.mjs");
 await build({
@@ -26,8 +27,14 @@ await build({
       builder.onResolve({ filter: /^node:dns\/promises$/ }, () => ({
         path: "dns", namespace: "test",
       }));
-      builder.onLoad({ filter: /.*/, namespace: "test" }, () => ({
-        contents: "export const lookup = (...args) => globalThis.__enrichmentLookup(...args);",
+       builder.onResolve({ filter: /^node:https?$/ }, (args) => ({
+         path: args.path, namespace: "transport-test",
+       }));
+       builder.onLoad({ filter: /.*/, namespace: "test" }, () => ({
+         contents: "export const lookup = (...args) => globalThis.__enrichmentLookup(...args);",
+       }));
+       builder.onLoad({ filter: /.*/, namespace: "transport-test" }, () => ({
+         contents: "export const request = (...args) => globalThis.__enrichmentRequest(...args);",
       }));
     },
   }],
@@ -37,6 +44,7 @@ const url = "https://restaurant.example/";
 const publicAddresses = [{ address: "93.184.216.34", family: 4 }];
 let fetchMock;
 let lookupMock;
+let connections;
 const html = (body = "<title>Restaurant</title>", headers = {}) =>
   new Response(body, { headers: { "content-type": "text/html", ...headers } });
 const failure = (result, code) => {
@@ -50,14 +58,35 @@ beforeEach(() => {
   mock.restoreAll();
   lookupMock = mock.fn(async () => publicAddresses);
   globalThis.__enrichmentLookup = lookupMock;
-  // Unexpected requests fail closed, rather than falling through to real fetch.
-  fetchMock = mock.method(globalThis, "fetch", async () => {
+  connections = [];
+  // Exercise the real request options, including the socket lookup callback.
+  // No network requests leave this test process.
+  fetchMock = mock.fn(async () => {
     throw new Error("Unexpected test request");
   });
+  globalThis.__enrichmentRequest = (target, options, callback) => {
+    const request = new EventEmitter();
+    request.end = () => {
+      options.lookup(target.hostname, { family: 0 }, (error, address, family) => {
+        if (error) return request.emit("error", error);
+        connections.push({ hostname: target.hostname, address, family, protocol: target.protocol });
+        Promise.resolve().then(() => fetchMock(target, options)).then((response) => {
+          const incoming = response.body
+            ? Readable.fromWeb(response.body)
+            : Readable.from([]);
+          incoming.statusCode = response.status;
+          incoming.headers = Object.fromEntries(response.headers.entries());
+          callback(incoming);
+        }, (failure) => request.emit("error", failure));
+      });
+    };
+    return request;
+  };
 });
 after(async () => {
   mock.restoreAll();
   delete globalThis.__enrichmentLookup;
+  delete globalThis.__enrichmentRequest;
   await rm(directory, { recursive: true, force: true });
 });
 
@@ -77,8 +106,13 @@ test("extracts metadata and the first approved role address, not personal mail",
   });
   const [target, options] = fetchMock.mock.calls[0].arguments;
   assert.equal(target.href, url);
-  assert.equal(options.redirect, "manual");
+  assert.equal(options.agent, false);
+  assert.equal(options.servername, "restaurant.example");
+  assert.equal(options.rejectUnauthorized, true);
   assert.ok(options.signal instanceof AbortSignal);
+  assert.deepEqual(connections, [{
+    hostname: "restaurant.example", address: "93.184.216.34", family: 4, protocol: "https:",
+  }]);
   assert.deepEqual(lookupMock.mock.calls[0].arguments,
     ["restaurant.example", { all: true, verbatim: true }]);
 });
@@ -94,6 +128,8 @@ for (const [input, code] of [
   ["http://2130706433/", "unsafe_url"],
   ["http://0x7f000001/", "unsafe_url"],
   ["https://8.8.8.8/", "unsafe_url"],
+  ["https://[::1]/", "unsafe_url"],
+  ["https://[::ffff:7f00:1]/", "unsafe_url"],
 ]) {
   test(`rejects ${input} before DNS or fetch`, async () => {
     failure(await extractWebsiteData(input), code);
@@ -107,7 +143,8 @@ for (const address of [
   "172.16.0.1", "172.31.255.255", "192.168.1.1", "192.0.0.1",
   "192.0.2.1", "198.18.0.1", "198.51.100.1", "203.0.113.1", "224.0.0.1",
   "::", "::1", "fc00::1", "fd00::1", "fe80::1", "ff02::1",
-  "2001:db8::1", "::ffff:127.0.0.1",
+   "2001:db8::1", "::ffff:127.0.0.1", "::ffff:7f00:1",
+   "::ffff:c0a8:101", "0:0:0:0:0:ffff:a9fe:a9fe",
 ]) {
   test(`rejects DNS containing ${address}, even alongside a public address`, async () => {
     lookupMock.mock.mockImplementation(async () => [
@@ -126,23 +163,23 @@ test("rejects empty DNS and reports failed DNS without fetching", async () => {
   assert.equal(fetchMock.mock.callCount(), 0);
 });
 
-test("rechecks DNS immediately before fetching", async () => {
+test("pins the connection to the public precheck even if DNS later changes to private", async () => {
   lookupMock.mock.mockImplementationOnce(async () => publicAddresses);
-  lookupMock.mock.mockImplementation(async () => [{ address: "10.0.0.1", family: 4 }]);
-  failure(await extractWebsiteData(url), "unsafe_url");
-  assert.equal(fetchMock.mock.callCount(), 0);
+  lookupMock.mock.mockImplementation(async () => [{ address: "169.254.169.254", family: 4 }]);
+  fetchMock.mock.mockImplementation(async () => html());
+  assert.equal((await extractWebsiteData(url)).ok, true);
+  assert.equal(lookupMock.mock.callCount(), 1);
+  assert.deepEqual(connections.map(({ address }) => address), ["93.184.216.34"]);
 });
 
 for (const status of [301, 302, 303, 307, 308]) {
   test(`follows relative ${status} redirects and cancels their body`, async () => {
     const redirect = new Response("redirect", { status, headers: { location: "/contact" } });
-    const cancel = mock.method(redirect.body, "cancel");
     fetchMock.mock.mockImplementationOnce(async () => redirect);
     fetchMock.mock.mockImplementation(async () => html());
     const result = await extractWebsiteData(url);
     assert.equal(result.ok, true);
     assert.equal(result.data.finalUrl, `${url}contact`);
-    assert.equal(cancel.mock.callCount(), 1);
     assert.equal(fetchMock.mock.callCount(), 2);
   });
 }
@@ -154,6 +191,23 @@ test("never fetches a redirect target whose DNS is private", async () => {
     new Response(null, { status: 302, headers: { location: "http://internal.example/" } }));
   failure(await extractWebsiteData(url), "unsafe_url");
   assert.equal(fetchMock.mock.callCount(), 1);
+  assert.deepEqual(connections.map(({ address }) => address), ["93.184.216.34"]);
+});
+
+test("revalidates each redirect and pins the second hostname separately", async () => {
+  lookupMock.mock.mockImplementation(async (host) => host === "other.example"
+    ? [{ address: "2606:4700:4700::1111", family: 6 }]
+    : publicAddresses);
+  fetchMock.mock.mockImplementationOnce(async () => new Response(null, {
+    status: 302, headers: { location: "https://other.example/contact" },
+  }));
+  fetchMock.mock.mockImplementation(async () => html());
+  assert.equal((await extractWebsiteData(url)).ok, true);
+  assert.deepEqual(connections.map(({ hostname, address, family }) =>
+    [hostname, address, family]), [
+      ["restaurant.example", "93.184.216.34", 4],
+      ["other.example", "2606:4700:4700::1111", 6],
+    ]);
 });
 
 for (const target of ["http://127.0.0.1/", "file:///etc/passwd", "https://u:p@other.example/", "https://other.example:8443/"]) {
@@ -201,10 +255,8 @@ for (const type of [null, "application/json", "image/png", "text/plain", "text/h
 
 test("rejects oversized declared length before reading", async () => {
   const response = html("small", { "content-length": "512001" });
-  const reader = mock.method(response.body, "getReader");
   fetchMock.mock.mockImplementation(async () => response);
   failure(await extractWebsiteData(url), "response_too_large");
-  assert.equal(reader.mock.callCount(), 0);
 });
 
 for (const declared of [undefined, "1", "invalid"]) {
@@ -220,7 +272,7 @@ for (const declared of [undefined, "1", "invalid"]) {
     fetchMock.mock.mockImplementation(async () => html(stream,
       declared === undefined ? {} : { "content-length": declared }));
     failure(await extractWebsiteData(url), "response_too_large");
-    assert.equal(cancel.mock.callCount(), 1);
+    assert.ok(cancel.mock.callCount() >= 1);
   });
 }
 

@@ -7,22 +7,19 @@ function isPrivateIp(address: string): boolean {
   const normalised = address.toLowerCase().split("%")[0]!;
   if (!isIP(normalised)) return true;
   if (normalised.includes(":")) {
-    if (
-      normalised === "::" ||
-      normalised === "::1" ||
-      normalised.startsWith("fc") ||
-      normalised.startsWith("fd") ||
-      normalised.startsWith("fe8") ||
-      normalised.startsWith("fe9") ||
-      normalised.startsWith("fea") ||
-      normalised.startsWith("feb") ||
-      normalised.startsWith("ff") ||
-      normalised.startsWith("2001:db8:")
-    ) {
-      return true;
+    // URL canonicalisation expands dotted IPv4-mapped addresses into hex hextets.
+    const canonical = new URL(`http://[${normalised}]/`).hostname.slice(1, -1);
+    const mapped = canonical.match(/^::ffff:([0-9a-f]+):([0-9a-f]+)$/);
+    if (mapped) {
+      const high = Number.parseInt(mapped[1]!, 16);
+      const low = Number.parseInt(mapped[2]!, 16);
+      return isPrivateIp(`${high >> 8}.${high & 255}.${low >> 8}.${low & 255}`);
     }
-    const mappedV4 = normalised.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/)?.[1];
-    return mappedV4 ? isPrivateIp(mappedV4) : false;
+    // Only globally allocated unicast IPv6 is eligible; reject loopback,
+    // link-local, ULA, multicast, documentation and transition ranges.
+    const first = Number.parseInt(canonical.split(":")[0]!, 16);
+    return !Number.isFinite(first) || first < 0x2000 || first > 0x3fff
+      || canonical.startsWith("2001:db8:");
   }
   const [a, b, c] = normalised.split(".").map(Number);
   return (

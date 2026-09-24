@@ -1,5 +1,8 @@
 import { lookup } from "node:dns/promises";
+import { request as httpRequest } from "node:http";
+import { request as httpsRequest } from "node:https";
 import { isIP } from "node:net";
+import { Readable } from "node:stream";
 import { isPrivateAddress } from "../../lib/public-url";
 import { validateEmail } from "./validateEmail";
 
@@ -42,7 +45,9 @@ class WebsiteExtractionError extends Error {
   }
 }
 
-async function assertSafeWebsiteUrl(raw: string): Promise<URL> {
+type ResolvedWebsite = { url: URL; address: string; family: 4 | 6 };
+
+async function assertSafeWebsiteUrl(raw: string): Promise<ResolvedWebsite> {
   let url: URL;
   try {
     url = new URL(raw);
@@ -56,7 +61,7 @@ async function assertSafeWebsiteUrl(raw: string): Promise<URL> {
     );
   }
   const expectedPort = url.protocol === "http:" ? "80" : "443";
-  if ((url.port && url.port !== expectedPort) || isIP(url.hostname)) {
+  if ((url.port && url.port !== expectedPort) || isIP(url.hostname.replace(/^\[|\]$/g, ""))) {
     throw new WebsiteExtractionError(
       "unsafe_url",
       "Website URL uses a disallowed host or port.",
@@ -72,13 +77,52 @@ async function assertSafeWebsiteUrl(raw: string): Promise<URL> {
       "Website hostname could not be resolved.",
     );
   }
-  if (!addresses.length || addresses.some(({ address }) => isPrivateAddress(address))) {
+  if (!addresses.length || addresses.some(({ address, family }) =>
+    (family !== 4 && family !== 6) || isIP(address) !== family || isPrivateAddress(address))) {
     throw new WebsiteExtractionError(
       "unsafe_url",
       "Website resolves to a private or reserved address.",
     );
   }
-  return url;
+  const selected = addresses[0]!;
+  return { url, address: selected.address, family: selected.family as 4 | 6 };
+}
+
+function requestPinned({ url, address, family }: ResolvedWebsite): Promise<Response> {
+  const signal = AbortSignal.timeout(FETCH_TIMEOUT_MS);
+  return new Promise((resolve, reject) => {
+    // Keep the URL hostname for Host, SNI and certificate verification. Only
+    // the socket's DNS lookup is replaced, with the validated answer for this hop.
+    const request = (url.protocol === "https:" ? httpsRequest : httpRequest)(url, {
+      method: "GET",
+      agent: false,
+      signal,
+      family,
+      ...(url.protocol === "https:" ? { servername: url.hostname, rejectUnauthorized: true } : {}),
+      lookup: (_hostname, _options, callback) => callback(null, address, family),
+      headers: {
+        Accept: "text/html,application/xhtml+xml",
+        "User-Agent": "TheFoodAdvisorBot/1.0 (+https://thefoodadvisor.co.uk)",
+      },
+    }, (incoming) => {
+      try {
+        const status = incoming.statusCode ?? 0;
+        const body = [204, 205, 304].includes(status)
+          ? null
+          : Readable.toWeb(incoming) as ReadableStream<Uint8Array>;
+        const headers = new Headers();
+        for (const [name, value] of Object.entries(incoming.headers)) {
+          if (value !== undefined) headers.set(name, Array.isArray(value) ? value.join(", ") : value);
+        }
+        resolve(new Response(body, { status, headers }));
+      } catch (error) {
+        incoming.destroy();
+        reject(error);
+      }
+    });
+    request.once("error", (error) => reject(signal.aborted ? signal.reason : error));
+    request.end();
+  });
 }
 
 async function readBoundedHtml(response: Response): Promise<string> {
@@ -191,19 +235,13 @@ export async function extractWebsiteData(
   website: string,
 ): Promise<WebsiteExtractionResult> {
   try {
-    let current = await assertSafeWebsiteUrl(website);
+    let current = website;
     for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
-      current = await assertSafeWebsiteUrl(current.href);
+      const resolved = await assertSafeWebsiteUrl(current);
+      const { url } = resolved;
       let response: Response;
       try {
-        response = await fetch(current, {
-          redirect: "manual",
-          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-          headers: {
-            Accept: "text/html,application/xhtml+xml",
-            "User-Agent": "TheFoodAdvisorBot/1.0 (+https://thefoodadvisor.co.uk)",
-          },
-        });
+        response = await requestPinned(resolved);
       } catch (error) {
         if (error instanceof Error && error.name === "TimeoutError") {
           throw new WebsiteExtractionError("timeout", "Website request timed out.");
@@ -224,10 +262,11 @@ export async function extractWebsiteData(
               : "Website redirect had no location.",
           );
         }
-        current = new URL(location, current);
+        current = new URL(location, url).href;
         continue;
       }
       if (!response.ok) {
+        await response.body?.cancel();
         throw new WebsiteExtractionError(
           "http_error",
           `Website returned HTTP ${response.status}.`,
@@ -237,6 +276,7 @@ export async function extractWebsiteData(
         response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() ??
         "";
       if (!["text/html", "application/xhtml+xml"].includes(contentType)) {
+        await response.body?.cancel();
         throw new WebsiteExtractionError(
           "invalid_content_type",
           "Website did not return HTML.",
@@ -245,7 +285,7 @@ export async function extractWebsiteData(
       const metadata = extractMetadata(await readBoundedHtml(response));
       return {
         ok: true,
-        data: { finalUrl: current.href, ...metadata },
+        data: { finalUrl: url.href, ...metadata },
       };
     }
     throw new WebsiteExtractionError(
