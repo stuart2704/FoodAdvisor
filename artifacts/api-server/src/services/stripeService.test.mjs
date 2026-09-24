@@ -44,7 +44,9 @@ export const getUncachableStripeClient = async () => ({
   },
   checkout: {
     sessions: {
-      retrieve: async () => globalThis.__stripe.existingCheckoutSession,
+      retrieve: async (id) => id === "cs_test_created"
+        ? { ...globalThis.__stripe.existingCheckoutSession, id, url: "https://checkout.stripe.com/c/pay/new" }
+        : globalThis.__stripe.existingCheckoutSession,
       expire: async () => { globalThis.__stripe.checkoutExpires += 1; },
       create: async (params, options) => {
         globalThis.__stripe.checkoutCreates.push({ params, options });
@@ -81,7 +83,12 @@ const project = (selection, row) => Object.fromEntries(
   Object.entries(selection).map(([key, column]) => [key, row[column.column]])
 );
 const transaction = {
-  async execute() { state().lockCalls += 1; },
+  async execute() {
+    state().lockCalls += 1;
+    // A real FOR UPDATE waits for the previous transaction. The optional
+    // deferred gate makes concurrent calls exercise that ordering here.
+    if (state().lockGate) await state().lockGate;
+  },
   insert(table) {
     return {
       values(value) {
@@ -130,6 +137,10 @@ const transaction = {
 };
 export const db = {
   async transaction(operation) {
+    const previous = state().transactionQueue ?? Promise.resolve();
+    let release;
+    state().transactionQueue = new Promise(resolve => { release = resolve; });
+    await previous;
     const snapshot = structuredClone({
       restaurant: state().restaurant,
       events: [...state().events],
@@ -144,6 +155,8 @@ export const db = {
       state().analytics = snapshot.analytics;
       state().updates = snapshot.updates;
       throw error;
+    } finally {
+      release();
     }
   }
 };
@@ -325,6 +338,53 @@ test("checkout validates Price, reuses open sessions, and rotates expired attemp
   assert.equal(globalThis.__stripe.checkoutCreates.length, 0);
 });
 
+test("simultaneous portal checkouts reuse a single pending session", async () => {
+  globalThis.__stripe = baseState();
+  const state = globalThis.__stripe;
+  state.configuredPrice = state.subscription.items.data[0].price;
+  // Simulate Stripe returning the newly created session on the second read.
+  const first = createCheckoutSession("portal-token");
+  const second = createCheckoutSession("portal-token");
+  const urls = await Promise.all([first, second]);
+  assert.deepEqual(urls, [urls[0], urls[0]]);
+  assert.equal(state.checkoutCreates.length, 1);
+  assert.equal(state.restaurant.stripeCheckoutAttempt, 1);
+});
+
+test("async failure and expiry cannot activate or clear a newer checkout", async () => {
+  globalThis.__stripe = baseState();
+  const state = globalThis.__stripe;
+  state.restaurant.stripeCheckoutSessionId = "cs_test_newer";
+  for (const type of [
+    "checkout.session.async_payment_failed",
+    "checkout.session.expired",
+  ]) {
+    state.event = {
+      id: `evt_${type}`,
+      type,
+      data: { object: { ...baseState().event.data.object, id: "cs_test_older", payment_status: "unpaid" } },
+    };
+    await handleWebhook(Buffer.from("{}"), "valid");
+    assert.equal(state.restaurant.premium, false);
+    assert.equal(state.restaurant.stripeCheckoutSessionId, "cs_test_newer");
+  }
+});
+
+test("incorrect metadata, price ID, and customer cannot grant access", async () => {
+  for (const mutate of [
+    s => { s.event.data.object.metadata.restaurantId = "rest_other"; },
+    s => { s.subscription.metadata.restaurantId = "rest_other"; },
+    s => { s.subscription.items.data[0].price.id = "price_other"; },
+    s => { s.subscription.customer = "cus_other"; },
+  ]) {
+    globalThis.__stripe = baseState();
+    mutate(globalThis.__stripe);
+    await assert.rejects(handleWebhook(Buffer.from("{}"), "valid"));
+    assert.equal(globalThis.__stripe.restaurant.premium, false);
+    assert.equal(globalThis.__stripe.events.size, 0);
+  }
+});
+
 test("unpaid completion is acknowledged pending and async payment activates", async () => {
   globalThis.__stripe = baseState();
   globalThis.__stripe.event.data.object.payment_status = "unpaid";
@@ -424,6 +484,7 @@ test("stale cancellation cannot remove a newer subscription", async () => {
   globalThis.__stripe = baseState();
   globalThis.__stripe.restaurant.premium = true;
   globalThis.__stripe.restaurant.stripeSubscriptionId = "sub_new";
+  globalThis.__stripe.restaurant.stripeCheckoutSessionId = "cs_test_newer";
   globalThis.__stripe.event = {
     id: "evt_stale_cancel",
     type: "customer.subscription.deleted",
@@ -432,4 +493,5 @@ test("stale cancellation cannot remove a newer subscription", async () => {
   await handleWebhook(Buffer.from("{}"), "valid");
   assert.equal(globalThis.__stripe.restaurant.premium, true);
   assert.equal(globalThis.__stripe.restaurant.stripeSubscriptionId, "sub_new");
+  assert.equal(globalThis.__stripe.restaurant.stripeCheckoutSessionId, "cs_test_newer");
 });
