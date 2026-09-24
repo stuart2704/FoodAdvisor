@@ -300,9 +300,10 @@ export default function RestaurantDetail() {
 
       {restaurant.claimed === false && (
         <Link
-          to={`/claim/${encodeURIComponent(restaurant.id)}${
-            claimToken ? `?token=${encodeURIComponent(claimToken)}` : ""
-          }`}
+          to={claimToken
+            ? `/claim/${encodeURIComponent(restaurant.id)}?token=${encodeURIComponent(claimToken)}`
+            : "/owner"}
+          data-testid="link-claim-restaurant"
           style={{
             display: "inline-block",
             marginBottom: "24px",
@@ -314,7 +315,7 @@ export default function RestaurantDetail() {
             textDecoration: "none",
           }}
         >
-          Claim this restaurant
+          {claimToken ? "Claim this restaurant" : "How to claim this restaurant"}
         </Link>
       )}
 
@@ -668,7 +669,7 @@ export default function RestaurantDetail() {
         </div>
       )}
 
-      {restaurant.claimed === false && (
+      {restaurant.claimed === false && claimToken && (
         <div
           style={{
             marginTop: "40px",

@@ -28,6 +28,7 @@ import PortalUpgradePage from "./pages/portal-upgrade";
 import RewardsPage from "./pages/rewards";
 import AboutPage from "./pages/AboutPage";
 import ContactPage from "./pages/ContactPage";
+import OwnerPage from "./pages/OwnerPage";
 import RestaurantsPage from "./pages/RestaurantsPage";
 import CityHighlights from "./components/CityHighlights";
 
@@ -44,6 +45,7 @@ function AppRoutes() {
         <Route path="/restaurants" element={<RestaurantsPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/contact" element={<ContactPage />} />
+        <Route path="/owner" element={<OwnerPage />} />
         <Route path="/restaurant/:id" element={<RestaurantDetail />} />
         <Route path="/claim/:placeId" element={<ClaimRestaurant />} />
         <Route path="/claim/:id/success" element={<ClaimSuccessPage />} />
