@@ -13,6 +13,7 @@ import { getErrorSummary } from "../dashboard/errorSummary";
 import { getStatusCounts } from "../dashboard/statusStats";
 import { getRecentHealth, computeDailyHealthScore } from "../health/scraperHealth";
 import { adminOnly } from "../middleware/adminOnly";
+import { importRunLimit } from "../middleware/importRunLimit";
 import {
   createImportPlan,
   getImportStatus,
@@ -150,7 +151,7 @@ router.post("/restaurant-import/plan", adminOnly, async (req, res) => {
   res.json(CreateRestaurantImportPlanResponse.parse(plan));
 });
 
-router.post("/restaurant-import/run", adminOnly, async (req, res) => {
+router.post("/restaurant-import/run", adminOnly, importRunLimit, async (req, res) => {
   const parsed = RunRestaurantImportBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });

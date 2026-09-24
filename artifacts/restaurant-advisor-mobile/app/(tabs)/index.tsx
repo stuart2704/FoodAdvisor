@@ -16,16 +16,12 @@ import {
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
-import { useQueryClient } from '@tanstack/react-query';
 import {
-  getGetRestaurantImportStatusQueryKey,
   getListNearbyRestaurantsQueryKey,
-  getListRestaurantsQueryKey,
   useCreateRestaurantImportPlan,
   useGetRestaurantImportStatus,
   useListNearbyRestaurants,
   useListRestaurants,
-  useRunRestaurantImport,
 } from '@workspace/api-client-react';
 import { useRouter } from 'expo-router';
 import {
@@ -52,7 +48,6 @@ const CITIES = [
 
 export function ManagementScreen() {
   const colors = useColors();
-  const queryClient = useQueryClient();
   const [selectedCities, setSelectedCities] = useState<string[]>(CITIES);
   const [budget, setBudget] = useState('25');
   const [limit, setLimit] = useState(10);
@@ -85,7 +80,6 @@ export function ManagementScreen() {
     },
   );
   const plan = useCreateRestaurantImportPlan();
-  const run = useRunRestaurantImport();
 
   const input = useMemo(
     () => ({
@@ -211,29 +205,8 @@ export function ManagementScreen() {
     : restaurants.data ?? [];
   const showingNearby = nearbyRequested;
 
-  const runImport = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    run.mutate(
-      { data: { ...input, confirm: true } },
-      {
-        onSuccess: () => {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          queryClient.invalidateQueries({
-            queryKey: getGetRestaurantImportStatusQueryKey(),
-          });
-          queryClient.invalidateQueries({
-            queryKey: getListRestaurantsQueryKey(),
-          });
-          queryClient.invalidateQueries({
-            queryKey: getListNearbyRestaurantsQueryKey(),
-          });
-        },
-      },
-    );
-  };
-
   const errorMessage =
-    (run.error as { data?: { error?: string } } | null)?.data?.error ??
+    (plan.error ? 'The import preview is unavailable. Try again later.' : null) ??
     (status.error ? 'The shared restaurant service is unavailable.' : null);
 
   return (
@@ -259,7 +232,7 @@ export function ManagementScreen() {
             Better tables,{'\n'}city by city.
           </Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            Grow the UK guide with a clear monthly spending ceiling.
+            Preview coverage for the UK guide. Imports are managed by operators on the web dashboard.
           </Text>
 
           <View style={[styles.nearbyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -432,17 +405,6 @@ export function ManagementScreen() {
             >
               {plan.isPending ? <ActivityIndicator color={colors.primary} /> : <Text style={[styles.secondaryText, { color: colors.primary }]}>Check plan</Text>}
             </Pressable>
-            <Pressable
-              testID="button-import"
-              disabled={!plan.data || run.isPending}
-              onPress={runImport}
-              style={[styles.primaryButton, { backgroundColor: colors.primary, opacity: !plan.data ? 0.45 : 1 }]}
-            >
-              {run.isPending ? <ActivityIndicator color={colors.primaryForeground} /> : <>
-                <Text style={[styles.primaryText, { color: colors.primaryForeground }]}>Import safely</Text>
-                <Feather name="arrow-up-right" size={19} color={colors.primaryForeground} />
-              </>}
-            </Pressable>
           </View>
 
           <View style={styles.listHeading}>
@@ -496,7 +458,7 @@ export function ManagementScreen() {
             <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
               {showingNearby
                 ? `No nearby restaurants with stored coordinates were found within ${radiusMiles} miles. Imported listings without coordinates are not shown.`
-                : 'Run your first safe import to fill the guide.'}
+                : 'Restaurants will appear here after an operator imports them.'}
             </Text>
           </View>
         ) : null

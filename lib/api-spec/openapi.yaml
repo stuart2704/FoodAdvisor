@@ -190,6 +190,7 @@ paths:
       operationId: runAdminRestaurantImport
       tags: [restaurants]
       summary: Run a confirmed budget-capped restaurant import as an administrator
+      description: Requires an admin session. Limited to five run requests per 15 minutes across both import run paths; every paid call also requires a budget reservation.
       requestBody:
         required: true
         content:
@@ -211,6 +212,8 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: Admin login required
+        "429":
+          description: Too many import runs
         "503":
           description: Google Places is not configured
           content:
@@ -315,7 +318,7 @@ paths:
     post:
       operationId: createRestaurantImportPlan
       tags: [restaurants]
-      summary: Preview a budget-safe import plan
+      summary: Preview a budget-safe import plan without contacting Google Places
       requestBody:
         required: true
         content:
@@ -339,7 +342,9 @@ paths:
     post:
       operationId: runRestaurantImport
       tags: [restaurants]
-      summary: Import restaurants within a monthly budget cap
+      deprecated: true
+      summary: Legacy admin-only import alias (use /dashboard/restaurant-import/run)
+      description: Requires an admin session. Limited to five run requests per 15 minutes across both import run paths; every paid call also requires a budget reservation.
       requestBody:
         required: true
         content:
@@ -359,6 +364,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Admin login required
+        "429":
+          description: Too many import runs
         "503":
           description: Google Places is not configured
           content:

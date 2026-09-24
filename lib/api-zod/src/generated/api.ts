@@ -215,6 +215,7 @@ export const CreateAdminRestaurantImportPlanResponse = zod.object({
 
 
 /**
+ * Requires an admin session. Limited to five run requests per 15 minutes across both import run paths; every paid call also requires a budget reservation.
  * @summary Run a confirmed budget-capped restaurant import as an administrator
  */
 export const runAdminRestaurantImportBodyOneCitiesItemMin = 2;
@@ -338,7 +339,7 @@ export const GetRestaurantImportStatusResponse = zod.object({
 
 
 /**
- * @summary Preview a budget-safe import plan
+ * @summary Preview a budget-safe import plan without contacting Google Places
  */
 export const createRestaurantImportPlanBodyCitiesItemMin = 2;
 
@@ -392,7 +393,9 @@ export const CreateRestaurantImportPlanResponse = zod.object({
 
 
 /**
- * @summary Import restaurants within a monthly budget cap
+ * Requires an admin session. Limited to five run requests per 15 minutes across both import run paths; every paid call also requires a budget reservation.
+ * @deprecated
+ * @summary Legacy admin-only import alias (use /dashboard/restaurant-import/run)
  */
 export const runRestaurantImportBodyOneCitiesItemMin = 2;
 

@@ -700,6 +700,7 @@ export const getRunAdminRestaurantImportUrl = () => {
 }
 
 /**
+ * Requires an admin session. Limited to five run requests per 15 minutes across both import run paths; every paid call also requires a budget reservation.
  * @summary Run a confirmed budget-capped restaurant import as an administrator
  */
 export const runAdminRestaurantImport = async (restaurantImportRunInput: RestaurantImportRunInput, options?: Parameters<typeof customFetch>[1]): Promise<RestaurantImportRunResult> => {
@@ -1080,7 +1081,7 @@ export const getCreateRestaurantImportPlanUrl = () => {
 }
 
 /**
- * @summary Preview a budget-safe import plan
+ * @summary Preview a budget-safe import plan without contacting Google Places
  */
 export const createRestaurantImportPlan = async (restaurantImportPlanInput: RestaurantImportPlanInput, options?: Parameters<typeof customFetch>[1]): Promise<RestaurantImportPlan> => {
 
@@ -1129,7 +1130,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateRestaurantImportPlanMutationError = ErrorType<ErrorResponse>
 
     /**
- * @summary Preview a budget-safe import plan
+ * @summary Preview a budget-safe import plan without contacting Google Places
  */
 export const useCreateRestaurantImportPlan = <TError = ErrorType<ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRestaurantImportPlan>>, TError,{data: BodyType<RestaurantImportPlanInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -1151,7 +1152,9 @@ export const getRunRestaurantImportUrl = () => {
 }
 
 /**
- * @summary Import restaurants within a monthly budget cap
+ * Requires an admin session. Limited to five run requests per 15 minutes across both import run paths; every paid call also requires a budget reservation.
+ * @deprecated
+ * @summary Legacy admin-only import alias (use /dashboard/restaurant-import/run)
  */
 export const runRestaurantImport = async (restaurantImportRunInput: RestaurantImportRunInput, options?: Parameters<typeof customFetch>[1]): Promise<RestaurantImportRunResult> => {
 
@@ -1168,7 +1171,7 @@ export const runRestaurantImport = async (restaurantImportRunInput: RestaurantIm
 
 
 
-export const getRunRestaurantImportMutationOptions = <TError = ErrorType<ErrorResponse>,
+export const getRunRestaurantImportMutationOptions = <TError = ErrorType<ErrorResponse | void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runRestaurantImport>>, TError,{data: BodyType<RestaurantImportRunInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof runRestaurantImport>>, TError,{data: BodyType<RestaurantImportRunInput>}, TContext> => {
 
@@ -1197,12 +1200,13 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type RunRestaurantImportMutationResult = NonNullable<Awaited<ReturnType<typeof runRestaurantImport>>>
     export type RunRestaurantImportMutationBody = BodyType<RestaurantImportRunInput>
-    export type RunRestaurantImportMutationError = ErrorType<ErrorResponse>
+    export type RunRestaurantImportMutationError = ErrorType<ErrorResponse | void>
 
     /**
- * @summary Import restaurants within a monthly budget cap
+ * @deprecated
+ * @summary Legacy admin-only import alias (use /dashboard/restaurant-import/run)
  */
-export const useRunRestaurantImport = <TError = ErrorType<ErrorResponse>,
+export const useRunRestaurantImport = <TError = ErrorType<ErrorResponse | void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runRestaurantImport>>, TError,{data: BodyType<RestaurantImportRunInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof runRestaurantImport>>,
