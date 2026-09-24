@@ -2,7 +2,9 @@ import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { adminOnly } from "../middleware/adminOnly";
 import {
+  getBetterContactBudgetForReview,
   getBetterContactJobForReview,
+  listBetterContactJobsForReview,
   reserveBetterContactJob,
 } from "../services/enrichment/betterContact";
 
@@ -28,6 +30,14 @@ const RequestBody = z.object({
 }).strict();
 const Params = z.object({ placeId: z.string().trim().min(1).max(512) });
 const JobParams = z.object({ jobId: z.string().uuid() });
+
+router.get("/private-contact-enrichments/budget", adminOnly, async (_req, res) => {
+  res.json({ success: true, data: await getBetterContactBudgetForReview() });
+});
+
+router.get("/private-contact-enrichments", adminOnly, async (_req, res) => {
+  res.json({ success: true, data: await listBetterContactJobsForReview() });
+});
 
 router.post("/restaurants/:placeId/private-contact-enrichments", adminOnly, async (req, res) => {
   const params = Params.safeParse(req.params);

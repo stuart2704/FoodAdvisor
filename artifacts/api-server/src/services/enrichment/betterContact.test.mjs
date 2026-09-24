@@ -71,6 +71,7 @@ class Query {
   values(values) { this.input = Array.isArray(values) ? values : [values]; return this; }
   set(values) { this.input = values; return this; }
   where(condition) { this.condition = condition; return this; }
+  orderBy(order) { this.order = order; return this; }
   limit(limit) { this.max = limit; return this; }
   onConflictDoNothing() { this.ignoreConflict = true; return this; }
   returning(fields) { this.returnFields = fields ?? null; this.wantsReturning = true; return this; }
@@ -80,6 +81,9 @@ class Query {
   execute() {
     if (this.kind === "select") {
       let found = rows(this.table).filter((row) => matches(row, this.condition));
+      if (this.order?.kind === "desc") {
+        found = found.sort((a, b) => Number(b[this.order.column.key]) - Number(a[this.order.column.key]));
+      }
       if (this.max !== undefined) found = found.slice(0, this.max);
       return found.map((row) => project(row, this.fields));
     }
@@ -148,6 +152,7 @@ export const eq = (left, right) => ({ kind: "eq", left, right });
 export const lte = (left, right) => ({ kind: "lte", left, right });
 export const inArray = (left, values) => ({ kind: "in", left, values });
 export const and = (...conditions) => ({ kind: "and", conditions });
+export const desc = (column) => ({ kind: "desc", column });
 export const sql = (strings, ...values) => ({ kind: "sql", strings: [...strings], values });
 `;
 
@@ -225,6 +230,24 @@ test("concurrent identical reservations create one job and reserve one credit", 
   assert.equal(current().jobs.length, 1);
   assert.equal(budget().reservedCredits, 1);
   assert.equal(budget().consumedCredits, 0);
+});
+
+test("private review budget shows configured and effective caps and recent job summaries", async () => {
+  await service.reserveBetterContactJob(input);
+  const summary = await service.getBetterContactBudgetForReview();
+  assert.equal(summary.configuredCap, 2);
+  assert.equal(summary.effectiveCap, 2);
+  assert.equal(summary.availableCredits, 1);
+  assert.equal(summary.reservedCredits, 1);
+  const jobs = await service.listBetterContactJobsForReview();
+  assert.equal(jobs.length, 1);
+  assert.equal(jobs[0].id, job().id);
+  assert.equal("email" in jobs[0], false);
+
+  process.env.BETTERCONTACT_MONTHLY_CREDIT_CAP = "3";
+  assert.equal((await service.getBetterContactBudgetForReview()).effectiveCap, 2);
+  process.env.BETTERCONTACT_ENABLED = "false";
+  assert.equal((await service.getBetterContactBudgetForReview()).enabled, false);
 });
 
 test("201 acknowledgement persists provider id without consuming reservation", async () => {

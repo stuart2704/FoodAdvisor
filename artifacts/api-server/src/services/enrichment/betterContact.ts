@@ -8,7 +8,7 @@ import {
   db,
   restaurantsTable,
 } from "@workspace/db";
-import { and, eq, inArray, lte, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lte, sql } from "drizzle-orm";
 
 const CONNECTOR = "bettercontact";
 const RESERVED_CREDITS = 1;
@@ -465,6 +465,39 @@ export async function getBetterContactJobForReview(jobId: string) {
   const [contact] = await db.select().from(betterContactPrivateContactsTable)
     .where(eq(betterContactPrivateContactsTable.jobId, jobId)).limit(1);
   return { job, privateReviewContact: contact ?? null };
+}
+
+/** Admin-only route callers must guard these private budget and request summaries. */
+export async function getBetterContactBudgetForReview() {
+  const configuredCap = configuredMonthlyCap();
+  const currentPeriod = period(new Date());
+  const [budget] = await db.select().from(betterContactBudgetsTable)
+    .where(eq(betterContactBudgetsTable.period, currentPeriod)).limit(1);
+  const effectiveCap = configuredCap === null ? null
+    : Math.min(configuredCap, budget?.creditCap ?? configuredCap);
+  return {
+    enabled: configuredCap !== null,
+    period: currentPeriod,
+    configuredCap,
+    effectiveCap,
+    reservedCredits: budget?.reservedCredits ?? 0,
+    consumedCredits: budget?.consumedCredits ?? 0,
+    availableCredits: effectiveCap === null ? null
+      : Math.max(0, effectiveCap - (budget?.reservedCredits ?? 0) - (budget?.consumedCredits ?? 0)),
+  };
+}
+
+export async function listBetterContactJobsForReview() {
+  return db.select({
+    id: betterContactJobsTable.id,
+    placeId: betterContactJobsTable.placeId,
+    firstName: betterContactJobsTable.firstName,
+    lastName: betterContactJobsTable.lastName,
+    company: betterContactJobsTable.company,
+    status: betterContactJobsTable.status,
+    createdAt: betterContactJobsTable.createdAt,
+  }).from(betterContactJobsTable)
+    .orderBy(desc(betterContactJobsTable.createdAt)).limit(50);
 }
 
 export { TERMINAL };

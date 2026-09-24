@@ -5,6 +5,7 @@ const sections = [
   { to: "/admin/performance", label: "Performance" },
   { to: "/admin/errors", label: "Errors" },
   { to: "/admin/outreach", label: "Outreach" },
+  { to: "/admin/owner-contacts", label: "Owner contacts" },
   { to: "/admin/restaurants", label: "Restaurants" },
   { to: "/admin/chef-review", label: "Chef review" },
   { to: "/admin/logs", label: "Logs" },

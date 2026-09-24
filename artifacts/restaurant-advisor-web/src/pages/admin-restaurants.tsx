@@ -96,6 +96,13 @@ export default function ManageRestaurantsPage() {
               >
                 View listing
               </Link>
+              <Link
+                to={`/admin/owner-contacts?placeId=${encodeURIComponent(restaurant.placeId)}`}
+                style={{ color: "#ff8b47", marginLeft: "16px" }}
+                data-testid={`link-private-contact-${restaurant.placeId}`}
+              >
+                Request private contact
+              </Link>
             </li>
           ))}
         </ul>

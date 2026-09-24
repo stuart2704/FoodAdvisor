@@ -1,0 +1,27 @@
+.owner-contacts { max-width: 900px; display: grid; gap: 18px; padding-bottom: 56px; }
+.owner-contacts header { margin-bottom: 8px; }
+.owner-contacts header p { color: #bcb6b0; line-height: 1.55; max-width: 740px; }
+.owner-contacts .eyebrow { color: #ff8b47; font-size: .8rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.owner-contacts h1 { font-size: 2rem; margin: 8px 0; }
+.owner-contacts h2 { font-size: 1.15rem; margin: 0 0 14px; }
+.owner-contacts .contact-panel { background: #191919; border: 1px solid #36312e; border-radius: 12px; padding: 20px; }
+.owner-contacts .contact-panel p { line-height: 1.5; overflow-wrap: anywhere; }
+.owner-contacts small { display: block; color: #b5ada7; line-height: 1.5; }
+.owner-contacts .contact-form { display: grid; gap: 16px; }
+.owner-contacts .contact-field { display: grid; gap: 5px; font-weight: 600; }
+.owner-contacts .contact-field input { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #625a54; border-radius: 7px; background: #101010; color: white; font: inherit; }
+.owner-contacts .contact-consent { display: flex; gap: 10px; line-height: 1.5; align-items: flex-start; }
+.owner-contacts .contact-consent input { margin-top: 5px; }
+.owner-contacts button { border: 1px solid #a65a32; border-radius: 7px; background: #a93f0a; color: #fff; padding: 10px 14px; font: inherit; font-weight: 650; cursor: pointer; }
+.owner-contacts button:hover:not(:disabled) { background: #d4510d; }
+.owner-contacts button:focus-visible, .owner-contacts input:focus-visible { outline: 2px solid #ff9c62; outline-offset: 2px; }
+.owner-contacts button:disabled { opacity: .5; cursor: not-allowed; }
+.owner-contacts .contact-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.owner-contacts .contact-heading button { background: #302823; }
+.owner-contacts .contact-history { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-height: 370px; overflow-y: auto; }
+.owner-contacts .contact-history button { display: block; width: 100%; text-align: left; background: #24201e; border-color: #49403a; overflow-wrap: anywhere; }
+.owner-contacts .contact-history button.selected { border-color: #ff8b47; }
+.owner-contacts .contact-history span { display: block; color: #c9c0ba; font-size: .85rem; margin-top: 5px; }
+.owner-contacts .contact-result { border-left: 3px solid #ff8b47; padding: 2px 0 2px 16px; background: #231d19; }
+.owner-contacts .contact-error { color: #ffb5a9; background: #3c1e1c; padding: 12px; border-radius: 7px; }
+.owner-contacts .contact-notice { color: #d2f5db; background: #183127; padding: 12px; border-radius: 7px; }

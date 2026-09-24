@@ -15,6 +15,7 @@ import SocialAutomationPage from "./pages/admin/social-automation";
 import AdminOperations from "./pages/admin/operations";
 import AdminLogout from "./pages/admin/logout";
 import AdminOutreach from "./pages/admin/outreach";
+import AdminOwnerContacts from "./pages/admin/owner-contacts";
 import AdminPerformance from "./pages/admin/performance";
 import ManageRestaurantsPage from "./pages/admin-restaurants";
 import AdminChefReviewPage from "./pages/admin-chef-review";
@@ -79,6 +80,7 @@ function AppRoutes() {
         <Route path="/admin/performance" element={<AdminPerformance />} />
         <Route path="/admin/errors" element={<AdminErrors />} />
         <Route path="/admin/outreach" element={<AdminOutreach />} />
+        <Route path="/admin/owner-contacts" element={<AdminOwnerContacts />} />
         <Route path="/admin/restaurants" element={<ManageRestaurantsPage />} />
         <Route path="/admin/chef-review" element={<AdminChefReviewPage />} />
         <Route path="/admin/logs" element={<AdminLogs />} />
