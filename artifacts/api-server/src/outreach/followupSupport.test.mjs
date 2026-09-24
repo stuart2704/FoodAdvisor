@@ -38,6 +38,9 @@ export const gmailHistoryMessagesTable = table("gmail_history_messages", [
 export const outreachAuditTable = table("outreach_audit", [
   "id", "placeId", "event", "createdAt", "recipientDomain", "detail",
 ]);
+export const operationalLogEventsTable = table("operational_log_events", [
+  "id", "createdAt", "type", "message", "category", "bookmarked", "tags",
+]);
 
 const tableRows = (table) => {
   const state = globalThis.__outreachMockState;
@@ -45,6 +48,7 @@ const tableRows = (table) => {
   if (table.__table === "gmail_outreach_threads") return state.threads;
   if (table.__table === "gmail_history_messages") return state.historyMessages;
   if (table.__table === "outreach_audit") return state.audits;
+  if (table.__table === "operational_log_events") return state.operationalLogs;
   throw new Error("Unknown mock table: " + table.__table);
 };
 
@@ -80,6 +84,18 @@ export function gte(column, value) {
 export function lte(column, value) {
   return { __kind: "lte", column, value };
 }
+export function lt(column, value) {
+  return { __kind: "lt", column, value };
+}
+export function inArray(column, values) {
+  return { __kind: "inArray", column, values };
+}
+export function arrayContains(column, values) {
+  return { __kind: "arrayContains", column, values };
+}
+export function desc(column) {
+  return { __kind: "desc", column };
+}
 export function and(...conditions) {
   return { __kind: "and", conditions: conditions.filter(Boolean) };
 }
@@ -104,6 +120,14 @@ function matches(condition, context) {
     case "lte":
       return new Date(columnValue(condition.column, context)).getTime() <=
         new Date(condition.value).getTime();
+    case "lt":
+      return new Date(columnValue(condition.column, context)).getTime() <
+        new Date(condition.value).getTime();
+    case "inArray":
+      return condition.values.includes(columnValue(condition.column, context));
+    case "arrayContains":
+      return condition.values.every((value) =>
+        (columnValue(condition.column, context) ?? []).includes(value));
     case "sql": {
       const text = condition.text;
       const currentState = state();
@@ -191,9 +215,11 @@ class SelectQuery {
     }
     contexts = contexts.filter((context) => matches(this.condition, context));
     if (this.orderColumn) {
+      const descending = this.orderColumn.__kind === "desc";
+      const column = descending ? this.orderColumn.column : this.orderColumn;
       contexts.sort((left, right) =>
-        new Date(columnValue(this.orderColumn, left)).getTime() -
-        new Date(columnValue(this.orderColumn, right)).getTime());
+        (new Date(columnValue(column, left)).getTime() -
+        new Date(columnValue(column, right)).getTime()) * (descending ? -1 : 1));
     }
     contexts = contexts.slice(0, this.maxRows);
     if (!this.selection) return contexts.map((context) => ({ ...context.byTable[this.source.__table] }));
@@ -281,6 +307,9 @@ class InsertQuery {
     this.input = input;
     return this;
   }
+  onConflictDoNothing() {
+    return this;
+  }
   async execute() {
     const currentState = state();
     const rows = tableRows(this.table);
@@ -313,6 +342,7 @@ export const db = {
       threads: currentState.threads,
       historyMessages: currentState.historyMessages,
       audits: currentState.audits,
+      operationalLogs: currentState.operationalLogs,
       nextAuditId: currentState.nextAuditId,
     });
     try {
@@ -322,6 +352,7 @@ export const db = {
       currentState.threads = snapshot.threads;
       currentState.historyMessages = snapshot.historyMessages;
       currentState.audits = snapshot.audits;
+      currentState.operationalLogs = snapshot.operationalLogs;
       currentState.nextAuditId = snapshot.nextAuditId;
       throw error;
     }
@@ -342,7 +373,7 @@ export const pool = {
 `;
 
 const ormMock = String.raw`
-export { and, eq, gte, isNull, lte, or, sql } from "@workspace/db";
+export { and, arrayContains, desc, eq, gte, inArray, isNull, lt, lte, or, sql } from "@workspace/db";
 `;
 
 const instantlyMock = String.raw`
@@ -408,6 +439,10 @@ export async function generateOutreachFor() {
 }
 `;
 
+const loggerMock = String.raw`
+export const logger = { warn() {}, error() {}, info() {} };
+`;
+
 const mockSources = new Map([
   ["@workspace/db", dbMock],
   ["drizzle-orm", ormMock],
@@ -416,6 +451,7 @@ const mockSources = new Map([
   ["public-url", publicUrlMock],
   ["enrichment", enrichmentMock],
   ["message-generator", generatorMock],
+  ["logger", loggerMock],
 ]);
 
 async function bundleOutreach() {
@@ -426,6 +462,7 @@ async function bundleOutreach() {
   const generatorSource = path.join(apiRoot, "src/outreach/messageGenerator.ts");
   const instantlyServiceSource = path.join(apiRoot, "src/outreach/instantlyService.ts");
   const cancellationIntentsSource = path.join(apiRoot, "src/services/instantly/cancellationIntents.ts");
+  const loggerSource = path.join(apiRoot, "src/lib/logger.ts");
   await build({
     entryPoints: [outreachSource],
     outfile: output,
@@ -462,6 +499,9 @@ async function bundleOutreach() {
           if (resolved === cancellationIntentsSource) {
             return { path: "cancellation-intents", namespace: "outreach-mock" };
           }
+          if (resolved === loggerSource || resolved + ".ts" === loggerSource) {
+            return { path: "logger", namespace: "outreach-mock" };
+          }
           return undefined;
         });
         pluginBuild.onLoad({ filter: /.*/, namespace: "outreach-mock" }, (args) => ({
@@ -488,6 +528,7 @@ function newState() {
     threads: [],
     historyMessages: [],
     audits: [],
+    operationalLogs: [],
     nextAuditId: 0,
     connectorCalls: [],
     enrichmentCalls: [],

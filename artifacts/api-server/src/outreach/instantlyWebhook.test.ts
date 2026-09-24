@@ -1,7 +1,20 @@
 import assert from "node:assert/strict";
+import { registerHooks } from "node:module";
 import test from "node:test";
 
 process.env.DATABASE_URL ??= "postgres://localhost/instantly-webhook-offline-test";
+
+// Logging is outside this webhook contract; importing the real event log under
+// Node strip-types would pull in extensionless imports and the database package.
+// Keep authentication, payload parsing, and reconciliation code real.
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier === "../utils/eventLog.ts" && context.parentURL?.endsWith("/outreach/instantlyWebhook.ts")) {
+      return { url: "data:text/javascript,export function logEvent() {}", shortCircuit: true };
+    }
+    return nextResolve(specifier, context);
+  },
+});
 
 const {
   authenticateInstantlyWebhook,

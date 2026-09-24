@@ -1,6 +1,6 @@
 ---
 name: Monorepo tooling edge cases
-description: Package scoping, generated-validator detection, and standalone build environment requirements.
+description: Package scoping, generated-validator detection, standalone builds, and Node test bundling.
 ---
 
 The package-install callback targets the workspace root and can fail with the pnpm root-add guard. Use a package-scoped pnpm operation when that helper cannot express the target package; do not disable the workspace guard or add app dependencies globally.
@@ -26,3 +26,9 @@ New routes in the active web shell must not import retired dashboard helpers wit
 **Why:** A dormant dashboard component looked reusable but depended on unavailable workspace clients, aliases, icons, and Tailwind styles; making it active surfaced failures one layer at a time.
 
 **How to apply:** Keep small new admin surfaces dependency-local to the active router and authenticated API contract, or explicitly migrate the full dashboard stack as a separate task.
+
+Under Node's strip-types test runner, extensionless local TypeScript imports are not resolved automatically; esbuild ESM bundles of CommonJS dependencies can also throw on dynamic require before tests execute. Keep hermetic test boundaries around unrelated dependencies rather than loosening production checks.
+
+**Why:** An API regression suite failed during module loading despite the behavior under test being unrelated to logging and server middleware.
+
+**How to apply:** When a test harness loads production modules, resolve or mock only unrelated imports in the harness, preserving the actual security and business logic under test.

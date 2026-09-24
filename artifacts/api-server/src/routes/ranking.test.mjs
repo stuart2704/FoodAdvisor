@@ -152,6 +152,11 @@ export async function getImportStatus() {}
 export async function runImport() {}
 `;
 
+const middlewareMock = String.raw`
+export const adminOnly = (_req, _res, next) => next();
+export const importRunLimit = (_req, _res, next) => next();
+`;
+
 const responseMock = String.raw`
 export function toRestaurantResponse(restaurant, distanceMiles) {
   return {
@@ -172,6 +177,7 @@ async function loadRouter(filename) {
     ["express", expressMock],
     ["restaurant-import", importMock],
     ["restaurant-response", responseMock],
+    ["ranking-middleware", middlewareMock],
   ]);
   await build({
     entryPoints: [path.join(apiRoot, `src/routes/${filename}.ts`)],
@@ -193,6 +199,12 @@ async function loadRouter(filename) {
         pluginBuild.onResolve(
           { filter: /lib\/restaurant-response$/ },
           () => ({ path: "restaurant-response", namespace: "ranking-mock" }),
+        );
+        // The ranked GET routes do not use the protected import POST handlers.
+        // Avoid bundling their middleware and unrelated server dependencies.
+        pluginBuild.onResolve(
+          { filter: /middleware\/(adminOnly|importRunLimit)$/ },
+          () => ({ path: "ranking-middleware", namespace: "ranking-mock" }),
         );
         pluginBuild.onLoad({ filter: /.*/, namespace: "ranking-mock" }, (args) => ({
           contents: mocks.get(args.path),
