@@ -7,6 +7,7 @@ import {
 import { getRegionForCity } from "../services/regionMap";
 import { restaurantSlug } from "../utils/slugify";
 import { normaliseCoordinates, type Coordinates } from "./geo";
+import { reservePaidSearchTextCall } from "./gridCrawlRuntime";
 
 export const SUPPORTED_CITIES = [
   "London",
@@ -255,15 +256,29 @@ export async function runImport(input: PlanInput & { confirm: boolean }) {
   let apiCalls = 0;
   let imported = 0;
   let skippedDuplicates = 0;
+  let budgetStopped = false;
 
   for (const cityPlan of runnableCities) {
+    // The plan is only an estimate: another importer or the grid crawler may
+    // have reserved the remaining budget since it was created. The reservation
+    // is committed before contacting Google and is the only gate for this call.
+    const reservationId = await reservePaidSearchTextCall({
+      city: cityPlan.city,
+      requested: cityPlan.requested,
+      costCents: costPerSearchCents(),
+      monthlyBudgetCents: input.monthlyBudgetCents,
+    });
+    if (reservationId === null) {
+      budgetStopped = true;
+      break;
+    }
+
     const places = await searchRestaurants(
       cityPlan.city,
       cityPlan.requested,
       apiKey,
     );
     apiCalls += 1;
-    allRestaurants.push(...places);
 
     const existing = places.length
       ? await db
@@ -307,26 +322,27 @@ export async function runImport(input: PlanInput & { confirm: boolean }) {
         .where(sql`${restaurantsTable.placeId} = ${place.id}`);
     }
 
+    // A reservation is deliberately left untouched if fetching or persistence
+    // throws. Only a fully completed city gets its ledger result fields.
+    await db
+      .update(restaurantImportRunsTable)
+      .set({
+        imported: fresh.length,
+        skippedDuplicates: places.length - fresh.length,
+        stoppedBecause: "Completed within the monthly budget safety cap.",
+      })
+      .where(sql`${restaurantImportRunsTable.id} = ${reservationId}`);
+
+    allRestaurants.push(...places);
     imported += fresh.length;
     skippedDuplicates += places.length - fresh.length;
   }
 
   const chargedCents = apiCalls * costPerSearchCents();
   const stoppedBecause =
-    runnableCities.length < plan.cities.length
+    budgetStopped || runnableCities.length < plan.cities.length
       ? "Monthly budget safety cap reached."
       : "Completed within the monthly budget safety cap.";
-
-  await db.insert(restaurantImportRunsTable).values({
-    cities: runnableCities.map((city) => city.city),
-    requested: runnableCities.reduce((total, city) => total + city.requested, 0),
-    imported,
-    skippedDuplicates,
-    apiCalls,
-    estimatedCostCents: chargedCents,
-    monthlyBudgetCents: input.monthlyBudgetCents,
-    stoppedBecause,
-  });
 
   return {
     imported,

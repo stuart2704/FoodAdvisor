@@ -1,10 +1,17 @@
 /**
- * Manual, opt-in grid crawler. No cron job is installed and this module is
- * never imported by the API server. See grid-crawl.md for invocation.
+ * A confirmed first run enables the UTC scheduler. Paid cursor and reservations
+ * live in PostgreSQL; a failed/uncertain point cannot be retried automatically.
  */
-import { readFile, writeFile, rename, open } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { parseGrid, gridHash, validateProgress, DAILY_GRID_LIMIT, EMERGENCY_RESERVE, DELAY_BETWEEN_REQUESTS_MS, ESTIMATED_GRID_REQUEST_COST_CENTS, MONTHLY_PAID_BUDGET_GBP, MONTHLY_PAID_LIMIT, paidGridBudgetReached, type GridProgress } from "../lib/gridCrawlPlan";
+import {
+  parseGrid, gridHash, validateProgress, DAILY_GRID_LIMIT, EMERGENCY_RESERVE,
+  DELAY_BETWEEN_REQUESTS_MS, MONTHLY_PAID_BUDGET_GBP, MONTHLY_PAID_LIMIT,
+  ESTIMATED_GRID_REQUEST_COST_CENTS, computeRegionBudgets, computeRegionInterval,
+  computeRegionPriority, computeCityBudgets,
+  type GridPoint, type GridProgress,
+} from "../lib/gridCrawlPlan";
+import type { GridAllocations } from "../lib/gridCrawlRuntime";
 import { normaliseCoordinates } from "../lib/geo";
 import { verifiedExistingFields, type NearbyPlace } from "../lib/gridPlaceFields";
 import { cuisineFromRestaurantName } from "../lib/restaurantKeywords";
@@ -33,13 +40,11 @@ function argumentsForRun(args: string[]) {
     stateFile: resolve(stateFile),
     monthlyBudgetCents: budget,
     confirm: args.includes("--confirm"),
+    auto: args.includes("--auto"),
+    skipUncertain: args.includes("--skip-uncertain"),
+    plan: args.includes("--plan"),
+    pause: args.includes("--pause"),
   };
-}
-
-async function persistProgress(path: string, progress: GridProgress) {
-  const temporary = `${path}.${process.pid}.tmp`;
-  await writeFile(temporary, JSON.stringify(progress, null, 2) + "\n", { flag: "wx", mode: 0o600 });
-  await rename(temporary, path);
 }
 
 function logDailyBudgetSummary(progress: GridProgress) {
@@ -49,6 +54,28 @@ function logDailyBudgetSummary(progress: GridProgress) {
     remaining: DAILY_GRID_LIMIT - progress.attemptedToday,
     scope: "utc_daily_grid_requests",
   });
+}
+
+async function allocationsForGrid(points: GridPoint[]): Promise<GridAllocations> {
+  const [{ computeGridCrawlScores, loadGridCrawlAggregates }, { regionKey }] = await Promise.all([
+    import("../lib/gridCrawlScores"),
+    import("../lib/gridCrawlRuntime"),
+  ]);
+  const scores = computeGridCrawlScores(points, await loadGridCrawlAggregates(points));
+  const regionBudgets = computeRegionBudgets(scores.regions);
+  return Object.fromEntries(
+    Object.entries(scores.regions).map(([region, metadata]) => {
+      const cities = [...new Set(points.filter((point) => regionKey(point) === region)
+        .map((point) => point.city))];
+      return [region, {
+        budget: regionBudgets[region],
+        interval: computeRegionInterval(computeRegionPriority(metadata)),
+        cities: computeCityBudgets(cities, Object.fromEntries(
+          cities.map((city) => [city, scores.cities[`${region}/${city}`]]),
+        ), regionBudgets[region]),
+      }];
+    }),
+  );
 }
 
 async function searchNearby(latitude: number, longitude: number, apiKey: string): Promise<NearbyPlace[]> {
@@ -80,44 +107,106 @@ async function searchNearby(latitude: number, longitude: number, apiKey: string)
 
 export async function runDailyCrawl(args: string[]) {
   const options = argumentsForRun(args);
+  if (options.auto && !options.confirm) throw new Error("Automatic runs must be confirmed by the scheduler.");
+  if (options.pause) {
+    if (options.confirm || options.auto || options.plan || options.skipUncertain) {
+      throw new Error("--pause must be used alone; it does not make a paid request.");
+    }
+    const runtime = await import("../lib/gridCrawlRuntime");
+    return runtime.withGridCrawlLock(async () => {
+      await runtime.pauseGridAutomation();
+      logEvent("grid_crawl_automation_paused");
+    });
+  }
   if (options.gridFile === options.stateFile) throw new Error("Grid and progress files must differ.");
   const raw = await readFile(options.gridFile, "utf8");
   const points = parseGrid(JSON.parse(raw) as unknown);
   const hash = gridHash(raw);
   const today = new Date().toISOString().slice(0, 10);
-  let progress: GridProgress;
-  try {
-    progress = validateProgress(JSON.parse(await readFile(options.stateFile, "utf8")) as unknown, hash, points.length);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-    progress = { version: 1, gridHash: hash, nextIndex: 0, date: today, attemptedToday: 0 };
+  if (options.plan) {
+    if (options.confirm || options.auto || options.skipUncertain) {
+      throw new Error("--plan cannot be combined with --confirm or paid-run options.");
+    }
+    const runtime = await import("../lib/gridCrawlRuntime");
+    return runtime.withGridCrawlLock(async () => {
+      const state = await runtime.getGridRuntimeState();
+      if (state.next_index >= points.length) throw new Error("Database cursor is beyond the grid.");
+      const point = points[state.next_index];
+      const region = runtime.regionKey(point);
+      const followingCity = points.findIndex((candidate, index) =>
+        index > state.next_index &&
+        (runtime.regionKey(candidate) !== region || candidate.city !== point.city));
+      const followingRegion = points.findIndex((candidate, index) =>
+        index > state.next_index && runtime.regionKey(candidate) !== region);
+      const allocations = await allocationsForGrid(points);
+      const budget = state.grid_hash ? state.monthly_budget_cents : options.monthlyBudgetCents;
+      const check = await runtime.reserveGridPoint(
+        hash, state.next_index, point, followingCity === -1 ? points.length : followingCity,
+        followingRegion === -1 ? points.length : followingRegion,
+        points.length, allocations, budget, false, true,
+      );
+      logEvent("grid_crawl_plan", {
+        total: points.length, next: state.next_index, allocations, check: check.status,
+        simulated_only: true, paid_requests_made: 0,
+      });
+    });
   }
-  if (progress.date > today) throw new Error("Progress date is in the future; check your system clock.");
-  if (progress.date !== today) progress = { ...progress, date: today, attemptedToday: 0 };
-  logEvent("grid_crawl_plan", { total: points.length, next: progress.nextIndex, remainingToday: DAILY_GRID_LIMIT - progress.attemptedToday });
-  if (!options.confirm) return; // Default is dry-run. No DB connection or paid request.
+  if (options.skipUncertain) {
+    if (!options.confirm || options.auto) {
+      throw new Error("Skipping an uncertain charged point requires --skip-uncertain --confirm manually.");
+    }
+    const runtime = await import("../lib/gridCrawlRuntime");
+    return runtime.withGridCrawlLock(async () => {
+      const skipped = await runtime.skipUncertainGridPoint(hash, points);
+      logEvent("grid_crawl_uncertain_point_skipped", { point: skipped, charged_reservation_retained: true });
+    });
+  }
+  if (!options.confirm) {
+    // Preserve validation of legacy file progress in offline previews. It is not
+    // used for confirmed runs; their authoritative cursor is in PostgreSQL.
+    let preview: GridProgress;
+    try {
+      preview = validateProgress(JSON.parse(await readFile(options.stateFile, "utf8")) as unknown, hash, points.length);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      preview = { version: 1, gridHash: hash, nextIndex: 0, date: today, attemptedToday: 0 };
+    }
+    logEvent("grid_crawl_plan", { total: points.length, next: preview.nextIndex,
+      remainingToday: DAILY_GRID_LIMIT - preview.attemptedToday, mode: "offline_preview" });
+    return;
+  }
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
   if (!apiKey) throw new Error("GOOGLE_MAPS_API_KEY is required; no crawl was started.");
-  if (progress.nextIndex >= points.length) {
-    logDailyBudgetSummary(progress);
-    return;
-  }
-  if (progress.attemptedToday >= DAILY_GRID_LIMIT) {
-    logEvent("budget_exhausted", { remaining: 0, scope: "utc_daily_grid_requests" });
-    logDailyBudgetSummary(progress);
-    return;
-  }
+  const runtime = await import("../lib/gridCrawlRuntime");
+  return runtime.withGridCrawlLock(async () => {
+    const state = await runtime.getGridRuntimeState();
+    if (options.auto && !state.automation_enabled) return;
+    if (state.grid_hash && state.grid_hash !== hash) {
+      throw new Error("Grid changed after paid work; inspect it before crawling.");
+    }
+    if (state.pending_index !== null) {
+      throw new Error(`Point ${state.pending_index} has an uncertain paid reservation; no retry was made.`);
+    }
+    let progress = validateProgress({
+      version: 1, gridHash: hash, nextIndex: state.next_index, date: today,
+      attemptedToday: state.attempt_date === today ? state.attempted_today : 0,
+    }, hash, points.length);
+    logEvent("grid_crawl_plan", { total: points.length, next: progress.nextIndex,
+      remainingToday: DAILY_GRID_LIMIT - progress.attemptedToday, mode: options.auto ? "automatic" : "manual" });
+    if (progress.nextIndex >= points.length) throw new Error("Database cursor is beyond the grid; no request was made.");
+    if (progress.attemptedToday >= DAILY_GRID_LIMIT) {
+      logEvent("budget_exhausted", { remaining: 0, scope: "utc_daily_grid_requests" });
+      logDailyBudgetSummary(progress);
+      return;
+    }
+    const allocations = await allocationsForGrid(points);
 
   // Dynamic imports keep dry-run free from database connections.
-  const [{ db, restaurantsTable, restaurantImportRunsTable }, { sql, gte, eq, and, or, isNull, lt }, { restaurantSlug }] = await Promise.all([
+  const [{ db, restaurantsTable }, { sql, eq, and, or, isNull, lt }, { restaurantSlug }] = await Promise.all([
     import("@workspace/db"),
     import("drizzle-orm"),
     import("../utils/slugify"),
   ]);
-  const lock = await open(`${options.stateFile}.lock`, "wx", 0o600).catch((error: NodeJS.ErrnoException) => {
-    if (error.code === "EEXIST") throw new Error("Another crawl may be running. Inspect the lock before removing it.");
-    throw error;
-  });
   const summary = {
     points_crawled: 0,
     inserts: 0,
@@ -132,15 +221,41 @@ export async function runDailyCrawl(args: string[]) {
   try {
     while (progress.nextIndex < points.length && progress.attemptedToday < DAILY_GRID_LIMIT) {
       const point = points[progress.nextIndex];
-      const month = new Date();
-      const monthStart = new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth(), 1));
-      const [usage] = await db.select({
-        spent: sql<number>`coalesce(sum(${restaurantImportRunsTable.estimatedCostCents}), 0)`,
-        calls: sql<number>`coalesce(sum(${restaurantImportRunsTable.apiCalls}), 0)`,
-      }).from(restaurantImportRunsTable).where(gte(restaurantImportRunsTable.createdAt, monthStart));
-      const spentCents = Number(usage?.spent ?? 0);
-      const usedRequests = Number(usage?.calls ?? 0);
-      const budgetReached = paidGridBudgetReached(spentCents, usedRequests, options.monthlyBudgetCents);
+      const currentRegion = runtime.regionKey(point);
+      const followingCity = points.findIndex((candidate, index) =>
+        index > progress.nextIndex &&
+        (runtime.regionKey(candidate) !== currentRegion || candidate.city !== point.city));
+      const nextCityIndex = followingCity === -1 ? points.length : followingCity;
+      const followingRegion = points.findIndex((candidate, index) =>
+        index > progress.nextIndex && runtime.regionKey(candidate) !== currentRegion);
+      const nextRegionIndex = followingRegion === -1 ? points.length : followingRegion;
+      const reservation = await runtime.reserveGridPoint(
+        hash, progress.nextIndex, point, nextCityIndex, nextRegionIndex, points.length, allocations,
+        options.monthlyBudgetCents, options.auto,
+      );
+      if (reservation.status === "not_due") {
+        progress.nextIndex = nextRegionIndex;
+        continue;
+      }
+      if (reservation.status !== "reserved") {
+        const reason = reservation.status;
+        if (reason === "region" || reason === "city") {
+          logEvent(`${reason}_budget_exceeded`, {
+            region: currentRegion, city: point.city,
+            budget: reservation.budget, used: reservation.used,
+          });
+          progress.nextIndex = reservation.nextIndex;
+          continue;
+        } else if (reason === "daily") {
+          logEvent("budget_exhausted", { remaining: 0, scope: "utc_daily_grid_requests" });
+        } else if (reason === "monthly") {
+          logEvent("paid_budget_exceeded", { configured_limit_cents: options.monthlyBudgetCents });
+        }
+        logEvent("grid_crawl_budget_reached", { reason });
+        break;
+      }
+      const usedRequests = reservation.usedRequests;
+      progress.attemptedToday = reservation.attemptedToday;
       logEvent("paid_budget_status", {
         budget_gbp: options.monthlyBudgetCents / 100,
         max_budget_gbp: MONTHLY_PAID_BUDGET_GBP,
@@ -148,31 +263,19 @@ export async function runDailyCrawl(args: string[]) {
         used_requests: usedRequests,
         remaining_requests: Math.max(0, Math.min(
           MONTHLY_PAID_LIMIT - usedRequests,
-          Math.floor((options.monthlyBudgetCents - spentCents) / ESTIMATED_GRID_REQUEST_COST_CENTS),
+          Math.floor((options.monthlyBudgetCents - reservation.spentCents) / ESTIMATED_GRID_REQUEST_COST_CENTS),
         )),
-        estimated_spent_cents: spentCents,
+        estimated_spent_cents: reservation.spentCents,
         phase: "before_request",
       });
-      if (budgetReached) {
-        logEvent("paid_budget_exceeded", {
-          limit_gbp: MONTHLY_PAID_BUDGET_GBP,
-          limit_requests: MONTHLY_PAID_LIMIT,
-          used: usedRequests,
-          estimated_spent_cents: spentCents,
-          configured_limit_cents: options.monthlyBudgetCents,
-        });
-        logEvent("grid_crawl_budget_reached");
-        break;
-      }
-      // Reserve before calling Google: on an uncertain failure the reservation
-      // remains and the point is not advanced, avoiding an untracked retry.
-      await db.insert(restaurantImportRunsTable).values({
-        cities: [point.city], requested: RESTAURANTS_PER_POINT, imported: 0, skippedDuplicates: 0,
-        apiCalls: 1, estimatedCostCents: ESTIMATED_GRID_REQUEST_COST_CENTS, monthlyBudgetCents: options.monthlyBudgetCents,
-        stoppedBecause: `Grid request reserved at point ${progress.nextIndex}`,
+      logEvent("region_budget_status", {
+        region: currentRegion, budget: reservation.regionBudget,
+        used: reservation.regionUsed, remaining: reservation.regionBudget - reservation.regionUsed,
       });
-      progress.attemptedToday += 1;
-      await persistProgress(options.stateFile, progress);
+      logEvent("city_budget_status", {
+        region: currentRegion, city: point.city, budget: reservation.cityBudget,
+        used: reservation.cityUsed, remaining: reservation.cityBudget - reservation.cityUsed,
+      });
       logEvent("budget_used", {
         remaining: DAILY_GRID_LIMIT - progress.attemptedToday,
         scope: "utc_daily_grid_requests",
@@ -184,7 +287,6 @@ export async function runDailyCrawl(args: string[]) {
         reserve_enforced: false,
         scope: "utc_daily_grid_requests",
       });
-      const currentRegion = point.globalRegion.toLowerCase().replace(/\s+/g, "_");
       if (activeRegion !== currentRegion) {
         if (activeRegion !== null) {
           logEvent("region_end", { region: activeRegion, points_crawled: pointsCrawledInRegion, completed: true });
@@ -345,8 +447,13 @@ export async function runDailyCrawl(args: string[]) {
           }
         }
       }
-      progress.nextIndex++;
-      await persistProgress(options.stateFile, progress);
+      const completedIndex = progress.nextIndex;
+      const gridCompleted = completedIndex + 1 === points.length;
+      await runtime.completeGridPoint(
+        hash, completedIndex, point, completedIndex + 1,
+        completedIndex + 1 === nextRegionIndex, gridCompleted,
+      );
+      progress.nextIndex = completedIndex + 1;
       lastCompletedIndex = progress.nextIndex - 1;
       summary.points_crawled++;
       pointsCrawledInRegion++;
@@ -376,13 +483,11 @@ export async function runDailyCrawl(args: string[]) {
       errors_this_run: summary.errors,
     });
     logDailyBudgetSummary(progress);
-    await lock.close();
-    const { unlink } = await import("node:fs/promises");
-    await unlink(`${options.stateFile}.lock`);
   }
+  });
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname)) {
+if (process.argv[1] && /[/\\]src[/\\]scripts[/\\]gridCrawl\.ts$/.test(resolve(process.argv[1]))) {
   runDailyCrawl(process.argv.slice(2)).catch((error: unknown) => {
     logger.error({ err: error }, "Grid crawl stopped");
     process.exitCode = 1;

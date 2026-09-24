@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, integer, pgTable, serial, text, uniqueIndex } from "drizzle-orm/pg-core";
+import { check, date, integer, pgTable, serial, text, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -11,6 +11,8 @@ export const cityProgressTable = pgTable(
     cityName: text("city_name").notNull(),
     cityBudget: integer("city_budget").notNull().default(0),
     cityBudgetUsed: integer("city_budget_used").notNull().default(0),
+    budgetMonth: date("budget_month", { mode: "string" }).notNull()
+      .default(sql`date_trunc('month', timezone('UTC', now()))::date`),
   },
   (table) => [
     uniqueIndex("city_progress_region_city_unique").on(table.regionName, table.cityName),

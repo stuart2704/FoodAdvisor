@@ -29,3 +29,4 @@ export * from "./restaurantChef";
 export * from "./chefPhotoUploadIntents";
 export * from "./crawlerProgress";
 export * from "./cityProgress";
+export * from "./regionProgress";

@@ -18,3 +18,4 @@
 - [Owner contact enrichment](owner-contact-enrichment.md) — explicit paid lookups stay private and outside outreach; ambiguous BetterContact submissions must not be retried.
 - [Proxy billing boundary](proxy-billing-boundary.md) — local byte caps are not invoice caps; require a verified provider session ceiling and retain uncertain reservations.
 - [Outbound URL verification](outbound-url-verification.md) — DNS checks must pin the actual outbound socket; validating before a separately resolved request permits rebinding.
+- [Grid crawl activation](grid-crawl-activation.md) — the first paid Places crawl is explicitly manual; automatic runs begin only after a confirmed point completes.

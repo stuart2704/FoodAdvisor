@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, date, integer, pgTable, serial, timestamp } from "drizzle-orm/pg-core";
+import { boolean, check, date, integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -24,6 +24,14 @@ export const crawlerProgressTable = pgTable(
     regionInterval: integer("region_interval").notNull().default(3),
     regionBudget: integer("region_budget").notNull().default(0),
     regionBudgetUsed: integer("region_budget_used").notNull().default(0),
+    gridHash: text("grid_hash"),
+    nextIndex: integer("next_index").notNull().default(0),
+    pendingIndex: integer("pending_index"),
+    attemptDate: date("attempt_date", { mode: "string" }).notNull()
+      .default(sql`(timezone('UTC', now())::date)`),
+    attemptedToday: integer("attempted_today").notNull().default(0),
+    automationEnabled: boolean("automation_enabled").notNull().default(false),
+    monthlyBudgetCents: integer("monthly_budget_cents").notNull().default(3000),
   },
   (table) => [
     check("crawler_progress_singleton", sql`${table.id} = 1`),
@@ -38,6 +46,10 @@ export const crawlerProgressTable = pgTable(
     check("crawler_progress_region_interval_range", sql`${table.regionInterval} BETWEEN 1 AND 7`),
     check("crawler_progress_region_budget_nonnegative", sql`${table.regionBudget} >= 0`),
     check("crawler_progress_region_budget_used_nonnegative", sql`${table.regionBudgetUsed} >= 0`),
+    check("crawler_progress_next_index_nonnegative", sql`${table.nextIndex} >= 0`),
+    check("crawler_progress_pending_index_nonnegative", sql`${table.pendingIndex} IS NULL OR ${table.pendingIndex} >= 0`),
+    check("crawler_progress_attempted_today_range", sql`${table.attemptedToday} BETWEEN 0 AND 50`),
+    check("crawler_progress_monthly_budget_range", sql`${table.monthlyBudgetCents} BETWEEN 50 AND 3000`),
   ],
 );
 

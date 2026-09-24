@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { adminOnly } from "../middleware/adminOnly";
 import {
   CreateRestaurantImportPlanBody,
   CreateRestaurantImportPlanResponse,
@@ -36,7 +37,7 @@ router.post("/restaurant-import/plan", async (req, res): Promise<void> => {
   res.json(CreateRestaurantImportPlanResponse.parse(plan));
 });
 
-router.post("/restaurant-import/run", async (req, res): Promise<void> => {
+router.post("/restaurant-import/run", adminOnly, async (req, res): Promise<void> => {
   const parsed = RunRestaurantImportBody.safeParse(req.body);
   if (!parsed.success) {
     req.log.warn({ errors: parsed.error.message }, "Invalid import request");
