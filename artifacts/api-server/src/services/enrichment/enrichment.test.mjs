@@ -283,7 +283,7 @@ test("accepts exactly 512000 bytes and rejects multibyte HTML above the limit", 
   failure(await extractWebsiteData(url), "response_too_large");
 });
 
-test("uses a five-second abort signal and returns a structured timeout", async () => {
+test("uses one five-second deadline and returns a structured timeout", async () => {
   const controller = new AbortController();
   const timeout = mock.method(AbortSignal, "timeout", () => controller.signal);
   fetchMock.mock.mockImplementation(async (_url, { signal }) => new Promise((_, reject) => {
@@ -311,9 +311,81 @@ test("a timeout while streaming fails closed without returning partial metadata"
     },
   });
   fetchMock.mock.mockImplementation(async () => html(stream));
-  // Current implementation classifies body-read errors as network_failure,
-  // unlike timeouts before headers; preserve the no-partial-success invariant.
-  failure(await extractWebsiteData(url), "network_failure");
+  failure(await extractWebsiteData(url), "timeout");
+});
+
+test("a stalled DNS lookup expires the shared deadline without fetching", async () => {
+  const controller = new AbortController();
+  const timeout = mock.method(AbortSignal, "timeout", () => controller.signal);
+  lookupMock.mock.mockImplementation(async () => new Promise(() => {}));
+  const pending = extractWebsiteData(url);
+  await Promise.resolve();
+  controller.abort(new DOMException("Timed out", "TimeoutError"));
+  failure(await pending, "timeout");
+  assert.equal(fetchMock.mock.callCount(), 0);
+  assert.equal(timeout.mock.callCount(), 1);
+});
+
+test("a stalled connection before headers expires the deadline", async () => {
+  const controller = new AbortController();
+  const timeout = mock.method(AbortSignal, "timeout", () => controller.signal);
+  fetchMock.mock.mockImplementation(async () => new Promise(() => {}));
+  const pending = extractWebsiteData(url);
+  while (fetchMock.mock.callCount() < 1) await new Promise((resolve) => setImmediate(resolve));
+  controller.abort(new DOMException("Timed out", "TimeoutError"));
+  failure(await pending, "timeout");
+  assert.equal(timeout.mock.callCount(), 1);
+});
+
+test("redirect DNS and transport share the original deadline", async () => {
+  const controller = new AbortController();
+  const timeout = mock.method(AbortSignal, "timeout", () => controller.signal);
+  fetchMock.mock.mockImplementationOnce(async () => new Response(null, {
+    status: 302, headers: { location: "https://other.example/" },
+  }));
+  lookupMock.mock.mockImplementationOnce(async () => publicAddresses);
+  lookupMock.mock.mockImplementation(async () => new Promise(() => {}));
+  const pending = extractWebsiteData(url);
+  while (lookupMock.mock.callCount() < 2) await new Promise((resolve) => setImmediate(resolve));
+  controller.abort(new DOMException("Timed out", "TimeoutError"));
+  failure(await pending, "timeout");
+  assert.equal(fetchMock.mock.callCount(), 1);
+  assert.equal(timeout.mock.callCount(), 1);
+});
+
+test("a body that stops streaming expires the same deadline", async () => {
+  const controller = new AbortController();
+  const timeout = mock.method(AbortSignal, "timeout", () => controller.signal);
+  let bodyPulled;
+  const readStarted = new Promise((resolve) => { bodyPulled = resolve; });
+  fetchMock.mock.mockImplementation(async () => html(new ReadableStream({
+    start(stream) {
+      stream.enqueue(new TextEncoder().encode("<title>Partial</title>"));
+    },
+    pull() { bodyPulled(); },
+  })));
+  const pending = extractWebsiteData(url);
+  await readStarted;
+  controller.abort(new DOMException("Timed out", "TimeoutError"));
+  failure(await pending, "timeout");
+  assert.equal(timeout.mock.callCount(), 1);
+});
+
+test("parses adversarial maximum-size HTML without unbounded email retries", async () => {
+  for (const body of [
+    "a".repeat(512_000),
+    `${"a".repeat(511_970)}@restaurant.example`,
+    `info@${"a".repeat(511_995)}`,
+    "<title>".repeat(Math.floor(512_000 / 7)).padEnd(512_000, " "),
+    "<meta ".repeat(Math.floor(512_000 / 6)).padEnd(512_000, " "),
+  ]) {
+    fetchMock.mock.mockImplementation(async () => html(body));
+    const start = performance.now();
+    const result = await extractWebsiteData(url);
+    assert.equal(result.ok, true);
+    assert.equal(result.data.roleEmail, null);
+    assert.ok(performance.now() - start < 3_000, "maximum-size parsing should complete promptly");
+  }
 });
 
 test("does not extract personal or unapproved mailboxes", async () => {

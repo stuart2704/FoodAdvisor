@@ -4,11 +4,19 @@ import { request as httpsRequest } from "node:https";
 import { isIP } from "node:net";
 import { Readable } from "node:stream";
 import { isPrivateAddress } from "../../lib/public-url";
-import { validateEmail } from "./validateEmail";
+import { ROLE_MAILBOXES, validateEmail } from "./validateEmail";
 
-const FETCH_TIMEOUT_MS = 5_000;
+const REQUEST_DEADLINE_MS = 5_000;
 const MAX_HTML_BYTES = 512_000;
 const MAX_REDIRECTS = 3;
+const TIMEOUT_MESSAGE = "Website request timed out.";
+
+// Only exact role local-parts can pass validateEmail. The fixed-width local
+// part and bounded domain prevent retries over an arbitrarily long word.
+const roleEmailPattern = new RegExp(
+  `(?<![a-z0-9.!#$%&'*+/=?^_\`{|}~-])(?:${[...ROLE_MAILBOXES].join("|")})@[a-z0-9.-]{1,253}\\.[a-z]{2,63}(?![a-z0-9.-])`,
+  "gi",
+);
 
 export type WebsiteExtractionErrorCode =
   | "invalid_url"
@@ -47,7 +55,26 @@ class WebsiteExtractionError extends Error {
 
 type ResolvedWebsite = { url: URL; address: string; family: 4 | 6 };
 
-async function assertSafeWebsiteUrl(raw: string): Promise<ResolvedWebsite> {
+function timeoutError(): WebsiteExtractionError {
+  return new WebsiteExtractionError("timeout", TIMEOUT_MESSAGE);
+}
+
+function withDeadline<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(timeoutError());
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      signal.removeEventListener("abort", onAbort);
+      reject(timeoutError());
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    operation.then(
+      (value) => { signal.removeEventListener("abort", onAbort); resolve(value); },
+      (error) => { signal.removeEventListener("abort", onAbort); reject(error); },
+    );
+  });
+}
+
+async function assertSafeWebsiteUrl(raw: string, signal: AbortSignal): Promise<ResolvedWebsite> {
   let url: URL;
   try {
     url = new URL(raw);
@@ -70,8 +97,10 @@ async function assertSafeWebsiteUrl(raw: string): Promise<ResolvedWebsite> {
 
   let addresses: Array<{ address: string; family: number }>;
   try {
-    addresses = await lookup(url.hostname, { all: true, verbatim: true });
-  } catch {
+    addresses = await withDeadline(lookup(url.hostname, { all: true, verbatim: true }), signal);
+  } catch (error) {
+    if (error instanceof WebsiteExtractionError) throw error;
+    if (error instanceof Error && error.name === "TimeoutError") throw timeoutError();
     throw new WebsiteExtractionError(
       "dns_failure",
       "Website hostname could not be resolved.",
@@ -88,8 +117,7 @@ async function assertSafeWebsiteUrl(raw: string): Promise<ResolvedWebsite> {
   return { url, address: selected.address, family: selected.family as 4 | 6 };
 }
 
-function requestPinned({ url, address, family }: ResolvedWebsite): Promise<Response> {
-  const signal = AbortSignal.timeout(FETCH_TIMEOUT_MS);
+function requestPinned({ url, address, family }: ResolvedWebsite, signal: AbortSignal): Promise<Response> {
   return new Promise((resolve, reject) => {
     // Keep the URL hostname for Host, SNI and certificate verification. Only
     // the socket's DNS lookup is replaced, with the validated answer for this hop.
@@ -125,7 +153,7 @@ function requestPinned({ url, address, family }: ResolvedWebsite): Promise<Respo
   });
 }
 
-async function readBoundedHtml(response: Response): Promise<string> {
+async function readBoundedHtml(response: Response, signal: AbortSignal): Promise<string> {
   const declared = Number(response.headers.get("content-length"));
   if (Number.isFinite(declared) && declared > MAX_HTML_BYTES) {
     throw new WebsiteExtractionError(
@@ -139,11 +167,19 @@ async function readBoundedHtml(response: Response): Promise<string> {
   const chunks: Uint8Array[] = [];
   let size = 0;
   while (true) {
-    const { done, value } = await reader.read();
+    let chunk: Awaited<ReturnType<typeof reader.read>>;
+    try {
+      chunk = await withDeadline(reader.read(), signal);
+    } catch (error) {
+      // A stalled stream's cancellation may itself never settle.
+      void reader.cancel().catch(() => {});
+      throw error;
+    }
+    const { done, value } = chunk;
     if (done) break;
     size += value.byteLength;
     if (size > MAX_HTML_BYTES) {
-      await reader.cancel();
+      void reader.cancel().catch(() => {});
       throw new WebsiteExtractionError(
         "response_too_large",
         "Website response exceeded the size limit.",
@@ -186,7 +222,7 @@ function decodeHtml(value: string): string {
 
 function normaliseMetadata(value: string | undefined): string | null {
   if (!value) return null;
-  const normalised = decodeHtml(value.replace(/<[^>]*>/g, " ")).slice(0, 2_000);
+  const normalised = decodeHtml(value.replace(/<[^<>]*>/g, " ")).slice(0, 2_000);
   return normalised || null;
 }
 
@@ -205,11 +241,14 @@ function extractMetadata(html: string): {
   description: string | null;
   roleEmail: string | null;
 } {
-  const title = normaliseMetadata(
-    html.match(/<title\b[^>]*>([\s\S]*?)<\/title\s*>/i)?.[1],
+  // Search for a closing tag once. Repeated unclosed opening tags otherwise
+  // cause the lazy title-body regex to rescan the rest of the page per tag.
+  const titleEnd = html.search(/<\/title\s*>/i);
+  const title = titleEnd < 0 ? null : normaliseMetadata(
+    html.slice(0, titleEnd).match(/<title\b[^<>]*>([\s\S]*)$/i)?.[1],
   );
   let description: string | null = null;
-  for (const tag of html.match(/<meta\b[^>]*>/gi) ?? []) {
+  for (const tag of html.match(/<meta\b[^<>]*>/gi) ?? []) {
     const attrs = attributes(tag);
     const key = (attrs.get("name") ?? attrs.get("property") ?? "").toLowerCase();
     if (key === "description" || key === "og:description") {
@@ -221,9 +260,7 @@ function extractMetadata(html: string): {
   const decoded = decodeHtml(html)
     .replace(/\s+\[at\]\s+|\s+\(at\)\s+/gi, "@")
     .replace(/\s+\[dot\]\s+|\s+\(dot\)\s+/gi, ".");
-  const candidates =
-    decoded.match(/[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9.-]+\.[a-z]{2,63}/gi) ??
-    [];
+  const candidates = decoded.match(roleEmailPattern) ?? [];
   const roleEmail =
     candidates
       .map(validateEmail)
@@ -234,17 +271,20 @@ function extractMetadata(html: string): {
 export async function extractWebsiteData(
   website: string,
 ): Promise<WebsiteExtractionResult> {
+  const signal = AbortSignal.timeout(REQUEST_DEADLINE_MS);
   try {
     let current = website;
     for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
-      const resolved = await assertSafeWebsiteUrl(current);
+      if (signal.aborted) throw timeoutError();
+      const resolved = await assertSafeWebsiteUrl(current, signal);
       const { url } = resolved;
       let response: Response;
       try {
-        response = await requestPinned(resolved);
+        response = await withDeadline(requestPinned(resolved, signal), signal);
       } catch (error) {
-        if (error instanceof Error && error.name === "TimeoutError") {
-          throw new WebsiteExtractionError("timeout", "Website request timed out.");
+        if ((error instanceof WebsiteExtractionError && error.code === "timeout") ||
+          (error instanceof Error && error.name === "TimeoutError") || signal.aborted) {
+          throw timeoutError();
         }
         throw new WebsiteExtractionError(
           "network_failure",
@@ -253,7 +293,7 @@ export async function extractWebsiteData(
       }
       if ([301, 302, 303, 307, 308].includes(response.status)) {
         const location = response.headers.get("location");
-        await response.body?.cancel();
+        if (response.body) await withDeadline(response.body.cancel(), signal);
         if (!location || redirects === MAX_REDIRECTS) {
           throw new WebsiteExtractionError(
             "redirect_failure",
@@ -266,7 +306,7 @@ export async function extractWebsiteData(
         continue;
       }
       if (!response.ok) {
-        await response.body?.cancel();
+        if (response.body) await withDeadline(response.body.cancel(), signal);
         throw new WebsiteExtractionError(
           "http_error",
           `Website returned HTTP ${response.status}.`,
@@ -276,13 +316,13 @@ export async function extractWebsiteData(
         response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() ??
         "";
       if (!["text/html", "application/xhtml+xml"].includes(contentType)) {
-        await response.body?.cancel();
+        if (response.body) await withDeadline(response.body.cancel(), signal);
         throw new WebsiteExtractionError(
           "invalid_content_type",
           "Website did not return HTML.",
         );
       }
-      const metadata = extractMetadata(await readBoundedHtml(response));
+      const metadata = extractMetadata(await readBoundedHtml(response, signal));
       return {
         ok: true,
         data: { finalUrl: url.href, ...metadata },
@@ -293,6 +333,9 @@ export async function extractWebsiteData(
       "Website exceeded the redirect limit.",
     );
   } catch (error) {
+    if (signal.aborted || error instanceof Error && error.name === "TimeoutError") {
+      return { ok: false, error: { code: "timeout", message: TIMEOUT_MESSAGE } };
+    }
     if (error instanceof WebsiteExtractionError) {
       return { ok: false, error: { code: error.code, message: error.message } };
     }
