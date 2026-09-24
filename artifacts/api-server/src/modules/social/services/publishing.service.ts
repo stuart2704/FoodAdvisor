@@ -4,10 +4,12 @@ import { db, socialAccountsTable, socialLogsTable, socialPostsTable } from "@wor
 import { decryptToken } from "../crypto";
 import { facebookAdapter } from "../adapters/facebook.adapter";
 
-export async function publishPost(postId: string) {
+export async function publishPost(postId: string, options: { scheduledOnly?: boolean } = {}) {
   const [candidate] = await db.select().from(socialPostsTable)
     .where(eq(socialPostsTable.id, postId)).limit(1);
-  if (!candidate || !["draft", "scheduled"].includes(candidate.status)) return null;
+  if (!candidate || (options.scheduledOnly
+    ? candidate.status !== "scheduled"
+    : !["draft", "scheduled"].includes(candidate.status))) return null;
 
   const scope = candidate.restaurantId === null
     ? isNull(socialAccountsTable.restaurantId)
@@ -22,7 +24,9 @@ export async function publishPost(postId: string) {
   const token = decryptToken(account.accessToken, account.accessTokenIv, account.accessTokenTag);
   const [claimed] = await db.update(socialPostsTable)
     .set({ status: "publishing", attemptCount: candidate.attemptCount + 1, updatedAt: new Date() })
-    .where(and(eq(socialPostsTable.id, postId), inArray(socialPostsTable.status, ["draft", "scheduled"])))
+    .where(and(eq(socialPostsTable.id, postId), options.scheduledOnly
+      ? eq(socialPostsTable.status, "scheduled")
+      : inArray(socialPostsTable.status, ["draft", "scheduled"])))
     .returning();
   if (!claimed) return null;
 

@@ -6,12 +6,16 @@ const sections = [
   { to: "/admin/errors", label: "Errors" },
   { to: "/admin/outreach", label: "Outreach" },
   { to: "/admin/restaurants", label: "Restaurants" },
-  { to: "/admin/automation/social", label: "Social automation" },
   { to: "/admin/chef-review", label: "Chef review" },
   { to: "/admin/logs", label: "Logs" },
   { to: "/admin/queue", label: "Queue" },
   { to: "/admin/engines", label: "Engines" },
   { to: "/admin/health", label: "Health" },
+] as const;
+const automation = [
+  { to: "/admin/automation/social", label: "Social Media", nested: false },
+  { to: "/admin/automation/social/logs", label: "Logs", nested: true },
+  { to: "/admin/automation/social/error-intelligence", label: "Error Intelligence", nested: true },
 ] as const;
 
 export function Sidebar() {
@@ -42,6 +46,37 @@ export function Sidebar() {
               background: isActive ? "#d94800" : "transparent",
               fontWeight: isActive ? 700 : 500,
               textDecoration: "none",
+            })}
+          >
+            {section.label}
+          </NavLink>
+        ))}
+      </nav>
+      <div
+        style={{
+          margin: "20px 8px 12px",
+          color: "#ff8b47",
+          fontSize: "0.78rem",
+          fontWeight: 800,
+          letterSpacing: "0.14em",
+          textTransform: "uppercase"
+        }}
+      >
+        Automation
+      </div>
+      <nav aria-label="Social Media automation">
+        {automation.map((section) => (
+          <NavLink
+            key={section.to}
+            to={section.to}
+            end
+            className={({ isActive }) => isActive ? "active" : undefined}
+            style={({ isActive }) => ({
+              borderRadius: "8px",
+              background: isActive ? "#d94800" : "transparent",
+              fontWeight: isActive ? 700 : 500,
+              textDecoration: "none",
+              paddingLeft: section.nested ? "28px" : undefined,
             })}
           >
             {section.label}

@@ -3,10 +3,11 @@ import { fetchSocial } from "./api";
 
 interface Account {
   id: string;
-  restaurantId: string;
+  restaurantId: string | null;
   platform: string;
   displayName: string;
   createdAt: string;
+  status: string;
 }
 
 export function ConnectedAccounts() {
@@ -20,6 +21,8 @@ export function ConnectedAccounts() {
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState("");
   const [connectSuccess, setConnectSuccess] = useState("");
+  const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
+  const [disconnectMessage, setDisconnectMessage] = useState("");
 
   const loadAccounts = async () => {
     try {
@@ -60,6 +63,26 @@ export function ConnectedAccounts() {
       setConnectError(err.message);
     } finally {
       setConnecting(false);
+    }
+  };
+
+  const handleDisconnect = async (account: Account) => {
+    if (!window.confirm(
+      `Disconnect ${account.displayName || account.platform}? This removes its saved token. If this is the last connected account for its scope, schedules will be paused and scheduled posts returned to drafts. Publishing requests already in progress may still complete. This does not revoke the token at Meta.`
+    )) return;
+    setDisconnectingId(account.id);
+    setDisconnectMessage("");
+    try {
+      const result = await fetchSocial<{ success: boolean; pausedSchedules: number; returnedToDrafts: number }>("/accounts/disconnect", {
+        method: "POST",
+        body: JSON.stringify({ accountId: account.id }),
+      });
+      setDisconnectMessage(`Disconnected. ${result.pausedSchedules} schedule(s) paused; ${result.returnedToDrafts} scheduled post(s) returned to drafts.`);
+      await loadAccounts();
+    } catch (err) {
+      setDisconnectMessage(`Error: ${err instanceof Error ? err.message : "Could not disconnect account."}`);
+    } finally {
+      setDisconnectingId(null);
     }
   };
 
@@ -106,6 +129,11 @@ export function ConnectedAccounts() {
 
       <div className="social-card">
         <h2>Connected Accounts</h2>
+        {disconnectMessage && (
+          <div className={disconnectMessage.startsWith("Error:") ? "social-alert" : "social-success"} role="status">
+            {disconnectMessage}
+          </div>
+        )}
         {loading ? <p>Loading accounts...</p> : error ? <div className="social-alert">{error}</div> : (
           accounts.length === 0 ? <p className="social-empty">No accounts connected yet.</p> : (
             <div className="social-table-wrap">
@@ -117,6 +145,7 @@ export function ConnectedAccounts() {
                     <th>Platform</th>
                     <th>Display Name</th>
                     <th>Connected At</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -127,6 +156,14 @@ export function ConnectedAccounts() {
                       <td><span className={`social-badge ${acc.platform}`}>{acc.platform}</span></td>
                       <td>{acc.displayName}</td>
                       <td>{new Date(acc.createdAt).toLocaleString()}</td>
+                      <td>
+                        {acc.status === "connected" && (
+                          <button type="button" className="social-btn" disabled={disconnectingId !== null}
+                            onClick={() => void handleDisconnect(acc)}>
+                            {disconnectingId === acc.id ? "Disconnecting..." : "Disconnect"}
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

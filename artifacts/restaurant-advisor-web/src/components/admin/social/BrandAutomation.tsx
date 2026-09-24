@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { fetchSocial } from "./api";
 
 export function BrandAutomation({ onQueueRefresh }: { onQueueRefresh?: () => void }) {
@@ -6,6 +6,52 @@ export function BrandAutomation({ onQueueRefresh }: { onQueueRefresh?: () => voi
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState("");
+  const [settings, setSettings] = useState<{ workerConfigured: boolean; brandSchedulesEnabled: boolean } | null>(null);
+  const [brandScheduleExists, setBrandScheduleExists] = useState(false);
+  const [settingsError, setSettingsError] = useState("");
+  const [settingsMessage, setSettingsMessage] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const loadSettings = async () => {
+    try {
+      const [settingsData, schedulesData] = await Promise.all([
+        fetchSocial<{ settings: { workerConfigured: boolean; brandSchedulesEnabled: boolean } }>("/settings"),
+        fetchSocial<{ schedules: { restaurantId: string | null; platform: string }[] }>("/schedules"),
+      ]);
+      setSettings(settingsData.settings);
+      setBrandScheduleExists(schedulesData.schedules.some(s => s.restaurantId === null && s.platform === "facebook"));
+      setSettingsError("");
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : "Could not load automation settings.");
+    }
+  };
+
+  useEffect(() => { void loadSettings(); }, []);
+
+  const toggleBrandAutomation = async () => {
+    if (!settings) return;
+    const enable = !settings.brandSchedulesEnabled;
+    if (!window.confirm(enable
+      ? "Enable brand automation? If the server worker is turned on, brand posts may be generated and published at configured times."
+      : "Turn off brand automation? Brand schedules will pause and scheduled brand posts will return to drafts. A publishing request already in progress may still finish."
+    )) return;
+    setSaving(true);
+    setSettingsMessage("");
+    setSettingsError("");
+    try {
+      const result = await fetchSocial<{ returnedToDrafts: number }>("/settings", {
+        method: "POST",
+        body: JSON.stringify({ brandAutomation: enable }),
+      });
+      setSettingsMessage(enable ? "Brand schedule enabled." : `Brand automation off. ${result.returnedToDrafts} post(s) returned to drafts.`);
+      await loadSettings();
+      if (onQueueRefresh) onQueueRefresh();
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : "Could not update brand automation.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,6 +74,25 @@ export function BrandAutomation({ onQueueRefresh }: { onQueueRefresh?: () => voi
 
   return (
     <div>
+      <div className="social-card">
+        <h2>Brand Automation</h2>
+        {settingsError && <div className="social-alert" role="alert">{settingsError}</div>}
+        {settingsMessage && <div className="social-success" role="status">{settingsMessage}</div>}
+        <p>
+          Brand schedule: <strong>{settings ? (settings.brandSchedulesEnabled ? "ON" : "OFF") : "Loading..."}</strong>
+          {" · "}Server worker: <strong>{settings ? (settings.workerConfigured ? "configured" : "OFF") : "Loading..."}</strong>
+        </p>
+        <p style={{ color: "#aaa", fontSize: "0.85rem" }}>
+          Enabling a schedule does not start the server worker. When it is off, no posts publish automatically.
+          Turning brand automation off moves scheduled brand posts back to drafts.
+        </p>
+        {!brandScheduleExists && settings && <p>Create a brand schedule in the Schedules tab before turning this on.</p>}
+        <button type="button" className="social-btn"
+          disabled={!settings || saving || (!settings.brandSchedulesEnabled && !brandScheduleExists)}
+          onClick={() => void toggleBrandAutomation()}>
+          {saving ? "Saving..." : settings?.brandSchedulesEnabled ? "Turn Brand Automation Off" : "Turn Brand Automation On"}
+        </button>
+      </div>
       <div className="social-card" style={{ background: "linear-gradient(145deg, #1f1410, #171717)" }}>
         <h2>Brand Content Generator</h2>
         <p style={{ color: "#aaa", fontSize: "0.9rem", marginBottom: "20px", lineHeight: 1.5 }}>

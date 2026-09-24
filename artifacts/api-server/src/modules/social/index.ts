@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, count, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db, restaurantsTable, socialAccountsTable, socialLogsTable, socialPostsTable, socialSchedulesTable } from "@workspace/db";
 import { adminOnly } from "../../middleware/adminOnly";
@@ -35,6 +35,56 @@ router.get("/social/accounts", async (_req, res): Promise<void> => {
   const accounts = await db.select().from(socialAccountsTable).orderBy(desc(socialAccountsTable.createdAt));
   res.json({ accounts: accounts.map(publicAccount) });
 });
+router.post("/social/accounts/disconnect", async (req, res): Promise<void> => {
+  const { accountId } = req.body ?? {};
+  if (typeof accountId !== "string" || !isUuid(accountId)) {
+    res.status(400).json({ error: "A valid accountId is required." });
+    return;
+  }
+  try {
+    const result = await db.transaction(async (tx) => {
+      // Removing the row also removes its encrypted publishing credential.
+      const [removed] = await tx.delete(socialAccountsTable)
+        .where(eq(socialAccountsTable.id, accountId))
+        .returning({
+          id: socialAccountsTable.id,
+          platform: socialAccountsTable.platform,
+          restaurantId: socialAccountsTable.restaurantId,
+        });
+      if (!removed) return null;
+      const accountScope = removed.restaurantId === null
+        ? isNull(socialAccountsTable.restaurantId)
+        : eq(socialAccountsTable.restaurantId, removed.restaurantId);
+      const [remaining] = await tx.select({ id: socialAccountsTable.id }).from(socialAccountsTable)
+        .where(and(accountScope, eq(socialAccountsTable.platform, removed.platform), eq(socialAccountsTable.status, "connected")))
+        .limit(1);
+      if (remaining) return { pausedSchedules: 0, returnedToDrafts: 0 };
+
+      const scheduleScope = removed.restaurantId === null
+        ? isNull(socialSchedulesTable.restaurantId)
+        : eq(socialSchedulesTable.restaurantId, removed.restaurantId);
+      const pausedSchedules = await tx.update(socialSchedulesTable)
+        .set({ enabled: false, updatedAt: new Date() })
+        .where(and(scheduleScope, eq(socialSchedulesTable.platform, removed.platform), eq(socialSchedulesTable.enabled, true)))
+        .returning({ id: socialSchedulesTable.id });
+      const postScope = removed.restaurantId === null
+        ? isNull(socialPostsTable.restaurantId)
+        : eq(socialPostsTable.restaurantId, removed.restaurantId);
+      const returnedToDrafts = await tx.update(socialPostsTable)
+        .set({ status: "draft", scheduledFor: null, errorMessage: null, updatedAt: new Date() })
+        .where(and(postScope, eq(socialPostsTable.platform, removed.platform), eq(socialPostsTable.status, "scheduled")))
+        .returning({ id: socialPostsTable.id });
+      return { pausedSchedules: pausedSchedules.length, returnedToDrafts: returnedToDrafts.length };
+    });
+    if (!result) {
+      res.status(404).json({ error: "Connected account not found." });
+      return;
+    }
+    res.json({ success: true, ...result });
+  } catch {
+    res.status(500).json({ error: "Could not disconnect the account." });
+  }
+});
 router.post("/social/schedules", async (req, res): Promise<void> => {
   const { id, restaurantId = null, platform, frequency, timeOfDay, enabled = true } = req.body ?? {};
   if ((restaurantId !== null && typeof restaurantId !== "string") || !validPlatform(platform) || frequency !== "daily" || !dailyTime(timeOfDay) || typeof enabled !== "boolean" || (id !== undefined && (typeof id !== "string" || !isUuid(id)))) { res.status(400).json({ error: "A valid ID, Facebook platform, daily frequency, and UTC timeOfDay HH:mm are required." }); return; }
@@ -67,6 +117,56 @@ router.post("/social/posts/generate", async (req, res): Promise<void> => {
     res.status(201).json({ post });
   } catch (error) { res.status(502).json({ error: error instanceof Error ? error.message : "Post generation failed." }); }
 });
+router.post("/social/posts/schedule", async (req, res): Promise<void> => {
+  const { postId, time } = req.body ?? {};
+  if (typeof postId !== "string" || !isUuid(postId)
+    || typeof time !== "string"
+    || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/.test(time)) {
+    res.status(400).json({ error: "A valid postId and ISO date-time with a timezone are required." });
+    return;
+  }
+  const scheduledFor = new Date(time);
+  if (!Number.isFinite(scheduledFor.getTime()) || scheduledFor <= new Date()) {
+    res.status(400).json({ error: "Choose a valid future publishing time." });
+    return;
+  }
+  const [candidate] = await db.select().from(socialPostsTable).where(eq(socialPostsTable.id, postId)).limit(1);
+  if (!candidate) { res.status(404).json({ error: "Post not found." }); return; }
+  if (candidate.status !== "draft" || !validPlatform(candidate.platform)) {
+    res.status(409).json({ error: "Only Facebook drafts can be scheduled." });
+    return;
+  }
+  const scope = candidate.restaurantId === null
+    ? isNull(socialAccountsTable.restaurantId)
+    : eq(socialAccountsTable.restaurantId, candidate.restaurantId);
+  const result = await db.transaction(async (tx) => {
+    const [account] = await tx.select({ id: socialAccountsTable.id }).from(socialAccountsTable)
+      .where(and(scope, eq(socialAccountsTable.platform, candidate.platform), eq(socialAccountsTable.status, "connected")))
+      .limit(1).for("update");
+    if (!account) return { reason: "no-account" as const };
+    if (candidate.restaurantId === null) {
+      const [brandSchedule] = await tx.select({ id: socialSchedulesTable.id }).from(socialSchedulesTable)
+        .where(and(isNull(socialSchedulesTable.restaurantId), eq(socialSchedulesTable.platform, candidate.platform), eq(socialSchedulesTable.enabled, true)))
+        .limit(1).for("update");
+      if (!brandSchedule) return { reason: "no-brand-schedule" as const };
+    }
+    const [post] = await tx.update(socialPostsTable)
+      .set({ status: "scheduled", scheduledFor, updatedAt: new Date() })
+      .where(and(eq(socialPostsTable.id, postId), eq(socialPostsTable.status, "draft")))
+      .returning();
+    return post ? { reason: "scheduled" as const, post } : { reason: "not-draft" as const };
+  });
+  if (result.reason === "no-account") {
+    res.status(409).json({ error: "Connect a Facebook Page for this post before scheduling it." });
+    return;
+  }
+  if (result.reason === "no-brand-schedule") {
+    res.status(409).json({ error: "Enable a brand schedule before scheduling a brand post." });
+    return;
+  }
+  if (result.reason === "not-draft") { res.status(409).json({ error: "Post is no longer a draft." }); return; }
+  res.json({ success: true, post: result.post });
+});
 router.post("/social/posts/publish", async (req, res): Promise<void> => {
   const { postId } = req.body ?? {};
   if (typeof postId !== "string" || !isUuid(postId)) { res.status(400).json({ error: "A valid postId is required." }); return; }
@@ -86,4 +186,74 @@ router.post("/social/posts/publish", async (req, res): Promise<void> => {
 });
 router.get("/social/posts", async (_req, res): Promise<void> => { res.json({ posts: await db.select().from(socialPostsTable).orderBy(desc(socialPostsTable.createdAt)) }); });
 router.get("/social/logs", async (_req, res): Promise<void> => { res.json({ logs: await db.select().from(socialLogsTable).orderBy(desc(socialLogsTable.createdAt)) }); });
+router.get("/social/errors", async (_req, res): Promise<void> => {
+  const [total] = await db.select({ count: count() }).from(socialLogsTable)
+    .where(eq(socialLogsTable.status, "failed"));
+  const errors = await db.select().from(socialLogsTable)
+    .where(eq(socialLogsTable.status, "failed"))
+    .orderBy(desc(socialLogsTable.createdAt)).limit(100);
+  // Existing logs store a safe generic message, not provider error codes.
+  // Do not guess token, permission, or rate-limit causes from that message.
+  res.json({
+    summary: {
+      token_error: 0, permission_error: 0, rate_limit: 0,
+      upload_error: 0, publish_error: 0, status_error: 0,
+      unclassified: total?.count ?? 0,
+    },
+    lastError: errors[0] ?? null,
+    errors,
+  });
+});
+router.get("/social/settings", async (_req, res): Promise<void> => {
+  const [brand] = await db.select({ id: socialSchedulesTable.id }).from(socialSchedulesTable)
+    .where(and(isNull(socialSchedulesTable.restaurantId), eq(socialSchedulesTable.enabled, true))).limit(1);
+  const [restaurant] = await db.select({ id: socialSchedulesTable.id }).from(socialSchedulesTable)
+    .where(and(isNotNull(socialSchedulesTable.restaurantId), eq(socialSchedulesTable.enabled, true))).limit(1);
+  res.json({
+    settings: {
+      workerConfigured: process.env.SOCIAL_AUTOMATION_ENABLED === "true",
+      brandSchedulesEnabled: Boolean(brand),
+      restaurantSchedulesEnabled: Boolean(restaurant),
+      retryAttempts: 0,
+      postingWindow: null,
+    },
+  });
+});
+router.post("/social/settings", async (req, res): Promise<void> => {
+  const body = req.body;
+  if (!body || typeof body !== "object" || Array.isArray(body)
+    || typeof body.brandAutomation !== "boolean"
+    || Object.keys(body).some(key => key !== "brandAutomation")) {
+    res.status(400).json({ error: "Only brandAutomation (boolean) can be updated." });
+    return;
+  }
+  const enable = body.brandAutomation as boolean;
+  try {
+    const result = await db.transaction(async (tx) => {
+      if (enable) {
+        const [account] = await tx.select({ id: socialAccountsTable.id }).from(socialAccountsTable)
+          .where(and(isNull(socialAccountsTable.restaurantId), eq(socialAccountsTable.platform, "facebook"), eq(socialAccountsTable.status, "connected")))
+          .limit(1).for("update");
+        if (!account) return { error: "Connect a brand Facebook Page before enabling brand automation." };
+      }
+      const schedules = await tx.update(socialSchedulesTable)
+        .set({ enabled: enable, updatedAt: new Date() })
+        .where(and(isNull(socialSchedulesTable.restaurantId), eq(socialSchedulesTable.platform, "facebook")))
+        .returning({ id: socialSchedulesTable.id });
+      if (enable && schedules.length === 0) return { error: "Create a brand schedule before enabling brand automation." };
+      const posts = enable ? [] : await tx.update(socialPostsTable)
+        .set({ status: "draft", scheduledFor: null, errorMessage: null, updatedAt: new Date() })
+        .where(and(isNull(socialPostsTable.restaurantId), eq(socialPostsTable.platform, "facebook"), eq(socialPostsTable.status, "scheduled")))
+        .returning({ id: socialPostsTable.id });
+      return { updatedSchedules: schedules.length, returnedToDrafts: posts.length };
+    });
+    if ("error" in result) { res.status(409).json({ error: result.error }); return; }
+    res.json({
+      success: true, brandAutomation: enable, ...result,
+      workerConfigured: process.env.SOCIAL_AUTOMATION_ENABLED === "true",
+    });
+  } catch {
+    res.status(500).json({ error: "Could not update brand automation." });
+  }
+});
 export default router;

@@ -19,6 +19,8 @@ export function PostQueue() {
   const [error, setError] = useState("");
   const [actionMessage, setActionMessage] = useState("");
   const [filterTab, setFilterTab] = useState<"all" | "draft" | "scheduled" | "published" | "failed">("all");
+  const [scheduleTimes, setScheduleTimes] = useState<Record<string, string>>({});
+  const [schedulingId, setSchedulingId] = useState<string | null>(null);
 
   const loadPosts = async () => {
     try {
@@ -51,6 +53,31 @@ export function PostQueue() {
     }
   };
 
+  const handleSchedule = async (postId: string) => {
+    const localTime = scheduleTimes[postId];
+    const scheduledFor = localTime ? new Date(localTime) : null;
+    if (!scheduledFor || !Number.isFinite(scheduledFor.getTime()) || scheduledFor <= new Date()) {
+      setActionMessage("Failed: Choose a future date and time.");
+      return;
+    }
+    if (!window.confirm(`Schedule this post for ${scheduledFor.toLocaleString()}? It may publish automatically if the server worker is enabled.`)) return;
+    setSchedulingId(postId);
+    setActionMessage("");
+    try {
+      await fetchSocial("/posts/schedule", {
+        method: "POST",
+        body: JSON.stringify({ postId, time: scheduledFor.toISOString() }),
+      });
+      setActionMessage(`Post scheduled for ${scheduledFor.toLocaleString()}.`);
+      setScheduleTimes(prev => { const next = { ...prev }; delete next[postId]; return next; });
+      await loadPosts();
+    } catch (err) {
+      setActionMessage(`Failed: ${err instanceof Error ? err.message : "Could not schedule post."}`);
+    } finally {
+      setSchedulingId(null);
+    }
+  };
+
   const filteredPosts = posts.filter(p => {
     if (filterTab === "all") return true;
     if (filterTab === "draft") return p.status === "draft" || p.status === "pending";
@@ -77,7 +104,8 @@ export function PostQueue() {
         </div>
 
         <p style={{ color: "#aaa", fontSize: "0.85rem", marginBottom: "16px" }}>
-          Posts will not be sent live unless an admin explicitly chooses to publish them, or automated sending is enabled via Schedules.
+          Posts will not be sent live unless an admin chooses Publish Now or the server worker is enabled.
+          A scheduled time does not turn the worker on.
         </p>
         
         {actionMessage && (
@@ -135,6 +163,22 @@ export function PostQueue() {
                           >
                             Publish Now
                           </button>
+                        )}
+                        {p.status === "draft" && (
+                          <div style={{ display: "grid", gap: 6, marginTop: 10 }}>
+                            <label htmlFor={`schedule-${p.id}`} style={{ fontSize: "0.8rem" }}>Schedule (your local time)</label>
+                            <input
+                              id={`schedule-${p.id}`}
+                              type="datetime-local"
+                              value={scheduleTimes[p.id] ?? ""}
+                              onChange={e => setScheduleTimes(prev => ({ ...prev, [p.id]: e.target.value }))}
+                            />
+                            <button type="button" className="social-btn social-btn-secondary"
+                              disabled={schedulingId !== null || !scheduleTimes[p.id]}
+                              onClick={() => void handleSchedule(p.id)}>
+                              {schedulingId === p.id ? "Scheduling..." : "Schedule"}
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>

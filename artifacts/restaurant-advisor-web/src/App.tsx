@@ -83,6 +83,8 @@ function AppRoutes() {
         <Route path="/admin/chef-review" element={<AdminChefReviewPage />} />
         <Route path="/admin/logs" element={<AdminLogs />} />
         <Route path="/admin/automation/social" element={<SocialAutomationPage />} />
+        <Route path="/admin/automation/social/logs" element={<SocialAutomationPage />} />
+        <Route path="/admin/automation/social/error-intelligence" element={<SocialAutomationPage />} />
         <Route path="/admin/queue" element={<AdminOperations view="queue" />} />
         <Route path="/admin/engines" element={<AdminOperations view="engines" />} />
         <Route path="/admin/health" element={<AdminOperations view="health" />} />

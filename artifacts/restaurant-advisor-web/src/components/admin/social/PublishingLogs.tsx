@@ -3,10 +3,10 @@ import { fetchSocial } from "./api";
 
 interface Log {
   id: string;
-  postId: string;
-  status?: string;
+  platform: string;
+  status: string;
   message?: string | null;
-  createdAt: string;
+  createdAt: string | null;
 }
 
 export function PublishingLogs() {
@@ -32,33 +32,31 @@ export function PublishingLogs() {
 
   return (
     <div className="social-card">
-      <h2>Publishing Logs</h2>
+      <h2>Social Publishing Logs</h2>
       {loading ? <p>Loading logs...</p> : error ? <div className="social-alert">{error}</div> : (
         logs.length === 0 ? <p className="social-empty">No activity logs.</p> : (
           <div className="social-table-wrap">
             <table className="social-table">
               <thead>
                 <tr>
-                  <th>Timestamp</th>
-                  <th>Log ID</th>
-                  <th>Post ID</th>
+                  <th>Time</th>
+                  <th>Platform</th>
                   <th>Status</th>
-                  <th>Details</th>
+                  <th>Error</th>
                 </tr>
               </thead>
               <tbody>
                 {logs.map(log => (
                   <tr key={log.id}>
-                    <td>{new Date(log.createdAt).toLocaleString()}</td>
-                    <td>{log.id}</td>
-                    <td>{log.postId}</td>
+                    <td>{log.createdAt ? new Date(log.createdAt).toLocaleString() : "—"}</td>
+                    <td>{log.platform}</td>
                     <td>
-                      <span className={`social-badge ${log.status === 'success' || log.status === 'published' ? 'published' : log.status === 'failed' || log.status === 'error' ? 'error' : 'pending'}`}>
-                        {log.status || 'unknown'}
+                      <span className={`social-badge ${log.status === "success" ? "published" : log.status === "failed" || log.status === "failure" ? "error" : "pending"}`}>
+                        {log.status === "failed" ? "failure" : log.status}
                       </span>
                     </td>
-                    <td style={{ color: log.message && log.status === "failed" ? "#ff9b8d" : "inherit" }}>
-                      {log.message || (log.status === "success" ? "Published" : "—")}
+                    <td style={{ color: log.status === "failed" || log.status === "failure" ? "#ff9b8d" : "inherit" }}>
+                      {(log.status === "failed" || log.status === "failure") ? (log.message || "—") : "—"}
                     </td>
                   </tr>
                 ))}
