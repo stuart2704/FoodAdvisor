@@ -6,7 +6,7 @@ const navigation = [
   { to: "/trending", label: "Trending" },
   { to: "/city-guide", label: "City Food Guide" },
   { to: "/rewards", label: "Rewards" },
-  { to: "/owner", label: "For Restaurants" },
+  { to: "/owner/", label: "Own a Restaurant? Start Here" },
   { to: "/about", label: "About" },
   { to: "/contact", label: "Contact" }
 ];
@@ -67,6 +67,7 @@ export default function Navbar() {
           <NavLink
             className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}
             to={item.to}
+            reloadDocument={item.to === "/owner/"}
             key={item.to}
           >
             {item.label}
@@ -107,6 +108,7 @@ export default function Navbar() {
             <NavLink
               className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}
               to={item.to}
+              reloadDocument={item.to === "/owner/"}
               key={item.to}
               onClick={() => setOpen(false)}
             >
