@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import RestaurantPhoto from "./RestaurantPhoto";
 
 type Coordinates = {
   lat: number;
@@ -34,9 +35,18 @@ export default function RestaurantCard({
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/photo/${encodeURIComponent(id)}`)
-      .then(res => res.json())
-      .then(data => setPhotoUrl(data.url));
+    const controller = new AbortController();
+    setPhotoUrl(null);
+    fetch(`/api/photo/${encodeURIComponent(id)}`, { signal: controller.signal })
+      .then(res => {
+        if (!res.ok) throw new Error("Restaurant photo unavailable");
+        return res.json() as Promise<{ url?: unknown }>;
+      })
+      .then(data => setPhotoUrl(typeof data.url === "string" ? data.url : null))
+      .catch(() => {
+        if (!controller.signal.aborted) setPhotoUrl(null);
+      });
+    return () => controller.abort();
   }, [id]);
 
   return (
@@ -45,13 +55,12 @@ export default function RestaurantCard({
       style={{ textDecoration: "none", color: "inherit" }}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-        <img
-          src={photoUrl || `https://source.unsplash.com/600x400/?restaurant,${city}`}
-          alt={name}
+        <RestaurantPhoto
+          src={photoUrl}
+          name={name}
           style={{
             width: "100%",
             height: "240px",
-            objectFit: "cover",
             borderRadius: "16px"
           }}
         />

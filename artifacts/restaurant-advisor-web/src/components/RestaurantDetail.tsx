@@ -1,5 +1,6 @@
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
+import RestaurantPhoto from "./RestaurantPhoto";
 
 function formatPrice(level: string | null) {
   if (level === null) return "Not available";
@@ -223,16 +224,12 @@ export default function RestaurantDetail() {
 
   return (
     <div className="section" style={{ maxWidth: "900px" }}>
-      <img
-        src={
-          gallery[0] ||
-          `https://source.unsplash.com/900x500/?restaurant,${restaurant.city}`
-        }
-        alt={restaurant.name}
+      <RestaurantPhoto
+        src={gallery[0]}
+        name={restaurant.name}
         style={{
           width: "100%",
           height: "400px",
-          objectFit: "cover",
           borderRadius: "16px",
           marginBottom: "24px"
         }}
@@ -251,15 +248,14 @@ export default function RestaurantDetail() {
           }}
         >
           {gallery.map((url, i) => (
-            <img
+            <RestaurantPhoto
               key={url}
               src={url}
-              alt={`${restaurant.name} photo ${i + 1}`}
+              name={`${restaurant.name} photo ${i + 1}`}
               style={{
                 width: "min(80vw, 640px)",
                 height: "300px",
                 flex: "0 0 auto",
-                objectFit: "cover",
                 borderRadius: "16px",
                 scrollSnapAlign: "start"
               }}

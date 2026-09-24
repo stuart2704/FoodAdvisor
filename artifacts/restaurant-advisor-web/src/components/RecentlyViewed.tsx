@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import RestaurantPhoto from "./RestaurantPhoto";
 
 interface RecentlyViewedRestaurant {
   id: string;
@@ -74,17 +75,11 @@ export default function RecentlyViewed() {
                 boxShadow: "0 2px 6px rgba(0,0,0,0.1)"
               }}
             >
-              {restaurant.image && (
-                <img
-                  src={restaurant.image}
-                  alt={restaurant.name}
-                  style={{
-                    width: "100%",
-                    height: "150px",
-                    objectFit: "cover"
-                  }}
-                />
-              )}
+              <RestaurantPhoto
+                src={restaurant.image}
+                name={restaurant.name}
+                style={{ width: "100%", height: "150px" }}
+              />
               <div style={{ padding: "12px" }}>
                 <div style={{ fontWeight: 600 }}>{restaurant.name}</div>
                 <div style={{ opacity: 0.7 }}>{restaurant.city}</div>
