@@ -87,8 +87,8 @@ export default function AdminLogs() {
         </button>
       </header>
       <p style={{ color: "#aaa", marginBottom: "16px" }}>
-        Sanitized operational events retained for seven days. The feed refreshes
-        every three seconds.
+        Sanitized operational events retained for seven days. Refresh the saved history
+        to see recent events.
       </p>
       <SystemHealth />
       <MetricsPanel />

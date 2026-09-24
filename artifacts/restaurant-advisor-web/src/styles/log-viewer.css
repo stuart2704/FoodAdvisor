@@ -494,6 +494,93 @@
   border-bottom: 1px solid #1c1c1c;
 }
 
+.log-history-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  padding: 10px 16px;
+  background: #171717;
+  color: #ddd;
+  font-size: 13px;
+}
+
+.log-history-toolbar form,
+.log-history-toolbar label,
+.log-tags form {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.log-history-toolbar input:not([type="checkbox"]),
+.log-tags input {
+  max-width: 180px;
+  padding: 6px 9px;
+  border: 1px solid #555;
+  border-radius: 5px;
+  background: #101010;
+  color: #eee;
+}
+
+.log-history-toolbar button,
+.log-row-controls button,
+.log-tags button,
+.events-box button:not(.log-row-main, .log-group-header) {
+  padding: 6px 10px;
+  border: 1px solid #555;
+  border-radius: 6px;
+  background: #262626;
+  color: #eee;
+  cursor: pointer;
+}
+
+.log-history-toolbar button:disabled,
+.log-row-controls button:disabled,
+.log-tags button:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.log-history-toolbar button:focus-visible,
+.log-history-toolbar input:focus-visible,
+.log-row-controls button:focus-visible,
+.log-row-controls input:focus-visible,
+.log-tags button:focus-visible,
+.log-tags input:focus-visible {
+  outline: 2px solid #ff8b47;
+  outline-offset: 2px;
+}
+
+.log-filter-note {
+  flex-basis: 100%;
+  color: #aaa;
+  font-size: 12px;
+}
+
+.log-action-error {
+  padding: 8px 16px;
+  color: #ff9b8d;
+}
+
+.log-row-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  background: #171717;
+  font-size: 12px;
+}
+
+.log-tags {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
 .log-filters label {
   display: grid;
   flex: 1 1 160px;
