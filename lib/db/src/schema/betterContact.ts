@@ -39,6 +39,9 @@ export const betterContactJobsTable = pgTable(
     personSource: text("person_source").notNull(),
     budgetPeriod: text("budget_period").notNull(),
     reservedCredits: integer("reserved_credits").notNull(),
+    // Null on pre-reconciliation rows; legacy timed_out rows were provisionally
+    // counted as consumed, while new rows keep their reservation until evidence.
+    accountingState: text("accounting_state"),
     status: text("status").notNull(),
     providerRequestId: text("provider_request_id"),
     pollAttempts: integer("poll_attempts").notNull().default(0),

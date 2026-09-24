@@ -21,7 +21,7 @@ export const betterContactBudgetsTable = makeTable("budgets",
   ["period","creditCap","reservedCredits","consumedCredits","updatedAt"]);
 export const betterContactJobsTable = makeTable("jobs",
   ["id","placeId","contextHash","firstName","lastName","company","companyDomain",
-   "personSource","budgetPeriod","reservedCredits","status","providerRequestId",
+   "personSource","budgetPeriod","reservedCredits","accountingState","status","providerRequestId",
    "pollAttempts","nextPollAt","deadlineAt","postStartedAt","completedAt",
    "lastError","createdAt","updatedAt"]);
 export const betterContactPrivateContactsTable = makeTable("contacts",
@@ -40,6 +40,12 @@ const matches = (row, condition) => {
   if (condition.kind === "lte") return value(row, condition.left) <= value(row, condition.right);
   if (condition.kind === "in") return condition.values.includes(value(row, condition.left));
   if (condition.kind === "sql") {
+    if (condition.strings.join(" ").includes("is null")) {
+      return value(row, condition.values[0]) == null;
+    }
+    if (condition.strings.join(" ").includes(">=")) {
+      return value(row, condition.values[0]) >= condition.values[1];
+    }
     const budget = row;
     const numbers = condition.values.filter((item) => typeof item === "number");
     const reserve = numbers[0] ?? 1;
@@ -50,11 +56,14 @@ const matches = (row, condition) => {
   return true;
 };
 const evaluateSet = (row, item) => {
+  if (item?.table && item?.key) return row[item.key];
   if (!item || item.kind !== "sql") return item;
   const text = item.strings.join(" ");
   const number = item.values.find((entry) => typeof entry === "number") ?? 0;
   const referenced = item.values.find((entry) => entry?.key)?.key;
   if (text.includes("greatest")) return Math.max(0, Number(row[referenced] ?? 0) - number);
+  if (text.includes("-")) return Number(row[referenced] ?? 0) - number
+    + (text.includes("+") ? Number(item.values.at(-1) ?? 0) : 0);
   if (text.includes("+")) return Number(row[referenced] ?? 0) + number;
   return item;
 };
@@ -347,7 +356,7 @@ test("202 remains pending; terminated exact identity moves reserved credit to co
   assert.equal(current().contacts[0].outreachEligible, false);
 });
 
-test("terminated mismatched identity consumes reported credit but stores no contact", async () => {
+test("terminated mismatched identity retains reservation for manual investigation", async () => {
   await service.reserveBetterContactJob(input);
   current().responses.push(response(201, { success: true, id: "provider-3" }));
   await service.processBetterContactJobs();
@@ -366,6 +375,82 @@ test("terminated mismatched identity consumes reported credit but stores no cont
     }],
   }));
   await service.processBetterContactJobs();
-  assert.deepEqual([budget().reservedCredits, budget().consumedCredits], [0, 1]);
+  assert.deepEqual([budget().reservedCredits, budget().consumedCredits], [1, 0]);
+  assert.equal(job().status, "timed_out");
   assert.equal(current().contacts.length, 0);
+});
+
+const matchedResult = (id, credit = 1) => response(200, {
+  id, status: "terminated", credits_consumed: credit,
+  data: [{ contact_first_name: "Jane", contact_last_name: "Owner",
+    custom_fields: [
+      { name: "context_id", value: job().contextHash },
+      { name: "restaurant_id", value: input.placeId },
+    ] }],
+});
+const confirmation = () => ({
+  jobId: job().id, contextHash: job().contextHash, placeId: input.placeId,
+  firstName: input.firstName, lastName: input.lastName, companyDomain: input.companyDomain,
+});
+
+test("ambiguous submission can attach confirmed ID and reconcile zero credits without POST", async () => {
+  await service.reserveBetterContactJob(input);
+  current().responses.push(new Error("POST outcome unknown"));
+  await service.processBetterContactJobs();
+  assert.equal(job().status, "submit_ambiguous");
+  current().responses.push(matchedResult("provider-recovered", 0));
+  await service.reconcileBetterContactJob({ ...confirmation(), providerRequestId: "provider-recovered" });
+  assert.equal(job().status, "polling");
+  assert.equal(job().providerRequestId, "provider-recovered");
+  current().responses.push(matchedResult("provider-recovered", 0));
+  await service.processBetterContactJobs();
+  assert.equal(job().status, "completed");
+  assert.deepEqual([budget().reservedCredits, budget().consumedCredits], [0, 0]);
+  assert.equal(current().proxyCalls.filter((call) => call.options?.method === "POST").length, 1);
+  assert.ok(current().audits.some((item) => item.event === "manual_poll_resumed"));
+});
+
+test("wrong identity, unknown provider ID, and duplicate ID never resume or release", async () => {
+  await service.reserveBetterContactJob(input);
+  job().status = "submit_ambiguous";
+  await assert.rejects(() => service.reconcileBetterContactJob({
+    ...confirmation(), firstName: "Other", providerRequestId: "provider-1",
+  }), /do not match/);
+  current().responses.push(response(404, { message: "not found" }));
+  await assert.rejects(() => service.reconcileBetterContactJob({
+    ...confirmation(), providerRequestId: "provider-1",
+  }), /did not confirm/);
+  current().responses.push(response(200, { id: "different", status: "processing" }));
+  await assert.rejects(() => service.reconcileBetterContactJob({
+    ...confirmation(), providerRequestId: "provider-1",
+  }), /did not confirm/);
+  assert.equal(job().status, "submit_ambiguous");
+  assert.deepEqual([budget().reservedCredits, budget().consumedCredits], [1, 0]);
+  assert.equal(current().audits.filter((item) => item.event === "manual_poll_resumed").length, 0);
+});
+
+test("exhausted polling stays reserved and manual resume handles legacy timeout accounting", async () => {
+  await service.reserveBetterContactJob(input);
+  job().status = "polling";
+  job().providerRequestId = "provider-1";
+  job().pollAttempts = 39;
+  job().nextPollAt = new Date(0);
+  current().responses.push(response(202, { id: "provider-1", status: "on_hold" }));
+  await service.processBetterContactJobs();
+  assert.equal(job().status, "timed_out");
+  assert.deepEqual([budget().reservedCredits, budget().consumedCredits], [1, 0]);
+  current().responses.push(response(202, { id: "provider-1", status: "on_hold" }));
+  await service.reconcileBetterContactJob(confirmation());
+  assert.equal(job().pollAttempts, 0);
+  assert.equal(job().status, "polling");
+  job().status = "timed_out";
+  job().accountingState = null;
+  job().completedAt = new Date();
+  budget().reservedCredits = 0;
+  budget().consumedCredits = 1;
+  current().responses.push(matchedResult("provider-1", 0));
+  await service.reconcileBetterContactJob(confirmation());
+  current().responses.push(matchedResult("provider-1", 0));
+  await service.processBetterContactJobs();
+  assert.deepEqual([budget().reservedCredits, budget().consumedCredits], [0, 0]);
 });

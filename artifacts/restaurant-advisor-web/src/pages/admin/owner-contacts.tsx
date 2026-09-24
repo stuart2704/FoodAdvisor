@@ -30,6 +30,8 @@ type Review = {
     personSource: string;
     budgetPeriod: string;
     reservedCredits: number;
+    contextHash: string;
+    providerRequestId: string | null;
     lastError: string | null;
   };
   privateReviewContact: {
@@ -92,6 +94,10 @@ function OwnerContactsContent() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [providerId, setProviderId] = useState("");
+  const [reconciling, setReconciling] = useState(false);
+  const [identityConfirmed, setIdentityConfirmed] = useState(false);
+  const [reviewVersion, setReviewVersion] = useState(0);
 
   const refreshOverview = useCallback(async () => {
     const [nextBudget, nextJobs] = await Promise.all([
@@ -160,7 +166,7 @@ function OwnerContactsContent() {
       active = false;
       window.clearInterval(timer);
     };
-  }, [selectedId, refreshOverview]);
+  }, [selectedId, refreshOverview, reviewVersion]);
 
   const submit = form.handleSubmit(async (values) => {
     setError("");
@@ -196,6 +202,38 @@ function OwnerContactsContent() {
       setSubmitting(false);
     }
   });
+
+  const reconcile = async () => {
+    if (!review || !selectedId) return;
+    setReconciling(true);
+    setError("");
+    setNotice("");
+    try {
+      await privateApi(`/private-contact-enrichments/${encodeURIComponent(selectedId)}/reconcile`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          confirmedIdentity: identityConfirmed,
+          providerRequestId: review.job.providerRequestId ?? providerId.trim(),
+          contextHash: review.job.contextHash,
+          placeId: review.job.placeId,
+          firstName: review.job.firstName,
+          lastName: review.job.lastName,
+          companyDomain: review.job.companyDomain,
+        }),
+      });
+      setReview(await privateApi<Review>(`/private-contact-enrichments/${encodeURIComponent(selectedId)}`));
+      setReviewVersion((version) => version + 1);
+      await refreshOverview();
+      setProviderId("");
+      setIdentityConfirmed(false);
+      setNotice("Provider request confirmed. Polling resumed without submitting a new lookup.");
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Provider request could not be confirmed.");
+    } finally {
+      setReconciling(false);
+    }
+  };
 
   return (
     <AdminLayout>
@@ -265,7 +303,7 @@ function OwnerContactsContent() {
           <ul className="contact-history">
             {jobs.map((job) => (
               <li key={job.id}>
-                <button type="button" className={selectedId === job.id ? "selected" : ""} data-testid={`button-review-contact-${job.id}`} onClick={() => setSelectedId(job.id)}>
+                <button type="button" className={selectedId === job.id ? "selected" : ""} data-testid={`button-review-contact-${job.id}`} onClick={() => { setSelectedId(job.id); setProviderId(""); setIdentityConfirmed(false); }}>
                   <strong>{job.firstName} {job.lastName}</strong> · {job.company}
                   <span>{job.placeId} · {statusText[job.status] ?? job.status} · {new Date(job.createdAt).toLocaleString()}</span>
                 </button>
@@ -295,6 +333,23 @@ function OwnerContactsContent() {
                   </div>
                 ) : <p>No provider-accepted deliverable address is available for private review.</p>}
                 {review.job.status === "submit_ambiguous" && <p>Provider submission may already have incurred a charge. Do not submit it again; investigate manually.</p>}
+                {["submit_ambiguous", "timed_out", "on_hold"].includes(review.job.status) && (
+                  <div className="contact-result">
+                    <h3>Resume an existing provider request</h3>
+                    <p>Check the original person, company, and restaurant in BetterContact first. This checks the provider request ID and resumes GET polling; it never sends another paid submission. Credits remain reserved until matching provider evidence confirms usage.</p>
+                    {review.job.providerRequestId
+                      ? <p><strong>Provider request ID:</strong> {review.job.providerRequestId}</p>
+                      : <label className="contact-field"><span>Provider-confirmed request ID</span>
+                          <input value={providerId} onChange={(event) => setProviderId(event.target.value)} maxLength={200} autoComplete="off" />
+                        </label>}
+                    <label className="contact-consent"><input type="checkbox" checked={identityConfirmed} onChange={(event) => setIdentityConfirmed(event.target.checked)} />
+                      <span>I checked the original person, company domain, and restaurant against the provider’s request record.</span></label>
+                    <button type="button" disabled={reconciling || !identityConfirmed || (!review.job.providerRequestId && !providerId.trim())}
+                      onClick={() => { void reconcile(); }}>
+                      {reconciling ? "Confirming…" : "Confirm identity and resume polling"}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </section>

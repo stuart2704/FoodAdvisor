@@ -14,3 +14,9 @@ Treat ambiguous BetterContact submissions as potentially charged, not as safe re
 **Why:** Official BetterContact documentation explicitly says submission POSTs are not idempotent. An `on_hold` request can later resume without resubmission.
 
 **How to apply:** Preserve reservations and request identities across restarts; investigate uncertain submissions instead of sending them again. Provider response custom fields are an array of named entries, unlike the request object.
+
+Legacy polling timeouts were booked as consumed before provider confirmation; newer timeouts retain their reservation. Preserve this distinction while reconciling old jobs, and require a provider result with matching identity and explicit credit usage before changing either balance.
+
+**Why:** Treating an old provisional debit like a new reservation can debit twice, while releasing an uncertain new request can make a duplicate paid lookup appear affordable.
+
+**How to apply:** When changing reconciliation/accounting, handle both historical timeout accounting and current reserved timeouts; a missing or mismatched provider result is not evidence of zero credits.

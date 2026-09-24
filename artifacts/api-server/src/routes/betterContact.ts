@@ -5,6 +5,7 @@ import {
   getBetterContactBudgetForReview,
   getBetterContactJobForReview,
   listBetterContactJobsForReview,
+  reconcileBetterContactJob,
   reserveBetterContactJob,
 } from "../services/enrichment/betterContact";
 
@@ -30,6 +31,15 @@ const RequestBody = z.object({
 }).strict();
 const Params = z.object({ placeId: z.string().trim().min(1).max(512) });
 const JobParams = z.object({ jobId: z.string().uuid() });
+const ReconcileBody = z.object({
+  confirmedIdentity: z.literal(true),
+  providerRequestId: z.string().trim().min(1).max(200).regex(/^[a-zA-Z0-9_-]+$/).optional(),
+  contextHash: z.string().regex(/^[a-f0-9]{64}$/),
+  placeId: z.string().trim().min(1).max(512),
+  firstName: z.string().trim().min(2).max(100),
+  lastName: z.string().trim().min(2).max(100),
+  companyDomain: Domain,
+}).strict();
 
 router.get("/private-contact-enrichments/budget", adminOnly, async (_req, res) => {
   res.json({ success: true, data: await getBetterContactBudgetForReview() });
@@ -84,6 +94,22 @@ router.get("/private-contact-enrichments/:jobId", adminOnly, async (req, res) =>
     return;
   }
   res.json({ success: true, data: result });
+});
+
+router.post("/private-contact-enrichments/:jobId/reconcile", adminOnly, async (req, res): Promise<void> => {
+  const params = JobParams.safeParse(req.params);
+  const body = ReconcileBody.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ success: false, error: "Provider ID and original person/company confirmation are required." });
+    return;
+  }
+  try {
+    const job = await reconcileBetterContactJob({ jobId: params.data.jobId, ...body.data });
+    res.json({ success: true, data: { id: job.id, status: job.status } });
+  } catch (error) {
+    req.log.warn({ err: error }, "Manual contact reconciliation rejected");
+    res.status(409).json({ success: false, error: error instanceof Error ? error.message : "Reconciliation failed." });
+  }
 });
 
 export default router;
