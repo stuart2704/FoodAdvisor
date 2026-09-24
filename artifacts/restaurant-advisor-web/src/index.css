@@ -61,6 +61,29 @@ h1, h2, h3, h4, h5, h6 {
   border-right: 1px solid #374151;
 }
 
+.admin-layout > .admin-sidebar {
+  position: sticky;
+  top: 24px;
+  left: auto;
+  width: auto;
+  height: max-content;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+@media (max-width: 700px) {
+  .admin-layout.admin-logs-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .admin-layout > .admin-sidebar {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+}
+
 .admin-sidebar a {
   display: block;
   color: #ffffff;

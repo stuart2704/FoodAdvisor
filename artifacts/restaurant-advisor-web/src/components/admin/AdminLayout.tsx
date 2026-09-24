@@ -18,7 +18,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           width: "min(1280px, 100%)",
           margin: "0 auto",
           display: "grid",
-          gridTemplateColumns: "180px minmax(0, 1fr)",
+          gridTemplateColumns: "240px minmax(0, 1fr)",
           gap: "28px"
         }}
       >
