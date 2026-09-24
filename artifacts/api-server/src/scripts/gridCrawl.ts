@@ -4,17 +4,17 @@
  */
 import { readFile, writeFile, rename, open } from "node:fs/promises";
 import { resolve } from "node:path";
-import { parseGrid, gridHash, validateProgress, DAILY_GRID_LIMIT, EMERGENCY_RESERVE, DELAY_BETWEEN_REQUESTS_MS, type GridProgress } from "../lib/gridCrawlPlan";
+import { parseGrid, gridHash, validateProgress, DAILY_GRID_LIMIT, EMERGENCY_RESERVE, DELAY_BETWEEN_REQUESTS_MS, ESTIMATED_GRID_REQUEST_COST_CENTS, MONTHLY_PAID_BUDGET_GBP, MONTHLY_PAID_LIMIT, paidGridBudgetReached, type GridProgress } from "../lib/gridCrawlPlan";
 import { normaliseCoordinates } from "../lib/geo";
 import { verifiedExistingFields, type NearbyPlace } from "../lib/gridPlaceFields";
 import { cuisineFromRestaurantName } from "../lib/restaurantKeywords";
 import { missingFieldNames, stalenessReasons, STALE_AFTER_MS, STALE_RATING_CHANGE, STALE_REVIEW_JUMP } from "../lib/gridStaleness";
+import { classifyGridPriority, PRIORITY } from "../lib/gridPriority";
 import { logEvent } from "../lib/logEvent";
 import { logger } from "../lib/logger";
 
 const MASK = "places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.priceLevel,places.location,places.websiteUri,places.googleMapsUri,places.types";
 const PLACES_URL = "https://places.googleapis.com/v1/places:searchNearby";
-const COST_CENTS = 50; // Conservative estimate for the requested fields, not a guaranteed provider price.
 const RESTAURANTS_PER_POINT = 10;
 
 function argumentsForRun(args: string[]) {
@@ -24,8 +24,9 @@ function argumentsForRun(args: string[]) {
   if (!gridFile || gridFile.startsWith("--")) throw new Error("Pass --grid /path/to/coordinates.json.");
   if (!stateFile || stateFile.startsWith("--")) throw new Error("Pass --state /path/to/progress.json on persistent storage.");
   const budget = args.includes("--monthly-budget-cents") ? Number(option("--monthly-budget-cents")) : NaN;
-  if (!Number.isSafeInteger(budget) || budget < COST_CENTS) {
-    throw new Error("Pass a positive --monthly-budget-cents; this is an estimated cap, not a billing cap.");
+  if (!Number.isSafeInteger(budget) || budget < ESTIMATED_GRID_REQUEST_COST_CENTS ||
+      budget > MONTHLY_PAID_BUDGET_GBP * 100) {
+    throw new Error(`Pass --monthly-budget-cents between ${ESTIMATED_GRID_REQUEST_COST_CENTS} and ${MONTHLY_PAID_BUDGET_GBP * 100}; this is an estimated cap, not a billing cap.`);
   }
   return {
     gridFile: resolve(gridFile),
@@ -135,8 +136,31 @@ export async function runDailyCrawl(args: string[]) {
       const monthStart = new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth(), 1));
       const [usage] = await db.select({
         spent: sql<number>`coalesce(sum(${restaurantImportRunsTable.estimatedCostCents}), 0)`,
+        calls: sql<number>`coalesce(sum(${restaurantImportRunsTable.apiCalls}), 0)`,
       }).from(restaurantImportRunsTable).where(gte(restaurantImportRunsTable.createdAt, monthStart));
-      if (Number(usage?.spent ?? 0) + COST_CENTS > options.monthlyBudgetCents) {
+      const spentCents = Number(usage?.spent ?? 0);
+      const usedRequests = Number(usage?.calls ?? 0);
+      const budgetReached = paidGridBudgetReached(spentCents, usedRequests, options.monthlyBudgetCents);
+      logEvent("paid_budget_status", {
+        budget_gbp: options.monthlyBudgetCents / 100,
+        max_budget_gbp: MONTHLY_PAID_BUDGET_GBP,
+        limit_requests: MONTHLY_PAID_LIMIT,
+        used_requests: usedRequests,
+        remaining_requests: Math.max(0, Math.min(
+          MONTHLY_PAID_LIMIT - usedRequests,
+          Math.floor((options.monthlyBudgetCents - spentCents) / ESTIMATED_GRID_REQUEST_COST_CENTS),
+        )),
+        estimated_spent_cents: spentCents,
+        phase: "before_request",
+      });
+      if (budgetReached) {
+        logEvent("paid_budget_exceeded", {
+          limit_gbp: MONTHLY_PAID_BUDGET_GBP,
+          limit_requests: MONTHLY_PAID_LIMIT,
+          used: usedRequests,
+          estimated_spent_cents: spentCents,
+          configured_limit_cents: options.monthlyBudgetCents,
+        });
         logEvent("grid_crawl_budget_reached");
         break;
       }
@@ -144,7 +168,7 @@ export async function runDailyCrawl(args: string[]) {
       // remains and the point is not advanced, avoiding an untracked retry.
       await db.insert(restaurantImportRunsTable).values({
         cities: [point.city], requested: RESTAURANTS_PER_POINT, imported: 0, skippedDuplicates: 0,
-        apiCalls: 1, estimatedCostCents: COST_CENTS, monthlyBudgetCents: options.monthlyBudgetCents,
+        apiCalls: 1, estimatedCostCents: ESTIMATED_GRID_REQUEST_COST_CENTS, monthlyBudgetCents: options.monthlyBudgetCents,
         stoppedBecause: `Grid request reserved at point ${progress.nextIndex}`,
       });
       progress.attemptedToday += 1;
@@ -238,9 +262,19 @@ export async function runDailyCrawl(args: string[]) {
         const now = new Date();
         const reasons = stalenessReasons(existing, fields, now);
         const fillableMissing = reasons.some((reason) => reason.startsWith("missing_"));
+        const priority = classifyGridPriority(existing, fields, now);
         logEvent("crawl_priority", {
           name: existing.name,
-          priority: fillableMissing ? "high" : reasons.length ? "medium" : "low",
+          priority,
+          priority_label: Object.entries(PRIORITY).find(([, value]) => value === priority)?.[0].toLowerCase(),
+          update_eligible: reasons.length > 0,
+        });
+        logEvent("budget_priority", {
+          name: existing.name,
+          priority,
+          used: usedRequests + 1, // The current grid request was reserved before this result.
+          limit: MONTHLY_PAID_LIMIT,
+          phase: "after_grid_request",
         });
         if (!reasons.length) {
           summary.skips++;

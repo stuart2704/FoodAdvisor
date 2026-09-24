@@ -13,6 +13,16 @@ export type CrawlerProgressRow = {
   last_point_index: number;
   last_run: Date;
   paid_requests: number;
+  paid_requests_today: number;
+  paid_requests_month: number;
+  paid_requests_last_point: number;
+  last_paid_reset: string;
+  cycle_number: number;
+  cycle_completed: boolean;
+  next_region_run: string | null;
+  region_interval: number;
+  region_budget: number;
+  region_budget_used: number;
 };
 
 function validatePosition(position: CrawlerProgressPosition): void {
@@ -24,7 +34,11 @@ function validatePosition(position: CrawlerProgressPosition): void {
 }
 
 const selectProgress = `
-  SELECT id, last_region_index, last_city_index, last_point_index, last_run, paid_requests
+  SELECT id, last_region_index, last_city_index, last_point_index, last_run,
+         paid_requests, paid_requests_today, paid_requests_month, paid_requests_last_point,
+         last_paid_reset::text AS last_paid_reset, cycle_number, cycle_completed,
+         next_region_run::text AS next_region_run, region_interval,
+         region_budget, region_budget_used
   FROM crawler_progress WHERE id = 1`;
 
 export async function getCrawlerProgress(): Promise<CrawlerProgressRow> {
@@ -54,7 +68,11 @@ export async function updateCrawlerProgress(
       AND last_region_index = $4
       AND last_city_index = $5
       AND last_point_index = $6
-    RETURNING id, last_region_index, last_city_index, last_point_index, last_run, paid_requests
+    RETURNING id, last_region_index, last_city_index, last_point_index, last_run,
+              paid_requests, paid_requests_today, paid_requests_month, paid_requests_last_point,
+              last_paid_reset::text AS last_paid_reset, cycle_number, cycle_completed,
+              next_region_run::text AS next_region_run, region_interval,
+              region_budget, region_budget_used
   `, [
     position.regionIndex, position.cityIndex, position.pointIndex,
     expected.regionIndex, expected.cityIndex, expected.pointIndex,

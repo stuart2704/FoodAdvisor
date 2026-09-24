@@ -31,3 +31,18 @@ test("advances to the next unprocessed point and stops instead of wrapping", () 
     { regionIndex: 1, cityIndex: 0, pointIndex: 0 });
   assert.equal(nextGridPosition(grid, { regionIndex: 1, cityIndex: 0, pointIndex: 0 }), null);
 });
+
+test("resolves and advances positions in scored city objects", () => {
+  const scored = {
+    europe: {
+      cardiff: {
+        points: [[51.4816, -3.1791], [51.485, -3.17]],
+        popularity: 0.8, density: 0.6, missing_fields_rate: 0.3,
+      },
+      London: [[51.5074, -0.1278]],
+    },
+  };
+  assert.equal(resolveGridPosition(scored, { regionIndex: 0, cityIndex: 0, pointIndex: 1 }).point.city, "Cardiff");
+  assert.deepEqual(nextGridPosition(scored, { regionIndex: 0, cityIndex: 0, pointIndex: 1 }),
+    { regionIndex: 0, cityIndex: 1, pointIndex: 0 });
+});
