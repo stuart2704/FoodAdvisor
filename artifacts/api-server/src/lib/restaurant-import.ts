@@ -10,7 +10,7 @@ import { normaliseCoordinates, type Coordinates } from "./geo";
 import {
   ESTIMATED_GRID_REQUEST_COST_CENTS, MONTHLY_PAID_BUDGET_GBP, MONTHLY_PAID_LIMIT,
 } from "./gridCrawlPlan";
-import { reservePaidSearchTextCall } from "./gridCrawlRuntime";
+import { getGridRuntimeState, reservePaidSearchTextCall } from "./gridCrawlRuntime";
 
 export const SUPPORTED_CITIES = [
   "London",
@@ -114,7 +114,7 @@ async function currentMonthSpend(): Promise<{
 }
 
 export async function getImportStatus() {
-  const [spend, [restaurantCount], [latestRun], cityRows] = await Promise.all([
+  const [spend, [restaurantCount], [latestRun], cityRows, crawlState] = await Promise.all([
     currentMonthSpend(),
     db.select({ value: count() }).from(restaurantsTable),
     db
@@ -126,11 +126,10 @@ export async function getImportStatus() {
       .selectDistinct({ city: restaurantsTable.city })
       .from(restaurantsTable)
       .orderBy(restaurantsTable.city),
+    getGridRuntimeState(),
   ]);
 
-  const monthlyBudgetCents = Number(
-    latestRun?.monthlyBudgetCents ?? process.env.GOOGLE_MONTHLY_BUDGET_CENTS ?? 3000,
-  );
+  const monthlyBudgetCents = crawlState.monthly_budget_cents;
 
   return {
     monthlyBudgetCents: Math.min(monthlyBudgetCents, MONTHLY_PAID_BUDGET_GBP * 100),
