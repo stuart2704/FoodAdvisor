@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
+import { budgetedPlacesFetch, PlacesBudgetExceededError } from "../lib/budgetedPlacesFetch";
 
 const router: IRouter = Router();
 const CACHE_TTL_MS = 60 * 60 * 1000;
@@ -43,7 +44,7 @@ router.get("/photo/:placeId", async (req, res): Promise<void> => {
   }
 
   try {
-    const detailsResponse = await fetch(
+    const detailsResponse = await budgetedPlacesFetch(
       `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`,
       {
         headers: {
@@ -51,6 +52,7 @@ router.get("/photo/:placeId", async (req, res): Promise<void> => {
           "X-Goog-FieldMask": "photos",
         },
       },
+      "Place photo details",
     );
 
     if (!detailsResponse.ok) {
@@ -75,13 +77,14 @@ router.get("/photo/:placeId", async (req, res): Promise<void> => {
       return;
     }
 
-    const mediaResponse = await fetch(
+    const mediaResponse = await budgetedPlacesFetch(
       `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=1200&skipHttpRedirect=true`,
       {
         headers: {
           "X-Goog-Api-Key": apiKey,
         },
       },
+      "Place photo media",
     );
 
     if (!mediaResponse.ok) {
@@ -104,6 +107,10 @@ router.get("/photo/:placeId", async (req, res): Promise<void> => {
     res.setHeader("Cache-Control", "public, max-age=3600");
     res.json({ url });
   } catch (error) {
+    if (error instanceof PlacesBudgetExceededError) {
+      res.status(503).json({ error: error.message });
+      return;
+    }
     req.log.error({ err: error, placeId }, "Restaurant photo lookup failed");
     res.status(502).json({ error: "Restaurant photo is temporarily unavailable." });
   }
@@ -131,7 +138,7 @@ router.get("/photos/:placeId", async (req, res): Promise<void> => {
   }
 
   try {
-    const detailsResponse = await fetch(
+    const detailsResponse = await budgetedPlacesFetch(
       `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`,
       {
         headers: {
@@ -139,6 +146,7 @@ router.get("/photos/:placeId", async (req, res): Promise<void> => {
           "X-Goog-FieldMask": "photos",
         },
       },
+      "Place gallery details",
     );
 
     if (!detailsResponse.ok) {
@@ -160,23 +168,23 @@ router.get("/photos/:placeId", async (req, res): Promise<void> => {
       )
       .slice(0, 6);
 
-    const photos = (
-      await Promise.all(
-        photoNames.map(async (photoName) => {
-          const mediaResponse = await fetch(
-            `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=1200&skipHttpRedirect=true`,
-            {
-              headers: {
-                "X-Goog-Api-Key": apiKey,
-              },
-            },
-          );
-          if (!mediaResponse.ok) return null;
-          const media = (await mediaResponse.json()) as PhotoMediaResponse;
-          return typeof media.photoUri === "string" ? media.photoUri : null;
-        }),
-      )
-    ).filter((url): url is string => typeof url === "string");
+    const photos: string[] = [];
+    for (const photoName of photoNames) {
+      let mediaResponse: Response;
+      try {
+        mediaResponse = await budgetedPlacesFetch(
+          `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=1200&skipHttpRedirect=true`,
+          { headers: { "X-Goog-Api-Key": apiKey } },
+          "Place gallery photo media",
+        );
+      } catch (error) {
+        if (error instanceof PlacesBudgetExceededError) break;
+        throw error;
+      }
+      if (!mediaResponse.ok) continue;
+      const media = (await mediaResponse.json()) as PhotoMediaResponse;
+      if (typeof media.photoUri === "string") photos.push(media.photoUri);
+    }
 
     galleryCache.set(placeId, {
       photos,
@@ -185,6 +193,10 @@ router.get("/photos/:placeId", async (req, res): Promise<void> => {
     res.setHeader("Cache-Control", "public, max-age=3600");
     res.json({ photos });
   } catch (error) {
+    if (error instanceof PlacesBudgetExceededError) {
+      res.status(503).json({ error: error.message });
+      return;
+    }
     req.log.error({ err: error, placeId }, "Restaurant gallery lookup failed");
     res.status(502).json({ error: "Restaurant photos are temporarily unavailable." });
   }

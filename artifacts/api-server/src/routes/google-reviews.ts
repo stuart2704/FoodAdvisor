@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
+import { budgetedPlacesFetch, PlacesBudgetExceededError } from "../lib/budgetedPlacesFetch";
 
 const router: IRouter = Router();
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
@@ -71,7 +72,7 @@ router.get("/reviews/google/:placeId", async (req, res): Promise<void> => {
   }
 
   try {
-    const response = await fetch(
+    const response = await budgetedPlacesFetch(
       `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`,
       {
         headers: {
@@ -80,6 +81,7 @@ router.get("/reviews/google/:placeId", async (req, res): Promise<void> => {
             "reviews,currentOpeningHours,regularOpeningHours,priceLevel",
         },
       },
+      "Place reviews",
     );
 
     if (!response.ok) {
@@ -125,6 +127,10 @@ router.get("/reviews/google/:placeId", async (req, res): Promise<void> => {
     res.setHeader("Cache-Control", "public, max-age=21600");
     res.json(result);
   } catch (error) {
+    if (error instanceof PlacesBudgetExceededError) {
+      res.status(503).json({ error: error.message });
+      return;
+    }
     req.log.error({ err: error, placeId }, "Google Places reviews lookup failed");
     res.status(502).json({ error: "Google reviews are temporarily unavailable." });
   }
@@ -152,7 +158,7 @@ router.get("/price/:placeId", async (req, res): Promise<void> => {
   }
 
   try {
-    const response = await fetch(
+    const response = await budgetedPlacesFetch(
       `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`,
       {
         headers: {
@@ -160,6 +166,7 @@ router.get("/price/:placeId", async (req, res): Promise<void> => {
           "X-Goog-FieldMask": "priceLevel",
         },
       },
+      "Place price",
     );
 
     if (!response.ok) {
@@ -184,6 +191,10 @@ router.get("/price/:placeId", async (req, res): Promise<void> => {
     res.setHeader("Cache-Control", "public, max-age=21600");
     res.json(result);
   } catch (error) {
+    if (error instanceof PlacesBudgetExceededError) {
+      res.status(503).json({ error: error.message });
+      return;
+    }
     req.log.error({ err: error, placeId }, "Google Places pricing lookup failed");
     res.status(502).json({ error: "Price level is temporarily unavailable." });
   }
@@ -211,7 +222,7 @@ router.get("/open/:placeId", async (req, res): Promise<void> => {
   }
 
   try {
-    const response = await fetch(
+    const response = await budgetedPlacesFetch(
       `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`,
       {
         headers: {
@@ -219,6 +230,7 @@ router.get("/open/:placeId", async (req, res): Promise<void> => {
           "X-Goog-FieldMask": "currentOpeningHours",
         },
       },
+      "Place opening status",
     );
 
     if (!response.ok) {
@@ -245,6 +257,10 @@ router.get("/open/:placeId", async (req, res): Promise<void> => {
     res.setHeader("Cache-Control", "public, max-age=21600");
     res.json(result);
   } catch (error) {
+    if (error instanceof PlacesBudgetExceededError) {
+      res.status(503).json({ error: error.message });
+      return;
+    }
     req.log.error({ err: error, placeId }, "Google Places opening status lookup failed");
     res.status(502).json({ error: "Opening status is temporarily unavailable." });
   }
@@ -272,7 +288,7 @@ router.get("/hours/:placeId", async (req, res): Promise<void> => {
   }
 
   try {
-    const response = await fetch(
+    const response = await budgetedPlacesFetch(
       `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`,
       {
         headers: {
@@ -281,6 +297,7 @@ router.get("/hours/:placeId", async (req, res): Promise<void> => {
             "currentOpeningHours,regularOpeningHours",
         },
       },
+      "Place opening hours",
     );
 
     if (!response.ok) {
@@ -316,6 +333,10 @@ router.get("/hours/:placeId", async (req, res): Promise<void> => {
     res.setHeader("Cache-Control", "public, max-age=21600");
     res.json(result);
   } catch (error) {
+    if (error instanceof PlacesBudgetExceededError) {
+      res.status(503).json({ error: error.message });
+      return;
+    }
     req.log.error({ err: error, placeId }, "Google Places hours lookup failed");
     res.status(502).json({ error: "Opening hours are temporarily unavailable." });
   }

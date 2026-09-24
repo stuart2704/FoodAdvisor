@@ -37,19 +37,34 @@ export const MONTHLY_PAID_LIMIT = Math.floor(
 export const LOW_PRIORITY_REGION_INTERVAL_DAYS = 7;
 export const HIGH_PRIORITY_REGION_INTERVAL_DAYS = 1;
 
+/** Fail closed at £30, including older requests that were recorded below 50p. */
+export function paidPlacesBudgetReached(
+  spentCents: number,
+  usedRequests: number,
+  nextCostCents: number,
+  configuredBudgetCents: number,
+): boolean {
+  if (![spentCents, usedRequests, nextCostCents, configuredBudgetCents].every(Number.isSafeInteger) ||
+      spentCents < 0 || usedRequests < 0 ||
+      nextCostCents < ESTIMATED_GRID_REQUEST_COST_CENTS ||
+      nextCostCents > MONTHLY_PAID_BUDGET_GBP * 100 ||
+      configuredBudgetCents < ESTIMATED_GRID_REQUEST_COST_CENTS ||
+      configuredBudgetCents > MONTHLY_PAID_BUDGET_GBP * 100) {
+    throw new Error("Invalid monthly Places usage or budget; stop before another request.");
+  }
+  return usedRequests >= MONTHLY_PAID_LIMIT ||
+    Math.max(spentCents, usedRequests * ESTIMATED_GRID_REQUEST_COST_CENTS) +
+      nextCostCents > configuredBudgetCents;
+}
+
 export function paidGridBudgetReached(
   spentCents: number,
   usedRequests: number,
   configuredBudgetCents: number,
 ): boolean {
-  if (![spentCents, usedRequests, configuredBudgetCents].every(Number.isSafeInteger) ||
-      spentCents < 0 || usedRequests < 0 ||
-      configuredBudgetCents < ESTIMATED_GRID_REQUEST_COST_CENTS ||
-      configuredBudgetCents > MONTHLY_PAID_BUDGET_GBP * 100) {
-    throw new Error("Invalid monthly paid-request usage or budget; stop before another request.");
-  }
-  return usedRequests >= MONTHLY_PAID_LIMIT ||
-    spentCents + ESTIMATED_GRID_REQUEST_COST_CENTS > configuredBudgetCents;
+  return paidPlacesBudgetReached(
+    spentCents, usedRequests, ESTIMATED_GRID_REQUEST_COST_CENTS, configuredBudgetCents,
+  );
 }
 
 export function computeWeight(meta: GridCityMetadata): number {

@@ -1,7 +1,7 @@
 import { pool } from "@workspace/db";
 import {
   DAILY_GRID_LIMIT, ESTIMATED_GRID_REQUEST_COST_CENTS, MONTHLY_PAID_LIMIT,
-  paidGridBudgetReached, type GridPoint,
+  paidGridBudgetReached, paidPlacesBudgetReached, type GridPoint,
 } from "./gridCrawlPlan";
 
 export type RegionAllocation = {
@@ -81,26 +81,30 @@ export async function pauseGridAutomation(): Promise<void> {
   if (result.rowCount !== 1) throw new Error("Crawler progress row is missing.");
 }
 
-/** Shared pre-call monthly reservation for the other paid Places importer. */
-export async function reservePaidSearchTextCall(input: {
-  city: string;
+/** Reserve before every non-grid Places request, under the same lock as the grid. */
+export async function reservePaidPlacesCall(input: {
+  label: string;
   requested: number;
   costCents: number;
   monthlyBudgetCents: number;
 }): Promise<number | null> {
-  const { city, requested, costCents, monthlyBudgetCents } = input;
-  if (!city.trim() || !Number.isSafeInteger(requested) || requested < 1 ||
-      !Number.isSafeInteger(costCents) || costCents < 1 ||
-      !Number.isSafeInteger(monthlyBudgetCents) || monthlyBudgetCents < costCents ||
+  const { label, requested, monthlyBudgetCents } = input;
+  const costCents = Math.max(input.costCents, ESTIMATED_GRID_REQUEST_COST_CENTS);
+  if (!label.trim() || !Number.isSafeInteger(requested) || requested < 1 ||
+      !Number.isSafeInteger(input.costCents) || input.costCents < 1 ||
+      !Number.isSafeInteger(monthlyBudgetCents) || monthlyBudgetCents < ESTIMATED_GRID_REQUEST_COST_CENTS ||
       monthlyBudgetCents > MONTHLY_PAID_LIMIT * ESTIMATED_GRID_REQUEST_COST_CENTS) {
-    throw new Error("Invalid Places import request or monthly budget; no request was reserved.");
+    throw new Error("Invalid Places request or monthly budget; no request was reserved.");
   }
   const month = monthUTC(todayUTC());
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const state = await client.query("SELECT id FROM crawler_progress WHERE id = 1 FOR UPDATE");
+    const state = await client.query<{ monthly_budget_cents: number }>(
+      "SELECT monthly_budget_cents FROM crawler_progress WHERE id = 1 FOR UPDATE",
+    );
     if (state.rowCount !== 1) throw new Error("Shared paid-request lock row is missing.");
+    const effectiveBudget = Math.min(monthlyBudgetCents, state.rows[0].monthly_budget_cents);
     const usage = await client.query<{ spent: string; calls: string }>(`
       SELECT coalesce(sum(estimated_cost_cents), 0)::text AS spent,
              coalesce(sum(api_calls), 0)::text AS calls
@@ -108,8 +112,7 @@ export async function reservePaidSearchTextCall(input: {
     `, [`${month}T00:00:00Z`]);
     const spent = Number(usage.rows[0].spent);
     const calls = Number(usage.rows[0].calls);
-    if (!Number.isSafeInteger(spent) || !Number.isSafeInteger(calls) ||
-        calls >= MONTHLY_PAID_LIMIT || spent + costCents > monthlyBudgetCents) {
+    if (paidPlacesBudgetReached(spent, calls, costCents, effectiveBudget)) {
       await client.query("COMMIT");
       return null;
     }
@@ -118,7 +121,7 @@ export async function reservePaidSearchTextCall(input: {
         (cities, requested, imported, skipped_duplicates, api_calls, estimated_cost_cents,
          monthly_budget_cents, stopped_because)
       VALUES ($1, $2, 0, 0, 1, $3, $4, $5) RETURNING id
-    `, [[city], requested, costCents, monthlyBudgetCents, `Search Text request reserved for ${city}`]);
+    `, [[label], requested, costCents, effectiveBudget, `Places request reserved: ${label}`]);
     if (!Number.isSafeInteger(entry.rows[0]?.id)) throw new Error("Places import ledger reservation failed.");
     await client.query("COMMIT");
     return entry.rows[0].id;
@@ -128,6 +131,20 @@ export async function reservePaidSearchTextCall(input: {
   } finally {
     client.release();
   }
+}
+
+export async function reservePaidSearchTextCall(input: {
+  city: string;
+  requested: number;
+  costCents: number;
+  monthlyBudgetCents: number;
+}): Promise<number | null> {
+  return reservePaidPlacesCall({
+    label: `Search Text for ${input.city}`,
+    requested: input.requested,
+    costCents: input.costCents,
+    monthlyBudgetCents: input.monthlyBudgetCents,
+  });
 }
 
 export type ReservationResult =

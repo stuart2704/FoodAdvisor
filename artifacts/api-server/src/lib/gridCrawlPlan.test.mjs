@@ -7,7 +7,7 @@ import {
   computeCityWeight, computeRegionBudgets,
   computeRegionInterval, computeRegionPriority,
   computeRegionWeight, computeWeight, regionBudgetReached,
-  paidGridBudgetReached, gridHash, parseGrid, validateProgress,
+  paidGridBudgetReached, paidPlacesBudgetReached, gridHash, parseGrid, validateProgress,
 } from "./gridCrawlPlan.ts";
 
 const grid = {
@@ -32,6 +32,15 @@ test("stops before exceeding the £30 estimated monthly ceiling or 60 reserved c
   assert.throws(() => paidGridBudgetReached(0, 0, 3001), /Invalid monthly/);
 });
 
+test("shared Places cap counts older underpriced requests and higher-cost calls", () => {
+  assert.equal(paidPlacesBudgetReached(295, 59, 50, 3000), false);
+  assert.equal(paidPlacesBudgetReached(300, 60, 50, 3000), true);
+  assert.equal(paidPlacesBudgetReached(2900, 58, 100, 3000), false);
+  assert.equal(paidPlacesBudgetReached(2950, 59, 100, 3000), true);
+  assert.equal(paidPlacesBudgetReached(950, 19, 50, 1000), false);
+  assert.equal(paidPlacesBudgetReached(1000, 20, 50, 1000), true);
+  assert.throws(() => paidPlacesBudgetReached(0, 0, 5, 3000), /Invalid monthly/);
+});
 test("accepts validated region/city coordinates, including New_York_City", () => {
   const points = parseGrid(grid);
   assert.equal(points.length, 2);

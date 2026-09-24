@@ -7,6 +7,9 @@ import {
 import { getRegionForCity } from "../services/regionMap";
 import { restaurantSlug } from "../utils/slugify";
 import { normaliseCoordinates, type Coordinates } from "./geo";
+import {
+  ESTIMATED_GRID_REQUEST_COST_CENTS, MONTHLY_PAID_BUDGET_GBP, MONTHLY_PAID_LIMIT,
+} from "./gridCrawlPlan";
 import { reservePaidSearchTextCall } from "./gridCrawlRuntime";
 
 export const SUPPORTED_CITIES = [
@@ -67,9 +70,10 @@ export type ImportedRestaurant = {
 
 function costPerSearchCents(): number {
   const configured = Number(process.env.GOOGLE_PLACES_SEARCH_COST_CENTS);
-  return Number.isInteger(configured) && configured > 0
-    ? configured
-    : DEFAULT_SEARCH_COST_CENTS;
+  return Math.max(
+    ESTIMATED_GRID_REQUEST_COST_CENTS,
+    Number.isInteger(configured) && configured > 0 ? configured : DEFAULT_SEARCH_COST_CENTS,
+  );
 }
 
 function monthStart(): Date {
@@ -103,7 +107,8 @@ async function currentMonthSpend(): Promise<{
     .where(gte(restaurantImportRunsTable.createdAt, monthStart()));
 
   return {
-    spentCents: Number(row?.spentCents ?? 0),
+    spentCents: Math.max(Number(row?.spentCents ?? 0),
+      Number(row?.callsUsed ?? 0) * ESTIMATED_GRID_REQUEST_COST_CENTS),
     callsUsed: Number(row?.callsUsed ?? 0),
   };
 }
@@ -124,13 +129,13 @@ export async function getImportStatus() {
   ]);
 
   const monthlyBudgetCents = Number(
-    latestRun?.monthlyBudgetCents ?? process.env.GOOGLE_MONTHLY_BUDGET_CENTS ?? 2500,
+    latestRun?.monthlyBudgetCents ?? process.env.GOOGLE_MONTHLY_BUDGET_CENTS ?? 3000,
   );
 
   return {
-    monthlyBudgetCents,
+    monthlyBudgetCents: Math.min(monthlyBudgetCents, MONTHLY_PAID_BUDGET_GBP * 100),
     spentCents: spend.spentCents,
-    remainingCents: Math.max(0, monthlyBudgetCents - spend.spentCents),
+    remainingCents: Math.max(0, Math.min(monthlyBudgetCents, MONTHLY_PAID_BUDGET_GBP * 100) - spend.spentCents),
     callsUsed: spend.callsUsed,
     restaurantsImported: Number(restaurantCount?.value ?? 0),
     lastRunAt: latestRun?.createdAt.toISOString() ?? null,
@@ -141,13 +146,18 @@ export async function getImportStatus() {
 export async function createImportPlan(input: PlanInput) {
   const cities = normaliseCities(input.cities);
   const perCityLimit = Math.min(20, Math.max(1, input.perCityLimit ?? 10));
-  const { spentCents } = await currentMonthSpend();
-  let remaining = Math.max(0, input.monthlyBudgetCents - spentCents);
+  const { spentCents, callsUsed } = await currentMonthSpend();
+  const monthlyBudgetCents = Math.min(input.monthlyBudgetCents, MONTHLY_PAID_BUDGET_GBP * 100);
+  let remaining = Math.max(0, monthlyBudgetCents - spentCents);
+  let remainingCalls = Math.max(0, MONTHLY_PAID_LIMIT - callsUsed);
   const unitCost = costPerSearchCents();
 
   const cityPlans = cities.map((city) => {
-    const ready = remaining >= unitCost;
-    if (ready) remaining -= unitCost;
+    const ready = remaining >= unitCost && remainingCalls > 0;
+    if (ready) {
+      remaining -= unitCost;
+      remainingCalls -= 1;
+    }
     return {
       city,
       requested: ready ? perCityLimit : 0,
@@ -174,7 +184,7 @@ export async function createImportPlan(input: PlanInput) {
     ),
     totalApiCalls,
     estimatedCostCents,
-    monthlyBudgetCents: input.monthlyBudgetCents,
+    monthlyBudgetCents,
     withinBudget: cityPlans.every((city) => city.status === "ready"),
     note:
       cityPlans.every((city) => city.status === "ready")

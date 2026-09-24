@@ -19,3 +19,4 @@
 - [Proxy billing boundary](proxy-billing-boundary.md) — local byte caps are not invoice caps; require a verified provider session ceiling and retain uncertain reservations.
 - [Outbound URL verification](outbound-url-verification.md) — DNS checks must pin the actual outbound socket; validating before a separately resolved request permits rebinding.
 - [Grid crawl activation](grid-crawl-activation.md) — the first paid Places crawl is explicitly manual; automatic runs begin only after a confirmed point completes.
+- [Google Maps billing limits](google-maps-billing-limits.md) — app-side request reservations are not a guaranteed £30 Google invoice cap; budgets alert, and Maps lacks spend caps.
