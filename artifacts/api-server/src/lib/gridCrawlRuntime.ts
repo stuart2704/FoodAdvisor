@@ -15,6 +15,7 @@ type State = {
   grid_hash: string | null;
   next_index: number;
   pending_index: number | null;
+  last_run_date: string;
   attempt_date: string;
   attempted_today: number;
   automation_enabled: boolean;
@@ -66,7 +67,9 @@ export async function withGridCrawlLock<T>(run: () => Promise<T>): Promise<T> {
 
 export async function getGridRuntimeState(): Promise<State> {
   const result = await pool.query<State>(`
-    SELECT grid_hash, next_index, pending_index, attempt_date::text AS attempt_date,
+    SELECT grid_hash, next_index, pending_index,
+           (last_run AT TIME ZONE 'UTC')::date::text AS last_run_date,
+           attempt_date::text AS attempt_date,
            attempted_today, automation_enabled, monthly_budget_cents
     FROM crawler_progress WHERE id = 1
   `);

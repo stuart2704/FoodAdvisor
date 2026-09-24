@@ -18,7 +18,7 @@ To start the **first billable run manually**, use:
 node crawler/index.js --confirm
 ```
 
-The first successfully completed point enables the API server's automatic runner, which checks due regions at **04:00 UTC daily**. The API server must be running. There is no automatic request before the first confirmed manual point. To use a smaller estimated monthly limit, pass `--monthly-budget-cents 1000` (allowed range 50–3000). That chosen limit is persisted for later automatic runs. Do not set `NODE_ENV=production` just to run the local crawler. The script reads `GOOGLE_MAPS_API_KEY` and the application's configured PostgreSQL connection; do not put keys in this file or the command line.
+The first successfully completed point enables the API server's automatic runner, which checks due regions at **04:00 UTC daily**, hourly afterward, and on startup after 04:00 UTC to recover from a restart. A day with a reserved grid request is not repeated. The API server must run on always-on hosting; Autoscale cannot guarantee these checks. There is no automatic request before the first confirmed manual point. To use a smaller estimated monthly limit, pass `--monthly-budget-cents 1000` (allowed range 50–3000). That chosen limit is persisted for later automatic runs. Do not set `NODE_ENV=production` just to run the local crawler. The script reads `GOOGLE_MAPS_API_KEY` and the application's configured PostgreSQL connection; do not put keys in this file or the command line.
 
 To turn off future automatic runs without making a paid request, use `node crawler/index.js --pause`. A currently running crawler holds a lock; if pausing reports that it is busy, wait for that run to finish and retry.
 
