@@ -1,8 +1,9 @@
 import { and, eq, inArray, isNull, desc } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
-import { db, socialAccountsTable, socialLogsTable, socialPostsTable } from "@workspace/db";
+import { db, socialAccountsTable, socialLogsTable, socialPostsTable, socialSettingsTable } from "@workspace/db";
 import { decryptToken } from "../crypto";
 import { facebookAdapter } from "../adapters/facebook.adapter";
+import { SOCIAL_SETTINGS_ID } from "../settings";
 
 export async function publishPost(postId: string, options: { scheduledOnly?: boolean } = {}) {
   const [candidate] = await db.select().from(socialPostsTable)
@@ -22,12 +23,22 @@ export async function publishPost(postId: string, options: { scheduledOnly?: boo
 
   // Resolve prerequisites before claiming: a configuration error must not strand a draft.
   const token = decryptToken(account.accessToken, account.accessTokenIv, account.accessTokenTag);
-  const [claimed] = await db.update(socialPostsTable)
-    .set({ status: "publishing", attemptCount: candidate.attemptCount + 1, updatedAt: new Date() })
-    .where(and(eq(socialPostsTable.id, postId), options.scheduledOnly
-      ? eq(socialPostsTable.status, "scheduled")
-      : inArray(socialPostsTable.status, ["draft", "scheduled"])))
-    .returning();
+  const [claimed] = options.scheduledOnly
+    ? await db.transaction(async (tx) => {
+      // Serialize with the master OFF action before claiming a due post.
+      const [settings] = await tx.select({ automation: socialSettingsTable.automation })
+        .from(socialSettingsTable).where(eq(socialSettingsTable.id, SOCIAL_SETTINGS_ID))
+        .limit(1).for("update");
+      if (!settings?.automation) return [];
+      return tx.update(socialPostsTable)
+        .set({ status: "publishing", attemptCount: candidate.attemptCount + 1, updatedAt: new Date() })
+        .where(and(eq(socialPostsTable.id, postId), eq(socialPostsTable.status, "scheduled")))
+        .returning();
+    })
+    : await db.update(socialPostsTable)
+      .set({ status: "publishing", attemptCount: candidate.attemptCount + 1, updatedAt: new Date() })
+      .where(and(eq(socialPostsTable.id, postId), inArray(socialPostsTable.status, ["draft", "scheduled"])))
+      .returning();
   if (!claimed) return null;
 
   let providerPostId: string;

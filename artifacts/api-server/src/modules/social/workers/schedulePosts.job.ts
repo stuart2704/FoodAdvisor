@@ -1,11 +1,17 @@
 import { and, eq, isNull } from "drizzle-orm";
-import { db, socialPostsTable, socialSchedulesTable } from "@workspace/db";
+import { db, socialPostsTable, socialSchedulesTable, socialSettingsTable } from "@workspace/db";
+import { getSocialSettings, SOCIAL_SETTINGS_ID } from "../settings";
 export async function schedulePostsJob(now = new Date()): Promise<void> {
   if (process.env.SOCIAL_AUTOMATION_ENABLED !== "true") return;
+  if (!(await getSocialSettings()).automation) return;
   const hhmm = `${String(now.getUTCHours()).padStart(2, "0")}:${String(now.getUTCMinutes()).padStart(2, "0")}`;
   const schedules = await db.select().from(socialSchedulesTable).where(and(eq(socialSchedulesTable.enabled, true), eq(socialSchedulesTable.frequency, "daily"), eq(socialSchedulesTable.timeOfDay, hhmm)));
   for (const s of schedules) {
     await db.transaction(async (tx) => {
+      const [settings] = await tx.select({ automation: socialSettingsTable.automation })
+        .from(socialSettingsTable).where(eq(socialSettingsTable.id, SOCIAL_SETTINGS_ID))
+        .limit(1).for("update");
+      if (!settings?.automation) return;
       // Share the schedule row lock with the admin OFF action; after OFF commits
       // a stale worker selection cannot turn a brand draft back into a due post.
       const [active] = await tx.select({ id: socialSchedulesTable.id }).from(socialSchedulesTable)

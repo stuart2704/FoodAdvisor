@@ -13,12 +13,17 @@ export function PublishingLogs() {
   const [logs, setLogs] = useState<Log[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [automation, setAutomation] = useState<boolean | null>(null);
 
   const loadLogs = async () => {
     try {
       setLoading(true);
-      const data = await fetchSocial<{ logs: Log[] }>("/logs");
+      const [data, settingsData] = await Promise.all([
+        fetchSocial<{ logs: Log[] }>("/logs"),
+        fetchSocial<{ settings: { automation: boolean } }>("/settings").catch(() => null),
+      ]);
       setLogs(data.logs);
+      setAutomation(settingsData?.settings.automation ?? null);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -32,9 +37,10 @@ export function PublishingLogs() {
 
   return (
     <div className="social-card">
-      <h2>Social Publishing Logs</h2>
+      <h2>Recent Social Events</h2>
+      <p style={{ color: "#aaa", fontSize: "0.85rem" }}>Recorded publishing events. Draft generation and token refresh are not logged here yet.</p>
       {loading ? <p>Loading logs...</p> : error ? <div className="social-alert">{error}</div> : (
-        logs.length === 0 ? <p className="social-empty">No activity logs.</p> : (
+        logs.length === 0 ? <p className="social-empty">{automation === false ? "No social publishing events (automation OFF)." : "No events recorded yet."}</p> : (
           <div className="social-table-wrap">
             <table className="social-table">
               <thead>

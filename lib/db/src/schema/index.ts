@@ -34,3 +34,4 @@ export * from "./socialAccounts";
 export * from "./socialPosts";
 export * from "./socialSchedules";
 export * from "./socialLogs";
+export * from "./socialSettings";

@@ -3,7 +3,7 @@ import { fetchSocial } from "./api";
 
 interface Post {
   id: string;
-  restaurantId: string;
+  restaurantId: string | null;
   platform: string;
   content: string;
   mediaUrl?: string;
@@ -21,6 +21,11 @@ export function PostQueue() {
   const [filterTab, setFilterTab] = useState<"all" | "draft" | "scheduled" | "published" | "failed">("all");
   const [scheduleTimes, setScheduleTimes] = useState<Record<string, string>>({});
   const [schedulingId, setSchedulingId] = useState<string | null>(null);
+  const [showGenerate, setShowGenerate] = useState(false);
+  const [draftScope, setDraftScope] = useState<"brand" | "restaurant">("brand");
+  const [restaurantId, setRestaurantId] = useState("");
+  const [restaurantAccounts, setRestaurantAccounts] = useState<{ restaurantId: string; displayName?: string }[]>([]);
+  const [generating, setGenerating] = useState(false);
 
   const loadPosts = async () => {
     try {
@@ -37,6 +42,46 @@ export function PostQueue() {
   useEffect(() => {
     loadPosts();
   }, []);
+
+  useEffect(() => {
+    if (filterTab !== "draft") return;
+    void fetchSocial<{ accounts: { restaurantId: string | null; displayName?: string; platform: string; status: string }[] }>("/accounts")
+      .then(data => {
+        const unique = new Map<string, { restaurantId: string; displayName?: string }>();
+        for (const account of data.accounts) {
+          if (account.restaurantId && account.platform === "facebook" && account.status === "connected") {
+            unique.set(account.restaurantId, { restaurantId: account.restaurantId, displayName: account.displayName });
+          }
+        }
+        setRestaurantAccounts([...unique.values()]);
+      })
+      .catch(() => setRestaurantAccounts([]));
+  }, [filterTab]);
+
+  const handleGenerate = async () => {
+    if (draftScope === "restaurant" && !restaurantId) {
+      setActionMessage("Failed: Select a connected restaurant.");
+      return;
+    }
+    setGenerating(true);
+    setActionMessage("");
+    try {
+      await fetchSocial("/posts/generate", {
+        method: "POST",
+        body: JSON.stringify({
+          scope: draftScope, platform: "facebook",
+          ...(draftScope === "restaurant" ? { restaurantId } : {}),
+        }),
+      });
+      setActionMessage("Draft generated. Review it below before publishing.");
+      setShowGenerate(false);
+      await loadPosts();
+    } catch (err) {
+      setActionMessage(`Failed: ${err instanceof Error ? err.message : "Could not generate draft."}`);
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const handlePublish = async (postId: string) => {
     if (!window.confirm("Publish this post immediately?")) return;
@@ -60,7 +105,7 @@ export function PostQueue() {
       setActionMessage("Failed: Choose a future date and time.");
       return;
     }
-    if (!window.confirm(`Schedule this post for ${scheduledFor.toLocaleString()}? It may publish automatically if the server worker is enabled.`)) return;
+    if (!window.confirm(`Schedule this post for ${scheduledFor.toLocaleString()}? Master automation must be on, and it will publish automatically only if the server worker is configured.`)) return;
     setSchedulingId(postId);
     setActionMessage("");
     try {
@@ -104,9 +149,43 @@ export function PostQueue() {
         </div>
 
         <p style={{ color: "#aaa", fontSize: "0.85rem", marginBottom: "16px" }}>
-          Posts will not be sent live unless an admin chooses Publish Now or the server worker is enabled.
-          A scheduled time does not turn the worker on.
+          Draft generation does not publish. Timed publishing requires both master automation and the server worker;
+          an admin can still choose Publish Now while automation is off.
         </p>
+        {filterTab === "draft" && (
+          <div style={{ marginBottom: 18 }}>
+            <button type="button" className="social-btn" onClick={() => setShowGenerate(value => !value)}>
+              {showGenerate ? "Cancel" : "Generate Draft"}
+            </button>
+            {showGenerate && (
+              <div style={{ display: "grid", gap: 10, maxWidth: 400, marginTop: 14 }}>
+                <label htmlFor="draft-scope">Draft for</label>
+                <select id="draft-scope" value={draftScope}
+                  onChange={e => setDraftScope(e.target.value as "brand" | "restaurant")}>
+                  <option value="brand">The Food Advisor brand</option>
+                  <option value="restaurant">Connected restaurant</option>
+                </select>
+                {draftScope === "restaurant" && (
+                  <>
+                    <label htmlFor="draft-restaurant">Restaurant</label>
+                    <select id="draft-restaurant" value={restaurantId} onChange={e => setRestaurantId(e.target.value)}>
+                      <option value="">Select a connected restaurant</option>
+                      {restaurantAccounts.map(account => (
+                        <option key={account.restaurantId} value={account.restaurantId}>
+                          {account.displayName || account.restaurantId}
+                        </option>
+                      ))}
+                    </select>
+                    {restaurantAccounts.length === 0 && <p>Connect a restaurant Facebook Page in Connected Accounts first.</p>}
+                  </>
+                )}
+                <p style={{ color: "#aaa", fontSize: "0.85rem", margin: 0 }}>Facebook only. Generated drafts require review before publishing.</p>
+                <button type="button" className="social-btn" disabled={generating || (draftScope === "restaurant" && !restaurantId)}
+                  onClick={() => void handleGenerate()}>{generating ? "Generating..." : "Generate Draft"}</button>
+              </div>
+            )}
+          </div>
+        )}
         
         {actionMessage && (
           <div className={actionMessage.startsWith("Failed") ? "social-alert" : "social-success"}>

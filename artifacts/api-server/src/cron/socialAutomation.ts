@@ -17,5 +17,5 @@ export function startSocialAutomationScheduler(): void {
       logger.error({ err }, "Social automation cycle failed.");
     }
   }, { timezone: "UTC", noOverlap: true, name: "social-automation" });
-  logger.info("Social automation enabled; checking enabled schedules every minute in UTC.");
+  logger.info("Social automation worker configured; checking the master setting every minute in UTC.");
 }

@@ -6,7 +6,7 @@ export function BrandAutomation({ onQueueRefresh }: { onQueueRefresh?: () => voi
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState("");
-  const [settings, setSettings] = useState<{ workerConfigured: boolean; brandSchedulesEnabled: boolean } | null>(null);
+  const [settings, setSettings] = useState<{ automation: boolean; workerConfigured: boolean; brandSchedulesEnabled: boolean } | null>(null);
   const [brandScheduleExists, setBrandScheduleExists] = useState(false);
   const [settingsError, setSettingsError] = useState("");
   const [settingsMessage, setSettingsMessage] = useState("");
@@ -15,7 +15,7 @@ export function BrandAutomation({ onQueueRefresh }: { onQueueRefresh?: () => voi
   const loadSettings = async () => {
     try {
       const [settingsData, schedulesData] = await Promise.all([
-        fetchSocial<{ settings: { workerConfigured: boolean; brandSchedulesEnabled: boolean } }>("/settings"),
+        fetchSocial<{ settings: { automation: boolean; workerConfigured: boolean; brandSchedulesEnabled: boolean } }>("/settings"),
         fetchSocial<{ schedules: { restaurantId: string | null; platform: string }[] }>("/schedules"),
       ]);
       setSettings(settingsData.settings);
@@ -27,6 +27,33 @@ export function BrandAutomation({ onQueueRefresh }: { onQueueRefresh?: () => voi
   };
 
   useEffect(() => { void loadSettings(); }, []);
+
+  const toggleMasterAutomation = async () => {
+    if (!settings) return;
+    const enable = !settings.automation;
+    if (!window.confirm(enable
+      ? "Enable master automation? If the server worker is configured, enabled brand and restaurant schedules may generate and publish posts without review."
+      : "Turn off master automation? All scheduled posts will return to drafts. A publishing request already in progress may still finish."
+    )) return;
+    setSaving(true);
+    setSettingsMessage("");
+    setSettingsError("");
+    try {
+      const result = await fetchSocial<{ returnedToDrafts: number }>("/settings", {
+        method: "POST",
+        body: JSON.stringify({ automation: enable }),
+      });
+      setSettingsMessage(enable
+        ? `Master automation enabled. ${result.returnedToDrafts} overdue post(s) returned to drafts for review. Automatic publishing still requires the server worker.`
+        : `Master automation off. ${result.returnedToDrafts} post(s) returned to drafts.`);
+      await loadSettings();
+      if (onQueueRefresh) onQueueRefresh();
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : "Could not update master automation.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const toggleBrandAutomation = async () => {
     if (!settings) return;
@@ -79,8 +106,20 @@ export function BrandAutomation({ onQueueRefresh }: { onQueueRefresh?: () => voi
         {settingsError && <div className="social-alert" role="alert">{settingsError}</div>}
         {settingsMessage && <div className="social-success" role="status">{settingsMessage}</div>}
         <p>
-          Brand schedule: <strong>{settings ? (settings.brandSchedulesEnabled ? "ON" : "OFF") : "Loading..."}</strong>
+          Master automation: <strong>{settings ? (settings.automation ? "ON" : "OFF") : "Loading..."}</strong>
           {" · "}Server worker: <strong>{settings ? (settings.workerConfigured ? "configured" : "OFF") : "Loading..."}</strong>
+        </p>
+        <p style={{ color: "#aaa", fontSize: "0.85rem" }}>
+          Both the master switch and server worker must be on for background publishing.
+          Turning the master switch off moves all scheduled posts back to drafts.
+        </p>
+        <button type="button" className="social-btn" disabled={!settings || saving}
+          onClick={() => void toggleMasterAutomation()}>
+          {saving ? "Saving..." : settings?.automation ? "Turn Master Automation Off" : "Turn Master Automation On"}
+        </button>
+        <hr style={{ border: 0, borderTop: "1px solid #333", margin: "22px 0" }} />
+        <p>
+          Brand schedule: <strong>{settings ? (settings.brandSchedulesEnabled ? "ON" : "OFF") : "Loading..."}</strong>
         </p>
         <p style={{ color: "#aaa", fontSize: "0.85rem" }}>
           Enabling a schedule does not start the server worker. When it is off, no posts publish automatically.

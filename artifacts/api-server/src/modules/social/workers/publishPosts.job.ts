@@ -3,8 +3,13 @@ import { randomUUID } from "node:crypto";
 import { db, socialLogsTable, socialPostsTable } from "@workspace/db";
 import { logger } from "../../../lib/logger";
 import { publishPost } from "../services/publishing.service";
+import { getSocialSettings } from "../settings";
 export async function publishPostsJob(now = new Date()): Promise<void> {
   if (process.env.SOCIAL_AUTOMATION_ENABLED !== "true") return;
+  if (!(await getSocialSettings()).automation) {
+    logger.info("Social automation disabled; skipping publish.");
+    return;
+  }
   const posts = await db.select({ id: socialPostsTable.id }).from(socialPostsTable).where(and(eq(socialPostsTable.status, "scheduled"), lte(socialPostsTable.scheduledFor, now)));
   for (const post of posts) {
     try {

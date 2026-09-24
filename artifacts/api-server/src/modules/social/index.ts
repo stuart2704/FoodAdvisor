@@ -1,13 +1,14 @@
 import { Router, type IRouter } from "express";
 import { randomUUID } from "node:crypto";
-import { and, count, desc, eq, isNotNull, isNull } from "drizzle-orm";
+import { and, count, desc, eq, isNotNull, isNull, lte } from "drizzle-orm";
 import { z } from "zod";
-import { db, restaurantsTable, socialAccountsTable, socialLogsTable, socialPostsTable, socialSchedulesTable } from "@workspace/db";
+import { db, restaurantsTable, socialAccountsTable, socialLogsTable, socialPostsTable, socialSchedulesTable, socialSettingsTable } from "@workspace/db";
 import { adminOnly } from "../../middleware/adminOnly";
 import { encryptToken } from "./crypto";
 import { facebookAdapter } from "./adapters/facebook.adapter";
 import { generateRestaurantPost, generateBrandPost } from "./ai.service";
 import { publishPost } from "./services/publishing.service";
+import { getSocialSettings, SOCIAL_SETTINGS_ID } from "./settings";
 
 const router: IRouter = Router();
 router.use(adminOnly);
@@ -139,7 +140,12 @@ router.post("/social/posts/schedule", async (req, res): Promise<void> => {
   const scope = candidate.restaurantId === null
     ? isNull(socialAccountsTable.restaurantId)
     : eq(socialAccountsTable.restaurantId, candidate.restaurantId);
+  await getSocialSettings();
   const result = await db.transaction(async (tx) => {
+    const [settings] = await tx.select({ automation: socialSettingsTable.automation })
+      .from(socialSettingsTable).where(eq(socialSettingsTable.id, SOCIAL_SETTINGS_ID))
+      .limit(1).for("update");
+    if (!settings?.automation) return { reason: "automation-off" as const };
     const [account] = await tx.select({ id: socialAccountsTable.id }).from(socialAccountsTable)
       .where(and(scope, eq(socialAccountsTable.platform, candidate.platform), eq(socialAccountsTable.status, "connected")))
       .limit(1).for("update");
@@ -156,6 +162,10 @@ router.post("/social/posts/schedule", async (req, res): Promise<void> => {
       .returning();
     return post ? { reason: "scheduled" as const, post } : { reason: "not-draft" as const };
   });
+  if (result.reason === "automation-off") {
+    res.status(409).json({ error: "Turn on master automation before scheduling a post. You can still publish a draft manually." });
+    return;
+  }
   if (result.reason === "no-account") {
     res.status(409).json({ error: "Connect a Facebook Page for this post before scheduling it." });
     return;
@@ -205,12 +215,14 @@ router.get("/social/errors", async (_req, res): Promise<void> => {
   });
 });
 router.get("/social/settings", async (_req, res): Promise<void> => {
+  const masterSettings = await getSocialSettings();
   const [brand] = await db.select({ id: socialSchedulesTable.id }).from(socialSchedulesTable)
     .where(and(isNull(socialSchedulesTable.restaurantId), eq(socialSchedulesTable.enabled, true))).limit(1);
   const [restaurant] = await db.select({ id: socialSchedulesTable.id }).from(socialSchedulesTable)
     .where(and(isNotNull(socialSchedulesTable.restaurantId), eq(socialSchedulesTable.enabled, true))).limit(1);
   res.json({
     settings: {
+      automation: masterSettings.automation,
       workerConfigured: process.env.SOCIAL_AUTOMATION_ENABLED === "true",
       brandSchedulesEnabled: Boolean(brand),
       restaurantSchedulesEnabled: Boolean(restaurant),
@@ -222,9 +234,36 @@ router.get("/social/settings", async (_req, res): Promise<void> => {
 router.post("/social/settings", async (req, res): Promise<void> => {
   const body = req.body;
   if (!body || typeof body !== "object" || Array.isArray(body)
-    || typeof body.brandAutomation !== "boolean"
-    || Object.keys(body).some(key => key !== "brandAutomation")) {
-    res.status(400).json({ error: "Only brandAutomation (boolean) can be updated." });
+    || Object.keys(body).length !== 1
+    || !(typeof body.automation === "boolean" || typeof body.brandAutomation === "boolean")) {
+    res.status(400).json({ error: "Send either automation or brandAutomation as a boolean." });
+    return;
+  }
+  if (typeof body.automation === "boolean") {
+    const enable = body.automation as boolean;
+    try {
+      await getSocialSettings();
+      const result = await db.transaction(async (tx) => {
+        const [settings] = await tx.update(socialSettingsTable)
+          .set({ automation: enable, updatedAt: new Date() })
+          .where(eq(socialSettingsTable.id, SOCIAL_SETTINGS_ID))
+          .returning({ automation: socialSettingsTable.automation });
+        if (!settings) throw new Error("Social automation settings were not initialized.");
+        const posts = await tx.update(socialPostsTable)
+          .set({ status: "draft", scheduledFor: null, errorMessage: null, updatedAt: new Date() })
+          .where(enable
+            ? and(eq(socialPostsTable.status, "scheduled"), lte(socialPostsTable.scheduledFor, new Date()))
+            : eq(socialPostsTable.status, "scheduled"))
+          .returning({ id: socialPostsTable.id });
+        return { returnedToDrafts: posts.length };
+      });
+      res.json({
+        success: true, automation: enable, ...result,
+        workerConfigured: process.env.SOCIAL_AUTOMATION_ENABLED === "true",
+      });
+    } catch {
+      res.status(500).json({ error: "Could not update master automation." });
+    }
     return;
   }
   const enable = body.brandAutomation as boolean;
