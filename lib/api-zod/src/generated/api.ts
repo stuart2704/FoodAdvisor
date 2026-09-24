@@ -756,6 +756,36 @@ export const RenewGmailWatchResponse = zod.object({
 
 
 /**
+ * Operator-only, read-only Gmail catch-up. Each call inspects at most five stored outreach threads, stages only message IDs, and drains at most twenty pending messages. Start with confirm alone. For each subsequent page pass both through and nextAfter from the preceding response as through and after. Repeat the final cursor while pending is true to drain staged messages; deferred failures may require a later retry. A failed request returns no new cursor; retry the same request.
+ * @summary Manually recover older or archived replies from stored outreach threads
+ */
+export const recoverStoredGmailThreadsBodyAfterMax = 255;
+
+export const recoverStoredGmailThreadsBodyThroughMax = 255;
+
+
+
+export const RecoverStoredGmailThreadsBody = zod.object({
+  "confirm": zod.enum(['recover-stored-outreach-threads']),
+  "after": zod.string().max(recoverStoredGmailThreadsBodyAfterMax).optional(),
+  "through": zod.string().max(recoverStoredGmailThreadsBodyThroughMax).optional()
+})
+
+export const RecoverStoredGmailThreadsResponse = zod.object({
+  "inspectedThreads": zod.number().int(),
+  "missingThreads": zod.number().int(),
+  "stagedReferences": zod.number().int(),
+  "processed": zod.number().int(),
+  "skipped": zod.number().int(),
+  "failed": zod.number().int(),
+  "pending": zod.boolean(),
+  "hasMoreThreads": zod.boolean(),
+  "through": zod.string().nullable(),
+  "nextAfter": zod.string().nullable()
+})
+
+
+/**
  * @summary Receive an authenticated Google Cloud Pub/Sub Gmail notification
  */
 export const receiveGmailPushBodySubscriptionMax = 255;

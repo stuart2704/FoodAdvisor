@@ -708,6 +708,40 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /gmail/recover-stored-threads:
+    post:
+      operationId: recoverStoredGmailThreads
+      tags: [gmail]
+      summary: Manually recover older or archived replies from stored outreach threads
+      description: >
+        Operator-only, read-only Gmail catch-up. Each call inspects at most five
+        stored outreach threads, stages only message IDs, and drains at most
+        twenty pending messages. Start with confirm alone. For each subsequent
+        page pass both through and nextAfter from the preceding response as
+        through and after. Repeat the final cursor while pending is true to
+        drain staged messages; deferred failures may require a later retry.
+        A failed request returns no new cursor; retry the same request.
+      security:
+        - automationBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StoredGmailRecoveryRequest"
+      responses:
+        "200":
+          description: Bounded catch-up page and resumable cursor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoredGmailRecoveryResult"
+        "400":
+          description: Explicit confirmation or cursor is invalid
+        "401":
+          description: Invalid automation credential
+        "503":
+          description: Recovery failed; replay the same page
   /gmail/push:
     post:
       operationId: receiveGmailPush
@@ -1165,6 +1199,46 @@ components:
           type: string
           pattern: "^projects/[^/]+/topics/[^/]+$"
       required: [historyId, expiration, topic]
+    StoredGmailRecoveryRequest:
+      type: object
+      additionalProperties: false
+      required: [confirm]
+      properties:
+        confirm:
+          type: string
+          enum: [recover-stored-outreach-threads]
+        after:
+          type: string
+          maxLength: 255
+        through:
+          type: string
+          maxLength: 255
+    StoredGmailRecoveryResult:
+      type: object
+      required: [inspectedThreads, missingThreads, stagedReferences, processed, skipped, failed, pending, hasMoreThreads, through, nextAfter]
+      properties:
+        inspectedThreads:
+          type: integer
+        missingThreads:
+          type: integer
+        stagedReferences:
+          type: integer
+        processed:
+          type: integer
+        skipped:
+          type: integer
+        failed:
+          type: integer
+        pending:
+          type: boolean
+        hasMoreThreads:
+          type: boolean
+        through:
+          type: string
+          nullable: true
+        nextAfter:
+          type: string
+          nullable: true
     PubSubPushEnvelope:
       type: object
       additionalProperties: true

@@ -308,6 +308,34 @@ export interface GmailWatch {
   topic: string;
 }
 
+export type StoredGmailRecoveryRequestConfirm = typeof StoredGmailRecoveryRequestConfirm[keyof typeof StoredGmailRecoveryRequestConfirm];
+
+
+export const StoredGmailRecoveryRequestConfirm = {
+  'recover-stored-outreach-threads': 'recover-stored-outreach-threads',
+} as const;
+
+export interface StoredGmailRecoveryRequest {
+  confirm: StoredGmailRecoveryRequestConfirm;
+  /** @maxLength 255 */
+  after?: string;
+  /** @maxLength 255 */
+  through?: string;
+}
+
+export interface StoredGmailRecoveryResult {
+  inspectedThreads: number;
+  missingThreads: number;
+  stagedReferences: number;
+  processed: number;
+  skipped: number;
+  failed: number;
+  pending: boolean;
+  hasMoreThreads: boolean;
+  through: string | null;
+  nextAfter: string | null;
+}
+
 export type PubSubPushEnvelopeMessage = {
   /**
      * @minLength 1

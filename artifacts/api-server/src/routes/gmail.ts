@@ -27,6 +27,10 @@ import {
   gmailPushStatus,
   gmailNotificationStatus,
 } from "../services/gmail/gmailContracts";
+import {
+  parseStoredThreadRecoveryRequest,
+  recoverStoredOutreachThreads,
+} from "../services/gmail/storedThreadRecovery";
 
 const router: IRouter = Router();
 const MAX_ENVELOPE_BYTES = 32_000;
@@ -113,6 +117,31 @@ export function createGmailWatchHandler(adminEnvelope = false, renew = false): R
 }
 
 router.post("/gmail/watch", createGmailWatchHandler());
+
+// Manual catch-up, not invoked by Pub/Sub or scheduled polling. Never searches
+// the mailbox: only locally acknowledged outreach threads are inspected.
+router.post("/gmail/recover-stored-threads", async (req, res): Promise<void> => {
+  if (!validAutomationToken(req.header("authorization"))) {
+    res.status(401).json({ error: "Invalid automation credential." });
+    return;
+  }
+  const input = parseStoredThreadRecoveryRequest(req.body);
+  if (!input) {
+    res.status(400).json({ error: "Explicit confirmation and a valid recovery cursor are required." });
+    return;
+  }
+  try {
+    const result = await recoverStoredOutreachThreads(input);
+    req.log.info({ inspectedThreads: result.inspectedThreads, pending: result.pending },
+      "Gmail stored-thread recovery page completed");
+    res.json(result);
+  } catch {
+    // No cursor is returned on failure. Replay the same request; staging is
+    // idempotent, including if earlier threads in the page succeeded.
+    req.log.warn("Gmail stored-thread recovery page failed");
+    res.status(503).json({ error: "Gmail recovery page failed; retry with the same cursor." });
+  }
+});
 
 router.post("/gmail/push", verifyGoogleOidc, pubsubRateLimit, async (req, res): Promise<void> => {
 

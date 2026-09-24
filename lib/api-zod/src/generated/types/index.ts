@@ -58,4 +58,7 @@ export * from './rewardActivityAction';
 export * from './rewardsData';
 export * from './rewardsPolicy';
 export * from './rewardsResponse';
+export * from './storedGmailRecoveryRequest';
+export * from './storedGmailRecoveryRequestConfirm';
+export * from './storedGmailRecoveryResult';
 export * from './unsubscribeResult';

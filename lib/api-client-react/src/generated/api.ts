@@ -51,6 +51,8 @@ import type {
   RestaurantImportRunResult,
   RestaurantImportStatus,
   RewardsResponse,
+  StoredGmailRecoveryRequest,
+  StoredGmailRecoveryResult,
   UnsubscribeResult
 } from './api.schemas';
 
@@ -2028,6 +2030,78 @@ export const useRenewGmailWatch = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getRenewGmailWatchMutationOptions(options));
+    }
+
+export const getRecoverStoredGmailThreadsUrl = () => {
+
+
+
+
+  return `/api/gmail/recover-stored-threads`
+}
+
+/**
+ * Operator-only, read-only Gmail catch-up. Each call inspects at most five stored outreach threads, stages only message IDs, and drains at most twenty pending messages. Start with confirm alone. For each subsequent page pass both through and nextAfter from the preceding response as through and after. Repeat the final cursor while pending is true to drain staged messages; deferred failures may require a later retry. A failed request returns no new cursor; retry the same request.
+ * @summary Manually recover older or archived replies from stored outreach threads
+ */
+export const recoverStoredGmailThreads = async (storedGmailRecoveryRequest: StoredGmailRecoveryRequest, options?: Parameters<typeof customFetch>[1]): Promise<StoredGmailRecoveryResult> => {
+
+  return customFetch<StoredGmailRecoveryResult>(getRecoverStoredGmailThreadsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(storedGmailRecoveryRequest)
+  }
+);}
+
+
+
+
+
+export const getRecoverStoredGmailThreadsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recoverStoredGmailThreads>>, TError,{data: BodyType<StoredGmailRecoveryRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recoverStoredGmailThreads>>, TError,{data: BodyType<StoredGmailRecoveryRequest>}, TContext> => {
+
+const mutationKey = ['recoverStoredGmailThreads'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recoverStoredGmailThreads>>, {data: BodyType<StoredGmailRecoveryRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  recoverStoredGmailThreads(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecoverStoredGmailThreadsMutationResult = NonNullable<Awaited<ReturnType<typeof recoverStoredGmailThreads>>>
+    export type RecoverStoredGmailThreadsMutationBody = BodyType<StoredGmailRecoveryRequest>
+    export type RecoverStoredGmailThreadsMutationError = ErrorType<void>
+
+    /**
+ * @summary Manually recover older or archived replies from stored outreach threads
+ */
+export const useRecoverStoredGmailThreads = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recoverStoredGmailThreads>>, TError,{data: BodyType<StoredGmailRecoveryRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recoverStoredGmailThreads>>,
+        TError,
+        {data: BodyType<StoredGmailRecoveryRequest>},
+        TContext
+      > => {
+      return useMutation(getRecoverStoredGmailThreadsMutationOptions(options));
     }
 
 export const getReceiveGmailPushUrl = () => {
