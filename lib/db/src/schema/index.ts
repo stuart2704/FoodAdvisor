@@ -33,3 +33,4 @@ export * from "./regionProgress";
 export * from "./socialAccounts";
 export * from "./socialPosts";
 export * from "./socialSchedules";
+export * from "./socialLogs";

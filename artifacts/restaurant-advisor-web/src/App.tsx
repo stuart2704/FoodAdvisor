@@ -11,6 +11,7 @@ import AdminGitHubSignIn from "./admin/AdminGitHubSignIn";
 import AdminLogin from "./admin/AdminLogin";
 import AdminErrors from "./pages/admin/errors";
 import AdminLogs from "./pages/admin/logs";
+import SocialAutomationPage from "./pages/admin/social-automation";
 import AdminOperations from "./pages/admin/operations";
 import AdminLogout from "./pages/admin/logout";
 import AdminOutreach from "./pages/admin/outreach";
@@ -81,6 +82,7 @@ function AppRoutes() {
         <Route path="/admin/restaurants" element={<ManageRestaurantsPage />} />
         <Route path="/admin/chef-review" element={<AdminChefReviewPage />} />
         <Route path="/admin/logs" element={<AdminLogs />} />
+        <Route path="/admin/automation/social" element={<SocialAutomationPage />} />
         <Route path="/admin/queue" element={<AdminOperations view="queue" />} />
         <Route path="/admin/engines" element={<AdminOperations view="engines" />} />
         <Route path="/admin/health" element={<AdminOperations view="health" />} />

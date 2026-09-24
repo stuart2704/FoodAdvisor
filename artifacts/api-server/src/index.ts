@@ -10,6 +10,7 @@ import { startGlobalMetricsScheduler } from "./cron/globalMetrics";
 import { startOperationalLogCleanup } from "./cron/operationalLogCleanup";
 import { startBetterContactScheduler } from "./cron/betterContact";
 import { startGridCrawlScheduler } from "./cron/gridCrawl";
+import { startSocialAutomationScheduler } from "./cron/socialAutomation";
 
 const rawPort = process.env["PORT"];
 
@@ -45,6 +46,7 @@ async function initializeAfterListen(): Promise<void> {
   startOperationalLogCleanup();
   startBetterContactScheduler();
   startGridCrawlScheduler();
+  startSocialAutomationScheduler();
 
   try {
     await initializeStripe();

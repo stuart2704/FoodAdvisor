@@ -49,6 +49,7 @@ import dashboardClaimPageMetrics from "./routes/dashboardClaimPageMetrics";
 import dashboardAnalytics from "./routes/dashboardAnalytics";
 import devEngineRunner from "./routes/devEngineRunner";
 import { logger } from "./lib/logger";
+import socialRouter from "./modules/social";
 import { instantlyWebhookRouter } from "./outreach/instantlyWebhook";
 import {
   handleWebhook as handleStripeWebhook,
@@ -169,6 +170,7 @@ app.use("/dev", devEngineRunner);
 app.use("/auth", authRoutes);
 app.use("/admin", adminRoutes);
 app.use("/admin", adminChefRoutes);
+app.use("/admin", socialRouter);
 app.use("/api/admin", adminChefRoutes);
 app.use("/status", statusRoutes);
 app.use("/dashboard", dashboardRoutes);
