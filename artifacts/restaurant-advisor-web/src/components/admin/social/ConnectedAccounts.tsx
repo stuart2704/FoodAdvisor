@@ -8,6 +8,12 @@ interface Account {
   displayName: string;
   createdAt: string;
   status: string;
+  tokenExpiresAt?: string | null;
+}
+
+interface InstagramConfig {
+  configured: boolean;
+  redirectUri: string | null;
 }
 
 export function ConnectedAccounts() {
@@ -16,9 +22,12 @@ export function ConnectedAccounts() {
   const [error, setError] = useState("");
   
   const [restaurantId, setRestaurantId] = useState("");
-  const [platform, setPlatform] = useState("facebook");
   const [accessToken, setAccessToken] = useState("");
   const [connecting, setConnecting] = useState(false);
+  const [instagramConfig, setInstagramConfig] = useState<InstagramConfig | null>(null);
+  const [instagramRestaurantId, setInstagramRestaurantId] = useState("");
+  const [instagramConnecting, setInstagramConnecting] = useState(false);
+  const [instagramError, setInstagramError] = useState("");
   const [connectError, setConnectError] = useState("");
   const [connectSuccess, setConnectSuccess] = useState("");
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
@@ -27,8 +36,12 @@ export function ConnectedAccounts() {
   const loadAccounts = async () => {
     try {
       setLoading(true);
-      const data = await fetchSocial<{ accounts: Account[] }>("/accounts");
+      const [data, config] = await Promise.all([
+        fetchSocial<{ accounts: Account[] }>("/accounts"),
+        fetchSocial<InstagramConfig>("/instagram/config").catch(() => null),
+      ]);
       setAccounts(data.accounts);
+      setInstagramConfig(config);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -37,7 +50,24 @@ export function ConnectedAccounts() {
   };
 
   useEffect(() => {
-    loadAccounts();
+    void loadAccounts();
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get("instagram");
+    if (result) {
+      if (result === "connected") setConnectSuccess("Instagram account connected. Publishing and automation remain unavailable.");
+      else {
+        const messages: Record<string, string> = {
+          denied: "Instagram authorization was cancelled or denied.",
+          state_error: "Instagram connection expired or could not be verified. Try connecting again.",
+          configuration_error: "Instagram app settings are missing or invalid.",
+          already_used: "This Instagram profile is already linked to another brand or restaurant.",
+          authorization_error: "Instagram connection failed. Check the Meta app redirect URI and account permissions, then try again.",
+        };
+        setInstagramError(messages[result] ?? "Instagram connection failed.");
+      }
+      params.delete("instagram");
+      window.history.replaceState(window.history.state, "", `${window.location.pathname}?${params.toString()}`);
+    }
   }, []);
 
   const handleConnect = async (e: React.FormEvent) => {
@@ -46,7 +76,7 @@ export function ConnectedAccounts() {
     setConnectError("");
     setConnectSuccess("");
     try {
-      const payload: any = { platform, accessToken };
+      const payload: { platform: string; accessToken: string; restaurantId?: string } = { platform: "facebook", accessToken };
       if (restaurantId.trim()) {
         payload.restaurantId = restaurantId.trim();
       }
@@ -63,6 +93,22 @@ export function ConnectedAccounts() {
       setConnectError(err.message);
     } finally {
       setConnecting(false);
+    }
+  };
+
+  const handleInstagramConnect = async () => {
+    setInstagramConnecting(true);
+    setInstagramError("");
+    setConnectSuccess("");
+    try {
+      const result = await fetchSocial<{ authorizationUrl: string }>("/instagram/start", {
+        method: "POST",
+        body: JSON.stringify(instagramRestaurantId.trim() ? { restaurantId: instagramRestaurantId.trim() } : {}),
+      });
+      window.location.assign(result.authorizationUrl);
+    } catch (err) {
+      setInstagramError(err instanceof Error ? err.message : "Could not start Instagram connection.");
+      setInstagramConnecting(false);
     }
   };
 
@@ -89,7 +135,30 @@ export function ConnectedAccounts() {
   return (
     <div>
       <div className="social-card">
-        <h2>Connect New Account</h2>
+        <h2>Connect Instagram</h2>
+        <p style={{ color: "#aaa", fontSize: "0.9rem" }}>
+          Sign in with a Business or Creator Instagram account. This only connects the account;
+          Instagram publishing and automated posts are not available yet.
+        </p>
+        <p>Instagram: <strong>{loading ? "Loading..." : accounts.some(account => account.platform === "instagram" && account.status === "connected") ? "Connected" : "Not Connected"}</strong></p>
+        {instagramError && <div className="social-alert" role="alert">{instagramError}</div>}
+        {instagramConfig === null ? <p>Instagram configuration could not be loaded.</p>
+          : !instagramConfig.configured && <p>Instagram app credentials and an HTTPS redirect URI must be configured before connecting.</p>}
+        {instagramConfig?.redirectUri && <p style={{ color: "#aaa", fontSize: "0.8rem", overflowWrap: "anywhere" }}>
+          Add this exact OAuth redirect URI in Meta App Dashboard → Instagram → API setup with Instagram login: {instagramConfig.redirectUri}
+        </p>}
+        <div className="social-form-group">
+          <label htmlFor="instagram-restaurant">Restaurant Place ID (optional)</label>
+          <input id="instagram-restaurant" type="text" value={instagramRestaurantId}
+            onChange={e => setInstagramRestaurantId(e.target.value)} placeholder="Leave blank for The Food Advisor brand" />
+        </div>
+        <button type="button" className="social-btn" disabled={!instagramConfig?.configured || instagramConnecting}
+          onClick={() => void handleInstagramConnect()}>
+          {instagramConnecting ? "Opening Instagram..." : "Connect Instagram"}
+        </button>
+      </div>
+      <div className="social-card">
+        <h2>Connect Facebook Page</h2>
         {connectError && <div className="social-alert">{connectError}</div>}
         {connectSuccess && <div className="social-success">{connectSuccess}</div>}
         <form onSubmit={handleConnect}>
@@ -101,14 +170,6 @@ export function ConnectedAccounts() {
               onChange={(e) => setRestaurantId(e.target.value)}
               placeholder="Leave blank for Brand account"
             />
-          </div>
-          <div className="social-form-group">
-            <label>Platform</label>
-            <select value={platform} onChange={(e) => setPlatform(e.target.value)}>
-              <option value="facebook">Facebook</option>
-              <option value="instagram" disabled>Instagram (Unavailable)</option>
-              <option value="tiktok" disabled>TikTok (Unavailable)</option>
-            </select>
           </div>
           <div className="social-form-group">
             <label>Page Access Token</label>
@@ -157,7 +218,10 @@ export function ConnectedAccounts() {
                       <td>{acc.displayName}</td>
                       <td>{new Date(acc.createdAt).toLocaleString()}</td>
                       <td>
-                        {acc.status === "connected" && (
+                        {acc.tokenExpiresAt && <div style={{ fontSize: "0.75rem", marginTop: 4 }}>
+                          Token expires: {new Date(acc.tokenExpiresAt).toLocaleString()}
+                        </div>}
+                        {(acc.status === "connected" || acc.status === "expired") && (
                           <button type="button" className="social-btn" disabled={disconnectingId !== null}
                             onClick={() => void handleDisconnect(acc)}>
                             {disconnectingId === acc.id ? "Disconnecting..." : "Disconnect"}

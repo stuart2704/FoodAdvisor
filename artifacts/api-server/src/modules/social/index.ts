@@ -9,10 +9,12 @@ import { facebookAdapter } from "./adapters/facebook.adapter";
 import { generateRestaurantPost, generateBrandPost } from "./ai.service";
 import { publishPost } from "./services/publishing.service";
 import { getSocialSettings, SOCIAL_SETTINGS_ID } from "./settings";
+import { instagramRouter } from "./instagram.routes";
 
 const router: IRouter = Router();
 router.use(adminOnly);
-const publicAccount = (a: any) => ({ id: a.id, restaurantId: a.restaurantId, platform: a.platform, displayName: a.displayName, createdAt: a.createdAt, status: a.status });
+router.use("/social/instagram", instagramRouter);
+const publicAccount = (a: any) => ({ id: a.id, restaurantId: a.restaurantId, platform: a.platform, displayName: a.displayName, createdAt: a.createdAt, status: a.status === "connected" && a.tokenExpiresAt && a.tokenExpiresAt <= new Date() ? "expired" : a.status, tokenExpiresAt: a.tokenExpiresAt });
 const validPlatform = (p: unknown) => p === "facebook";
 const isUuid = (value: string) => z.string().uuid().safeParse(value).success;
 function dailyTime(value: unknown): boolean { return typeof value === "string" && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value); }

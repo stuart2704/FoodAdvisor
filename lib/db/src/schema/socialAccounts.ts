@@ -12,6 +12,7 @@ export const socialAccountsTable = pgTable("social_accounts", {
   accessTokenIv: text("access_token_iv").notNull(),
   accessTokenTag: text("access_token_tag").notNull(),
   refreshToken: text("refresh_token"),
+  tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }),
   restaurantId: text("restaurant_id").references(() => restaurantsTable.placeId),
   status: text("status").notNull().default("connected"),
   createdAt: timestamp("created_at").defaultNow(),
