@@ -1,30 +1,64 @@
 import { logger } from "../lib/logger";
-import { isSuppressed } from "./sourceSuppression";
-import { regions } from "./regions";
 
-export type IngestionRegion = keyof typeof regions;
+export type Region = "eu" | "us" | "apac";
+export type IngestionRegion = Region;
 
-const order: IngestionRegion[] = ["eu", "us", "apac"];
+interface RoutingState {
+  suppressed: Set<Region>;
+  // Records when a region was suppressed, not proof that traffic failed over.
+  lastFailover: Record<Region, string | null>;
+}
 
-/**
- * Selects a region label only. No network request or cross-region transfer
- * occurs here; source suppression and region suppression are distinct keys.
- */
-export function globalRoute(region: string): IngestionRegion {
-  const primaryIndex = order.indexOf(region as IngestionRegion);
-  const start = primaryIndex === -1 ? 0 : primaryIndex;
-  const primary = order[start];
+const state: RoutingState = {
+  suppressed: new Set(),
+  lastFailover: { eu: null, us: null, apac: null },
+};
 
+const order: readonly Region[] = ["eu", "us", "apac"];
+
+function assertRegion(region: Region): void {
+  if (!order.includes(region)) throw new Error(`Unknown ingestion region: ${region}`);
+}
+
+export function suppressRegion(region: Region): void {
+  assertRegion(region);
+  state.suppressed.add(region);
+  state.lastFailover[region] = new Date().toISOString();
+  logger.warn({ region }, "Region suppressed in this process; no traffic rerouted");
+}
+
+export function isRegionSuppressed(region: Region): boolean {
+  assertRegion(region);
+  return state.suppressed.has(region);
+}
+
+/** Selects a label only; this does not route traffic or verify cluster health. */
+export function globalRoute(
+  region: Region,
+  eligible: (candidate: Region) => boolean = () => true,
+): Region {
+  assertRegion(region);
+  const start = order.indexOf(region);
   for (let offset = 0; offset < order.length; offset++) {
     const candidate = order[(start + offset) % order.length];
-    if (isSuppressed(candidate)) continue;
+    if (isRegionSuppressed(candidate) || !eligible(candidate)) continue;
     if (offset > 0) {
       logger.warn(
-        { primary, fallback: candidate },
-        "Region suppressed — selecting alternate region label (no traffic routed)",
+        { primary: region, fallback: candidate },
+        "Selecting alternate region label; no traffic rerouted",
       );
     }
     return candidate;
   }
   throw new Error("No unsuppressed ingestion region is available.");
+}
+
+export function routingStatus(): {
+  suppressed: Region[];
+  lastFailover: Record<Region, string | null>;
+} {
+  return {
+    suppressed: order.filter((region) => state.suppressed.has(region)),
+    lastFailover: { ...state.lastFailover },
+  };
 }
