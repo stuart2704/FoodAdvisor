@@ -12,6 +12,9 @@ import { randomUUID } from "node:crypto";
 import { adminOnly } from "../middleware/adminOnly";
 import { restaurantSlug } from "../utils/slugify";
 import { logEvent } from "../services/analyticsEngine";
+import { preserveVanishedLocation } from "../utils/locationAliases";
+import { asc, isNotNull, sql } from "drizzle-orm";
+import { cache } from "../lib/cache";
 
 const router: IRouter = Router();
 
@@ -90,18 +93,31 @@ router.put("/restaurants/:slug", adminOnly, async (req, res) => {
     return;
   }
   try {
-    const [existing] = await db
-      .select({
-        placeId: restaurantsTable.placeId,
-        name: restaurantsTable.name,
-      })
-      .from(restaurantsTable)
-      .where(eq(restaurantsTable.slug, slug.data))
-      .limit(1);
-    if (!existing) {
-      res.status(404).json({ success: false, error: "Restaurant not found." });
-      return;
-    }
+    const restaurant = await db.transaction(async (tx) => {
+      // Serialize location updates so the final restaurant leaving a name
+      // cannot race another rename and lose its former canonical slug.
+      if (body.data.city !== undefined || body.data.region !== undefined) {
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(734662, 1)`);
+      }
+      const [existing] = await tx
+        .select({
+          placeId: restaurantsTable.placeId,
+          name: restaurantsTable.name,
+          city: restaurantsTable.city,
+          region: restaurantsTable.region,
+        })
+        .from(restaurantsTable)
+        .where(eq(restaurantsTable.slug, slug.data))
+        .limit(1);
+      if (!existing) return null;
+      const oldCities = body.data.city !== undefined && body.data.city !== existing.city
+        ? await tx.selectDistinct({ name: restaurantsTable.city }).from(restaurantsTable)
+          .orderBy(asc(restaurantsTable.city)).limit(1_000)
+        : [];
+      const oldRegions = body.data.region !== undefined && body.data.region !== existing.region
+        ? await tx.selectDistinct({ name: restaurantsTable.region }).from(restaurantsTable)
+          .where(isNotNull(restaurantsTable.region)).orderBy(asc(restaurantsTable.region)).limit(1_000)
+        : [];
     const values = {
       ...(body.data.name !== undefined ? { name: body.data.name } : {}),
       ...(body.data.address !== undefined ? { address: body.data.address } : {}),
@@ -119,7 +135,7 @@ router.put("/restaurants/:slug", adminOnly, async (req, res) => {
         ? { slug: restaurantSlug(body.data.name, existing.placeId) }
         : {}),
     };
-    const [restaurant] = await db
+    const [updated] = await tx
       .update(restaurantsTable)
       .set(values)
       .where(eq(restaurantsTable.placeId, existing.placeId))
@@ -128,6 +144,17 @@ router.put("/restaurants/:slug", adminOnly, async (req, res) => {
         slug: restaurantsTable.slug,
         name: restaurantsTable.name,
       });
+      await preserveVanishedLocation(tx, "city", existing.city, body.data.city ?? existing.city,
+        oldCities.map(row => row.name));
+      await preserveVanishedLocation(tx, "region", existing.region, body.data.region === undefined
+        ? existing.region : body.data.region, oldRegions.flatMap(row => row.name ? [row.name] : []));
+      return updated;
+    });
+    if (!restaurant) {
+      res.status(404).json({ success: false, error: "Restaurant not found." });
+      return;
+    }
+    if (body.data.city !== undefined) cache.del("cities");
     res.json({ success: true, data: restaurant });
   } catch (error) {
     req.log.error({ err: error }, "Restaurant update failed");

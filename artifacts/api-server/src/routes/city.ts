@@ -5,6 +5,7 @@ import { cityPageViewEventsTable, db } from "@workspace/db";
 import { restaurantsTable } from "@workspace/db";
 import { asc, desc, eq, sql } from "drizzle-orm";
 import { locationSlugs } from "../utils/slugify";
+import { aliasTarget, canonicalLocationLink, canonicalLocationPath } from "../utils/locationAliases";
 import { cache } from "../lib/cache";
 
 const router: IRouter = Router();
@@ -66,6 +67,15 @@ router.get("/cities/:slug", async (req, res) => {
     const slugs = locationSlugs(cities.map((row) => row.city));
     const city = cities.find((row) => slugs.get(row.city) === parsed.data.slug)?.city;
     if (!city) {
+      const target = await aliasTarget("city", parsed.data.slug);
+      const canonicalSlug = target && slugs.get(target);
+      if (canonicalSlug) {
+        const path = canonicalLocationPath("city", canonicalSlug);
+        res.setHeader("Link", canonicalLocationLink(path));
+        res.setHeader("Cache-Control", "public, max-age=300");
+        res.redirect(308, path);
+        return;
+      }
       res.status(404).json({ error: "City not found." });
       return;
     }
@@ -96,6 +106,7 @@ router.get("/cities/:slug", async (req, res) => {
       )
       .limit(500);
     res.setHeader("Cache-Control", "public, max-age=300");
+    res.setHeader("Link", canonicalLocationLink(canonicalLocationPath("city", parsed.data.slug)));
     res.json({ city, restaurants });
   } catch (error) {
     req.log.error({ err: error }, "City directory detail query failed");

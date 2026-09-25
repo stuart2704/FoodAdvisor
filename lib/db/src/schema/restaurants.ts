@@ -118,6 +118,18 @@ export const restaurantsTable = pgTable(
   ],
 );
 
+// When a location is renamed, retain its former slug here and update targetName
+// to the new restaurant city/region name in the same rename transaction.
+export const locationSlugAliasesTable = pgTable(
+  "location_slug_aliases",
+  {
+    kind: text("kind").notNull(),
+    slug: text("slug").notNull(),
+    targetName: text("target_name").notNull(),
+  },
+  (table) => [uniqueIndex("location_slug_aliases_kind_slug_unique").on(table.kind, table.slug)],
+);
+
 export const restaurantReviewsTable = pgTable(
   "restaurant_reviews",
   {

@@ -3,6 +3,7 @@ import { asc, eq, isNotNull, sql } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { locationSlugs } from "../utils/slugify";
+import { aliasTarget, canonicalLocationLink, canonicalLocationPath } from "../utils/locationAliases";
 
 const router: IRouter = Router();
 
@@ -52,6 +53,15 @@ router.get("/regions/:slug", async (req, res) => {
       (row) => row.region && slugs.get(row.region) === parsed.data.slug,
     )?.region;
     if (!region) {
+      const target = await aliasTarget("region", parsed.data.slug);
+      const canonicalSlug = target && slugs.get(target);
+      if (canonicalSlug) {
+        const path = canonicalLocationPath("region", canonicalSlug);
+        res.setHeader("Link", canonicalLocationLink(path));
+        res.setHeader("Cache-Control", "public, max-age=300");
+        res.redirect(308, path);
+        return;
+      }
       res.status(404).json({ error: "Region not found." });
       return;
     }
@@ -72,6 +82,7 @@ router.get("/regions/:slug", async (req, res) => {
       .limit(1_000);
     const citySlugs = locationSlugs(allCities.map((row) => row.city));
     res.setHeader("Cache-Control", "public, max-age=300");
+    res.setHeader("Link", canonicalLocationLink(canonicalLocationPath("region", parsed.data.slug)));
     res.json({
       region,
       cities: cities.map((city) => ({
