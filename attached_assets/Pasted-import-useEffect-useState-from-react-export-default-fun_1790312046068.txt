@@ -1,0 +1,79 @@
+import { useEffect, useState } from "react";
+
+export default function OwnerDashboard({ restaurantId }) {
+  const [restaurant, setRestaurant] = useState(null);
+
+  useEffect(() => {
+    async function load() {
+      const res = await fetch(`/api/owner/restaurant/${restaurantId}`);
+      const data = await res.json();
+      setRestaurant(data);
+    }
+    load();
+  }, [restaurantId]);
+
+  if (!restaurant) return <p>Loading…</p>;
+
+  return (
+    <div className="dashboard">
+      <h1>{restaurant.name} – Owner Dashboard</h1>
+
+      <section className="dashboard-section">
+        <h2>Listing Details</h2>
+        <p><strong>Address:</strong> {restaurant.address}</p>
+        <p><strong>Website:</strong> {restaurant.website}</p>
+        <p><strong>Phone:</strong> {restaurant.phone}</p>
+        <button onClick={() => window.location.href = `/owner/edit/${restaurantId}`}>
+          Edit Listing
+        </button>
+      </section>
+
+      <section className="dashboard-section">
+        <h2>Photos</h2>
+        <div className="photo-grid">
+          {restaurant.photos.map((p) => (
+            <img key={p} src={p} alt="Restaurant" />
+          ))}
+        </div>
+        <button onClick={() => window.location.href = `/owner/photos/${restaurantId}`}>
+          Manage Photos
+        </button>
+      </section>
+
+      <section className="dashboard-section">
+        <h2>Menu</h2>
+        <button onClick={() => window.location.href = `/owner/menu/${restaurantId}`}>
+          Update Menu
+        </button>
+      </section>
+
+      <section className="dashboard-section">
+        <h2>Opening Hours</h2>
+        <button onClick={() => window.location.href = `/owner/hours/${restaurantId}`}>
+          Edit Opening Hours
+        </button>
+      </section>
+
+      <section className="dashboard-section">
+        <h2>Promotions</h2>
+        <button onClick={() => window.location.href = `/owner/promotions/${restaurantId}`}>
+          Add Promotion
+        </button>
+      </section>
+
+      <section className="dashboard-section">
+        <h2>Analytics</h2>
+        <p><strong>Views:</strong> {restaurant.analytics.views}</p>
+        <p><strong>Clicks:</strong> {restaurant.analytics.clicks}</p>
+        <p><strong>Bookmarks:</strong> {restaurant.analytics.bookmarks}</p>
+      </section>
+
+      <section className="dashboard-section">
+        <h2>AI Tools</h2>
+        <button onClick={() => window.location.href = `/owner/ai/marketing/${restaurantId}`}>
+          AI Marketing Tools
+        </button>
+      </section>
+    </div>
+  );
+}
