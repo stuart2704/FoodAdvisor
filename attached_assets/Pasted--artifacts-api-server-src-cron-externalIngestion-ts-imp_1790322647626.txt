@@ -1,0 +1,79 @@
+// artifacts/api-server/src/cron/externalIngestion.ts
+
+import { logger } from "../logger";
+import { saveCandidate } from "../db/candidates"; 
+import { fetchZomatoCity } from "../providers/zomato";
+import { fetchMichelinCity } from "../providers/michelin";
+import { fetchOSMRestaurants } from "../providers/osm";
+
+export async function runExternalCandidateIngestion(
+  state: GridRuntimeState,
+  now: Date
+): Promise<void> {
+  try {
+    logger.info(
+      { at: now.toISOString() },
+      "Starting external candidate ingestion (Google budget exhausted)"
+    );
+
+    // You may already have a configured list of cities.
+    const cities = state.cities ?? [];
+
+    for (const city of cities) {
+      const country = state.country ?? "United Kingdom";
+
+      // 1. Fetch from Zomato
+      const zomatoResults = await fetchZomatoCity(city, country);
+
+      // 2. Fetch from Michelin
+      const michelinResults = await fetchMichelinCity(city, country);
+
+      // 3. Fetch from OpenStreetMap / Overpass
+      const osmResults = await fetchOSMRestaurants(city, country);
+
+      // Combine all external results
+      const combined = [
+        ...zomatoResults.map(r => ({ ...r, sourceFlags: ["zomato"] })),
+        ...michelinResults.map(r => ({ ...r, sourceFlags: ["michelin"] })),
+        ...osmResults.map(r => ({ ...r, sourceFlags: ["osm"] })),
+      ];
+
+      // Store each result as an UNVERIFIED candidate
+      for (const candidate of combined) {
+        await saveCandidate({
+          candidateId: crypto.randomUUID(),
+          rawName: candidate.name ?? null,
+          rawAddress: candidate.address ?? null,
+          rawCoords: candidate.coords ?? null,
+          rawEmail: candidate.email ?? null,
+          rawPhone: candidate.phone ?? null,
+          rawWebsite: candidate.website ?? null,
+          sourceFlags: candidate.sourceFlags,
+          importedAt: now.toISOString(),
+          verificationStatus: "unverified",
+          city,
+          country,
+        });
+      }
+
+      logger.info(
+        {
+          city,
+          count: combined.length,
+          at: now.toISOString(),
+        },
+        "External candidates stored"
+      );
+    }
+
+    logger.info(
+      { at: now.toISOString() },
+      "External candidate ingestion completed"
+    );
+  } catch (err) {
+    logger.error(
+      { err, at: now.toISOString() },
+      "External candidate ingestion failed"
+    );
+  }
+}
