@@ -1,5 +1,5 @@
 import { AuthenticateWithRedirectCallback } from "@clerk/react";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import RestaurantDetail from "./components/RestaurantDetail";
 import Trending from "./components/Trending";
@@ -36,7 +36,7 @@ import CityHighlights from "./components/CityHighlights";
 
 function AppRoutes() {
   const location = useLocation();
-  const isAdminRoute = location.pathname.startsWith("/admin/");
+  const isAdminRoute = location.pathname === "/admin" || location.pathname.startsWith("/admin/");
 
   return (
     <>
@@ -65,6 +65,7 @@ function AppRoutes() {
         <Route path="/city-guide" element={<CityGuide />} />
         <Route path="/highlights" element={<CityHighlights />} />
         <Route path="/rewards" element={<RewardsPage />} />
+        <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route
           path="/admin/github/sso-callback"
