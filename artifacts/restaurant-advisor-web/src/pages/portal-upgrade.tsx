@@ -107,21 +107,36 @@ export default function PortalUpgradePage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Crown className="h-5 w-5 text-primary" /> Upgrade to Premium
+              <Crown className="h-5 w-5 text-primary" />
+              {awaitingConfirmation ? 'Thanks for choosing Premium' : 'Upgrade to Premium'}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
             {portal.restaurant.premium ? (
-              <p className="font-semibold text-primary">
-                {portal.restaurant.name} has an active Premium subscription.
-              </p>
+              <>
+                <p className="font-semibold text-primary">
+                  {portal.restaurant.name} has an active Premium subscription.
+                </p>
+                {awaitingConfirmation && (
+                  <p className="text-muted-foreground">
+                    We appreciate your business! If you have any questions, please visit our{' '}
+                    <Link to="/contact" className="font-semibold text-primary underline">Contact page</Link>.
+                  </p>
+                )}
+              </>
             ) : (
               <>
                 <p className="text-muted-foreground">
                   {awaitingConfirmation
-                    ? 'Your checkout has returned. We are waiting for Stripe to confirm payment before activating Premium. You can safely return to your portal; please do not pay again.'
+                    ? 'We appreciate your business! Your checkout has returned, and we are waiting for Stripe to confirm payment before activating Premium. You can safely return to your portal; please do not pay again.'
                     : 'Upgrade your restaurant listing to Premium for £99 GBP per month.'}
                 </p>
+                {awaitingConfirmation && (
+                  <p className="text-sm text-muted-foreground">
+                    Have a question? Visit our{' '}
+                    <Link to="/contact" className="font-semibold text-primary underline">Contact page</Link>.
+                  </p>
+                )}
                 {cancelled && <p>Checkout was cancelled. Your existing listing is unchanged.</p>}
                 {!awaitingConfirmation && <Button onClick={upgrade} disabled={loading}>
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
