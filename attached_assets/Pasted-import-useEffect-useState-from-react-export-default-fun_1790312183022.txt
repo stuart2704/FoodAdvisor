@@ -1,0 +1,75 @@
+import { useEffect, useState } from "react";
+
+export default function OwnerDashboard() {
+  const [restaurant, setRestaurant] = useState(null);
+
+  useEffect(() => {
+    async function load() {
+      const res = await fetch("/api/owner/me");
+      const data = await res.json();
+      setRestaurant(data);
+    }
+    load();
+  }, []);
+
+  if (!restaurant) return <p>Loading dashboard…</p>;
+
+  return (
+    <div className="dashboard">
+      <h1>{restaurant.name} – Owner Dashboard</h1>
+
+      <div className="dashboard-grid">
+
+        <div className="dashboard-card">
+          <h2>Listing Details</h2>
+          <button onClick={() => window.location.href = "/owner/edit"}>
+            Edit Listing
+          </button>
+        </div>
+
+        <div className="dashboard-card">
+          <h2>Photos</h2>
+          <button onClick={() => window.location.href = "/owner/photos"}>
+            Manage Photos
+          </button>
+        </div>
+
+        <div className="dashboard-card">
+          <h2>Menu</h2>
+          <button onClick={() => window.location.href = "/owner/menu"}>
+            Update Menu
+          </button>
+        </div>
+
+        <div className="dashboard-card">
+          <h2>Opening Hours</h2>
+          <button onClick={() => window.location.href = "/owner/hours"}>
+            Edit Hours
+          </button>
+        </div>
+
+        <div className="dashboard-card">
+          <h2>Promotions</h2>
+          <button onClick={() => window.location.href = "/owner/promotions"}>
+            Add Promotion
+          </button>
+        </div>
+
+        <div className="dashboard-card">
+          <h2>Analytics</h2>
+          <button onClick={() => window.location.href = "/owner/analytics"}>
+            View Analytics
+          </button>
+        </div>
+
+        <div className="dashboard-card">
+          <h2>AI Tools</h2>
+          <button onClick={() => window.location.href = "/owner/ai"}>
+            AI Marketing Tools
+          </button>
+        </div>
+
+      </div>
+    </div>
+  );
+}
