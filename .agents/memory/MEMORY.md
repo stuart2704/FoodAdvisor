@@ -26,5 +26,6 @@
 - [Location slug continuity](location-slug-continuity.md) — a rename can change neighbors' computed slugs; preserve every changed URL and allow aliases to be retargeted repeatedly.
 - [External source activation](external-source-activation.md) — placeholder provider URLs stay dormant; scheduled ingestion must report real fetch failures rather than mark them successful.
 - [Manual OSM ingestion policy](manual-osm-ingestion-policy.md) — keep manual city runs local and separate from the existing all-city schedule; do not imply regional dispatch.
+- [Candidate publication gates](candidate-publication-gates.md) — keep new OSM candidates unpublished until a verified owner claim and recorded source-rights evidence can be linked.
 - [Pooled PostgreSQL ingestion locks](pooled-postgres-ingestion-locks.md) — session advisory locks can remain held by idle pooler backends; use transaction-scoped locking.
 - [Catalogue export integrity](catalogue-export-integrity.md) — historic CSV row counts can reflect repeated snapshots, not distinct restaurants; profile Place IDs before import.

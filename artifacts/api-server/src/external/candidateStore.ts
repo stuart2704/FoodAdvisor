@@ -1,9 +1,12 @@
 import { db, externalCandidatesTable } from "@workspace/db";
+import { and, eq } from "drizzle-orm";
 import type { ExternalCandidate } from "./candidateTypes";
+import { isReadyForCandidateReview } from "./candidateReviewEligibility";
 import { logger } from "../lib/logger";
 
 /**
- * Store external candidates as UNVERIFIED.
+ * Store external candidates as unpublished. High-completeness candidates
+ * are ready for review, but are not identity- or rights-verified.
  * This does NOT create restaurants.
  * This does NOT trigger outreach.
  * This does NOT fabricate Google fields.
@@ -26,6 +29,7 @@ export async function storeExternalCandidates(
   const inserted = await db.transaction(async (tx) => {
     let count = 0;
     for (const c of candidates) {
+      const readyForReview = isReadyForCandidateReview(c);
       const rows = await tx
         .insert(externalCandidatesTable)
         .values({
@@ -39,13 +43,25 @@ export async function storeExternalCandidates(
           rawWebsite: c.rawWebsite,
           sourceFlags: c.sourceFlags,
           importedAt: now,
-          verificationStatus: "unverified",
+          verificationStatus: readyForReview ? "review_ready" : "unverified",
         })
         .onConflictDoNothing({
+          // A re-import must never undo an admin rejection or review.
           target: [externalCandidatesTable.sourceName, externalCandidatesTable.sourceId],
         })
         .returning({ sourceId: externalCandidatesTable.sourceId });
       count += rows.length;
+      if (!rows.length && readyForReview) {
+        // Existing unreviewed candidates can become review-ready on a later
+        // import, but never overwrite a verified or rejected decision.
+        await tx.update(externalCandidatesTable)
+          .set({ verificationStatus: "review_ready" })
+          .where(and(
+            eq(externalCandidatesTable.sourceName, c.sourceName),
+            eq(externalCandidatesTable.sourceId, c.sourceId),
+            eq(externalCandidatesTable.verificationStatus, "unverified"),
+          ));
+      }
     }
     return count;
   });
@@ -56,6 +72,6 @@ export async function storeExternalCandidates(
       count: inserted,
       duplicatesSkipped: candidates.length - inserted,
     },
-    "Stored external candidates (UNVERIFIED)"
+    "Stored external candidates (unpublished)"
   );
 }
