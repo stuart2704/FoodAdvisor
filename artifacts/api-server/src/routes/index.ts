@@ -42,6 +42,7 @@ import betterContactRouter from "./betterContact";
 import collectionsRouter from "./collections";
 import chefStorageRouter from "./chefStorage";
 import adminIngestionRouter from "./adminIngestion";
+import orchestrationRouter from "./orchestration";
 
 const router: IRouter = Router();
 
@@ -88,5 +89,6 @@ router.use(betterContactRouter);
 router.use(collectionsRouter);
 router.use(chefStorageRouter);
 router.use(adminIngestionRouter);
+router.use("/dashboard/orchestration", orchestrationRouter);
 
 export default router;

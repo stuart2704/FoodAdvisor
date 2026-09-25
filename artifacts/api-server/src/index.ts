@@ -12,6 +12,7 @@ import { startBetterContactScheduler } from "./cron/betterContact";
 import { startGridCrawlScheduler } from "./cron/gridCrawl";
 import { startSocialAutomationScheduler } from "./cron/socialAutomation";
 import { startExternalIngestionScheduler } from "./cron/scheduler";
+import { startDailyOrchestrationScheduler } from "./scheduler/dailyOrchestration";
 
 const rawPort = process.env["PORT"];
 
@@ -48,6 +49,7 @@ async function initializeAfterListen(): Promise<void> {
   startBetterContactScheduler();
   startGridCrawlScheduler();
   startExternalIngestionScheduler();
+  startDailyOrchestrationScheduler();
   startSocialAutomationScheduler();
 
   try {
