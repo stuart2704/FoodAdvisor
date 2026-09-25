@@ -2,7 +2,7 @@ import { db, restaurantsTable } from "@workspace/db";
 import { asc, eq, isNotNull, sql } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import { z } from "zod";
-import { slugify } from "../utils/slugify";
+import { locationSlugs, slugify } from "../utils/slugify";
 
 const router: IRouter = Router();
 
@@ -70,12 +70,18 @@ router.get("/countries/:slug", async (req, res) => {
       .groupBy(restaurantsTable.city, restaurantsTable.region)
       .orderBy(asc(restaurantsTable.city))
       .limit(1_000);
+    const allCities = await db
+      .selectDistinct({ city: restaurantsTable.city })
+      .from(restaurantsTable)
+      .orderBy(asc(restaurantsTable.city))
+      .limit(1_000);
+    const citySlugs = locationSlugs(allCities.map((row) => row.city));
     res.setHeader("Cache-Control", "public, max-age=300");
     res.json({
       country,
       cities: cities.map((city) => ({
         ...city,
-        slug: slugify(city.city),
+        slug: citySlugs.get(city.city)!,
       })),
     });
   } catch (error) {

@@ -2,7 +2,7 @@ import { db, restaurantsTable } from "@workspace/db";
 import { asc, eq, isNotNull, sql } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import { z } from "zod";
-import { slugify } from "../utils/slugify";
+import { locationSlugs } from "../utils/slugify";
 
 const router: IRouter = Router();
 
@@ -22,14 +22,12 @@ router.get("/regions", async (req, res) => {
       .groupBy(restaurantsTable.region)
       .orderBy(asc(restaurantsTable.region))
       .limit(1_000);
+    const regions = rows.filter((row): row is typeof row & { region: string } => !!row.region);
+    const slugs = locationSlugs(regions.map((row) => row.region));
     res.setHeader("Cache-Control", "public, max-age=300");
-    res.json(
-      rows.flatMap((row) =>
-        row.region
-          ? [{ region: row.region, slug: slugify(row.region), count: row.count }]
-          : [],
-      ),
-    );
+    res.json(regions.map((row) => ({
+      region: row.region, slug: slugs.get(row.region)!, count: row.count,
+    })));
   } catch (error) {
     req.log.error({ err: error }, "Region directory query failed");
     res.status(503).json({ error: "Regions are temporarily unavailable." });
@@ -47,9 +45,11 @@ router.get("/regions/:slug", async (req, res) => {
       .selectDistinct({ region: restaurantsTable.region })
       .from(restaurantsTable)
       .where(isNotNull(restaurantsTable.region))
+       .orderBy(asc(restaurantsTable.region))
       .limit(1_000);
+    const slugs = locationSlugs(regions.flatMap((row) => row.region ? [row.region] : []));
     const region = regions.find(
-      (row) => row.region && slugify(row.region) === parsed.data.slug,
+      (row) => row.region && slugs.get(row.region) === parsed.data.slug,
     )?.region;
     if (!region) {
       res.status(404).json({ error: "Region not found." });
@@ -65,12 +65,18 @@ router.get("/regions/:slug", async (req, res) => {
       .groupBy(restaurantsTable.city)
       .orderBy(asc(restaurantsTable.city))
       .limit(1_000);
+    const allCities = await db
+      .selectDistinct({ city: restaurantsTable.city })
+      .from(restaurantsTable)
+      .orderBy(asc(restaurantsTable.city))
+      .limit(1_000);
+    const citySlugs = locationSlugs(allCities.map((row) => row.city));
     res.setHeader("Cache-Control", "public, max-age=300");
     res.json({
       region,
       cities: cities.map((city) => ({
         ...city,
-        slug: slugify(city.city),
+        slug: citySlugs.get(city.city)!,
       })),
     });
   } catch (error) {

@@ -5,7 +5,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import test from "node:test";
 import { build } from "esbuild";
-import { restaurantSlug, slugify } from "../utils/slugify.ts";
+import { locationSlugs, restaurantSlug, slugify } from "../utils/slugify.ts";
 
 const apiRoot = path.resolve(import.meta.dirname, "../..");
 
@@ -162,13 +162,14 @@ async function loadRouter(filename) {
   };
 }
 
-const [cityBundle, regionBundle] = await Promise.all([
+const [cityBundle, regionBundle, countryBundle] = await Promise.all([
   loadRouter("city"),
   loadRouter("regions"),
+  loadRouter("countries"),
 ]);
 
 test.after(async () => {
-  await Promise.all([cityBundle.cleanup(), regionBundle.cleanup()]);
+  await Promise.all([cityBundle.cleanup(), regionBundle.cleanup(), countryBundle.cleanup()]);
 });
 
 function handler(router, routePath) {
@@ -307,4 +308,68 @@ test("region detail rejects malformed and unknown slugs", async () => {
   const route = handler(regionBundle.router, "/regions/:slug");
   assert.equal((await request(route, { slug: "Île-de-France" })).statusCode, 400);
   assert.equal((await request(route, { slug: "unknown-region" })).statusCode, 404);
+});
+
+test("Unicode city collisions get stable distinct URLs across list, detail and nested directories", async () => {
+  const collisionRows = [
+    { ...rows[0], placeId: "a", city: "Málaga", region: "Île-de-France" },
+    { ...rows[0], placeId: "b", city: "M-laga", region: "le-de-France" },
+    { ...rows[0], placeId: "c", city: "Bath", region: "Île-de-France" },
+  ];
+  globalThis.__locationDirectoryState = { rows: collisionRows };
+  assert.equal(slugify("Málaga"), slugify("M-laga"));
+  const cityList = await request(handler(cityBundle.router, "/cities"));
+  const slugs = Object.fromEntries(cityList.payload.map(({ city, slug }) => [city, slug]));
+  assert.equal(slugs.Bath, "bath");
+  assert.match(slugs["Málaga"], /^m-laga-[a-f0-9]{12}$/);
+  assert.match(slugs["M-laga"], /^m-laga-[a-f0-9]{12}$/);
+  assert.notEqual(slugs["Málaga"], slugs["M-laga"]);
+  for (const city of ["Málaga", "M-laga"]) {
+    const detail = await request(handler(cityBundle.router, "/cities/:slug"), { slug: slugs[city] });
+    assert.equal(detail.statusCode, 200);
+    assert.equal(detail.payload.city, city);
+    assert.deepEqual(detail.payload.restaurants.map(({ id }) => id), [
+      city === "Málaga" ? "a" : "b",
+    ]);
+  }
+  assert.equal((await request(handler(cityBundle.router, "/cities/:slug"), { slug: "m-laga" })).statusCode, 404);
+  const regionSlugs = Object.fromEntries((await request(handler(regionBundle.router, "/regions"))).payload
+    .map(({ region, slug }) => [region, slug]));
+  const regionDetail = await request(handler(regionBundle.router, "/regions/:slug"), {
+    slug: regionSlugs["Île-de-France"],
+  });
+  assert.equal(regionDetail.payload.cities.find(({ city }) => city === "Málaga").slug, slugs["Málaga"]);
+  const countryDetail = await request(handler(countryBundle.router, "/countries/:slug"), { slug: "france" });
+  assert.equal(countryDetail.payload.cities.find(({ city }) => city === "M-laga").slug, slugs["M-laga"]);
+
+  globalThis.__locationDirectoryState = { rows: [...collisionRows].reverse() };
+  const reversed = await request(handler(cityBundle.router, "/cities"));
+  assert.deepEqual(Object.fromEntries(reversed.payload.map(({ city, slug }) => [city, slug])), slugs);
+});
+
+test("Unicode region collisions resolve only their own cities, independently of row order", async () => {
+  globalThis.__locationDirectoryState = { rows: [
+    { ...rows[0], city: "Paris", region: "Île-de-France" },
+    { ...rows[0], city: "Lyon", region: "le-de-France" },
+  ] };
+  assert.equal(slugify("Île-de-France"), slugify("le-de-France"));
+  const list = await request(handler(regionBundle.router, "/regions"));
+  const slugs = Object.fromEntries(list.payload.map(({ region, slug }) => [region, slug]));
+  assert.notEqual(slugs["Île-de-France"], slugs["le-de-France"]);
+  assert.match(slugs["Île-de-France"], /^le-de-france-[a-f0-9]{12}$/);
+  for (const [region, city] of [["Île-de-France", "Paris"], ["le-de-France", "Lyon"]]) {
+    const detail = await request(handler(regionBundle.router, "/regions/:slug"), { slug: slugs[region] });
+    assert.equal(detail.statusCode, 200);
+    assert.equal(detail.payload.region, region);
+    assert.deepEqual(detail.payload.cities.map((entry) => entry.city), [city]);
+  }
+  assert.equal((await request(handler(regionBundle.router, "/regions/:slug"), { slug: "le-de-france" })).statusCode, 404);
+});
+
+test("suffixes cannot take an unrelated unsuffixed directory URL", () => {
+  const first = locationSlugs(["Málaga", "M-laga"]);
+  const reserved = first.get("Málaga");
+  const slugs = locationSlugs(["Málaga", "M-laga", reserved]);
+  assert.equal(slugs.get(reserved), reserved);
+  assert.notEqual(slugs.get("Málaga"), reserved);
 });

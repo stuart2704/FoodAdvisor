@@ -4,7 +4,7 @@ import { getCityPage } from "../services/cityPageEngine";
 import { cityPageViewEventsTable, db } from "@workspace/db";
 import { restaurantsTable } from "@workspace/db";
 import { asc, desc, eq, sql } from "drizzle-orm";
-import { slugify } from "../utils/slugify";
+import { locationSlugs } from "../utils/slugify";
 import { cache } from "../lib/cache";
 
 const router: IRouter = Router();
@@ -36,9 +36,10 @@ router.get("/cities", async (req, res) => {
       .groupBy(restaurantsTable.city)
       .orderBy(asc(restaurantsTable.city))
       .limit(1_000);
+    const slugs = locationSlugs(rows.map((row) => row.city));
     const cities = rows.map((row) => ({
         city: row.city,
-        slug: slugify(row.city),
+        slug: slugs.get(row.city)!,
         count: row.count,
       }));
     cache.set("cities", cities);
@@ -60,8 +61,10 @@ router.get("/cities/:slug", async (req, res) => {
     const cities = await db
       .selectDistinct({ city: restaurantsTable.city })
       .from(restaurantsTable)
+       .orderBy(asc(restaurantsTable.city))
       .limit(1_000);
-    const city = cities.find((row) => slugify(row.city) === parsed.data.slug)?.city;
+    const slugs = locationSlugs(cities.map((row) => row.city));
+    const city = cities.find((row) => slugs.get(row.city) === parsed.data.slug)?.city;
     if (!city) {
       res.status(404).json({ error: "City not found." });
       return;
