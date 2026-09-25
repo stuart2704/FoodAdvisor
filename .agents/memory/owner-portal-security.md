@@ -9,6 +9,12 @@ Portal bearer tokens must be cryptographically random, stored only as hashes, ex
 
 **How to apply:** Validate tokens server-side on every portal data route, disable caching, and never expose admin, outreach, recipient, or cross-restaurant data.
 
+Automatic pageview analytics must be assessed separately from custom-event payloads when the current URL contains a portal bearer token.
+
+**Why:** Even privacy-safe custom event properties do not prevent an injected pageview tracker from collecting a token-bearing path.
+
+**How to apply:** Before enabling analytics for portal traffic, verify that both pageviews and custom events exclude or safely redact tokenized paths. For owner offer outcomes, use server-side aggregate counts rather than a browser tracker while tokenized paths remain; a safe custom event payload does not make its tracker metadata safe.
+
 Reply bodies remain transient inputs and are not copied into dashboard storage. Gmail reply recognition must never send mail, including positive-reply escalation. Any separate sending workflow needs its own explicit authorization; Instantly escalation still requires ownership and message-id checks.
 
 **Why:** Raw replies may contain personal or confidential content, and caller-supplied classification requests are not evidence that a restaurant replied. The Gmail recognition request explicitly forbids sending; a trusted positive classification does not override that restriction.

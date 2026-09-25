@@ -156,6 +156,7 @@ async function loadRouter() {
   const output = path.join(tempDir, "portal.mjs");
   const simpleMocks = new Map([
     ["analytics", "export async function logEvent(){}; export async function getRestaurantAnalytics(){ return {}; }"],
+    ["offerMetrics", "export async function recordOwnerOfferOutcome(event){ if(globalThis.__portalRouteState.metricFailure) throw new Error('metric unavailable'); globalThis.__portalRouteState.offerOutcomes.push(event); }"],
     ["insight", "export async function generateOwnerAnalyticsInsight(){ return {}; }"],
     ["personalisation", "export async function recordOwnerLogin(){}"],
     ["token", "export async function validateToken(token){ return token === 'v'.repeat(43) ? 'place-1' : null; }"],
@@ -178,6 +179,10 @@ async function loadRouter() {
         pluginBuild.onResolve(
           { filter: /analyticsEngine$/ },
           () => ({ path: "analytics", namespace: "portal-mock" }),
+        );
+        pluginBuild.onResolve(
+          { filter: /ownerOfferMetrics$/ },
+          () => ({ path: "offerMetrics", namespace: "portal-mock" }),
         );
         pluginBuild.onResolve(
           { filter: /ownerAnalyticsInsight$/ },
@@ -240,6 +245,8 @@ function resetState(claimStatus = "basic") {
       bookingStatus: null,
     },
     aiCalls: [],
+    offerOutcomes: [],
+    metricFailure: false,
     offers: [],
     events: [],
     chef: [],
@@ -394,6 +401,8 @@ test("verified owner creates an offer for the token-linked restaurant", async ()
   });
   assert.equal(created.statusCode, 201);
   assert.equal(globalThis.__portalRouteState.offers[0].restaurantId, "place-1");
+  assert.deepEqual(globalThis.__portalRouteState.offerOutcomes, ["owner_offer_published"]);
+  assert.ok(!JSON.stringify(globalThis.__portalRouteState.offerOutcomes).includes(validToken));
 });
 
 test("offer validation rejects bad ranges, expired dates, and oversized text", async () => {
@@ -427,6 +436,7 @@ test("offer validation rejects bad ranges, expired dates, and oversized text", a
     },
   });
   assert.equal(oversized.statusCode, 400);
+  assert.deepEqual(globalThis.__portalRouteState.offerOutcomes, []);
 });
 
 test("offer updates and deletes are scoped to the token-linked restaurant", async () => {
@@ -455,6 +465,35 @@ test("offer updates and deletes are scoped to the token-linked restaurant", asyn
   });
   assert.equal(deletion.statusCode, 404);
   assert.equal(globalThis.__portalRouteState.offers[0].title, "Other offer");
+  assert.deepEqual(globalThis.__portalRouteState.offerOutcomes, []);
+});
+
+test("successful owner offer edits and deletes increment only aggregate outcome names", async () => {
+  resetState();
+  globalThis.__portalRouteState.offers.push({
+    id: 1, restaurantId: "place-1", title: "Owner content",
+    description: "Private offer details", startDate: "2099-01-01", endDate: "2099-01-31",
+  });
+  const updated = await request("patch", "/portal/:token/offers/:offerId", {
+    offerId: 1,
+    body: { title: "Changed", description: "Private details", startDate: "2099-01-01", endDate: "2099-01-31" },
+  });
+  const deleted = await request("delete", "/portal/:token/offers/:offerId", { offerId: 1 });
+  assert.equal(updated.statusCode, 200);
+  assert.equal(deleted.statusCode, 200);
+  assert.deepEqual(globalThis.__portalRouteState.offerOutcomes, ["owner_offer_updated", "owner_offer_deleted"]);
+  assert.ok(!JSON.stringify(globalThis.__portalRouteState.offerOutcomes).includes(validToken));
+});
+
+test("a measurement outage does not turn a published offer into a failed owner action", async () => {
+  resetState();
+  globalThis.__portalRouteState.metricFailure = true;
+  const created = await request("post", "/portal/:token/offers", {
+    body: { title: "Lunch", description: "Offer", startDate: "2099-01-01", endDate: "2099-01-31" },
+  });
+  assert.equal(created.statusCode, 201);
+  assert.equal(globalThis.__portalRouteState.offers.length, 1);
+  assert.deepEqual(globalThis.__portalRouteState.offerOutcomes, []);
 });
 
 test("verified owner creates an event for the token-linked restaurant", async () => {

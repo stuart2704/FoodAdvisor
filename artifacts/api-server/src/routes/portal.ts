@@ -16,6 +16,7 @@ import {
   verifyBookingLink,
 } from "../services/bookingLinkService";
 import { logEvent } from "../services/analyticsEngine";
+import { recordOwnerOfferOutcome, type OwnerOfferOutcome } from "../services/ownerOfferMetrics";
 import { getRestaurantAnalytics } from "../services/analyticsEngine";
 import { generateOwnerAnalyticsInsight } from "../services/ownerAnalyticsInsight";
 import { recordOwnerLogin } from "../services/personalisationEngine";
@@ -36,6 +37,17 @@ import {
 } from "../lib/chefObjectStorage";
 
 const router: IRouter = Router();
+async function countOwnerOfferOutcome(
+  req: { log: { warn: (details: object, message: string) => void } },
+  event: OwnerOfferOutcome,
+): Promise<void> {
+  try {
+    await recordOwnerOfferOutcome(event);
+  } catch (error) {
+    // Measurement must not turn a completed offer mutation into a failed request.
+    req.log.warn({ err: error, event }, "Owner offer outcome count failed");
+  }
+}
 const tokenParamsSchema = z.object({
   token: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
 });
@@ -731,6 +743,7 @@ router.post("/portal/:token/offers", async (req, res): Promise<void> => {
     .insert(restaurantOffersTable)
     .values({ restaurantId: placeId, ...body.data })
     .returning();
+  await countOwnerOfferOutcome(req, "owner_offer_published");
   res.status(201).json({ success: true, offer });
 });
 
@@ -768,6 +781,7 @@ router.patch("/portal/:token/offers/:offerId", async (req, res): Promise<void> =
     res.status(404).json({ success: false, error: "Offer not found." });
     return;
   }
+  await countOwnerOfferOutcome(req, "owner_offer_updated");
   res.json({ success: true, offer });
 });
 
@@ -796,6 +810,7 @@ router.delete("/portal/:token/offers/:offerId", async (req, res): Promise<void> 
     res.status(404).json({ success: false, error: "Offer not found." });
     return;
   }
+  await countOwnerOfferOutcome(req, "owner_offer_deleted");
   res.json({ success: true });
 });
 

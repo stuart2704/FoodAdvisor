@@ -38,3 +38,4 @@ export * from "./socialSettings";
 export * from "./externalIngestionSchedule";
 export * from "./externalCandidates";
 export * from "./osmClaimWorkflow";
+export * from "./ownerOfferMetrics";

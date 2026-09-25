@@ -408,6 +408,7 @@ export default function OwnerDashboard({
 
   async function saveOffer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const publishing = editingOfferId === null;
     setOfferSaving(true);
     setOfferError("");
     setOfferMessage("");
@@ -423,10 +424,10 @@ export default function OwnerDashboard({
         body: JSON.stringify(offerForm),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Offer could not be saved.");
+      if (!response.ok || data.success !== true) throw new Error(data.error || "Offer could not be saved.");
       setOfferForm(emptyOffer);
       setEditingOfferId(null);
-      setOfferMessage(editingOfferId === null ? "Offer published." : "Offer updated.");
+      setOfferMessage(publishing ? "Offer published." : "Offer updated.");
       await loadOffers();
     } catch (error) {
       setOfferError(error instanceof Error ? error.message : "Offer could not be saved.");
@@ -444,7 +445,7 @@ export default function OwnerDashboard({
         { method: "DELETE", cache: "no-store", referrerPolicy: "no-referrer" },
       );
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Offer could not be deleted.");
+      if (!response.ok || data.success !== true) throw new Error(data.error || "Offer could not be deleted.");
       if (editingOfferId === id) {
         setEditingOfferId(null);
         setOfferForm(emptyOffer);
