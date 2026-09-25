@@ -43,3 +43,19 @@ INSTAGRAM_REDIRECT_URI = "https://c0df53f2-83a9-4aa9-b71c-d948900574e9-00-261t9n
 
 [userenv.production]
 INSTAGRAM_REDIRECT_URI = "https://www.thefoodadvisor.co.uk/admin/social/instagram/callback"
+
+[[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 8081
+externalPort = 80
+
+[[ports]]
+localPort = 22339
+externalPort = 3000
+
+[[ports]]
+localPort = 22612
+externalPort = 3001
