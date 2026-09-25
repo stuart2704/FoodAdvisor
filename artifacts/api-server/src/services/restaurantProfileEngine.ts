@@ -188,7 +188,11 @@ export async function getRestaurantProfile(
               gte(restaurantOffersTable.endDate, today),
             ),
           )
-          .orderBy(asc(restaurantOffersTable.endDate))
+          .orderBy(
+            asc(restaurantOffersTable.endDate),
+            asc(restaurantOffersTable.startDate),
+            asc(restaurantOffersTable.id),
+          )
       : Promise.resolve([]),
     restaurant.claimedAt
       ? db
