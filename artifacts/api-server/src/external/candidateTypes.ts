@@ -6,6 +6,7 @@ export type ExternalCandidate = {
   rawCoords: { lat: number; lon: number } | null;
   rawPhone: string | null;
   rawWebsite: string | null;
+  tags?: Record<string, string>; // selected source tags for transient enrichment
   sourceFlags: string[];   // e.g. ["open-data", "government"]
   importedAt: string;      // ISO timestamp
 };

@@ -7,14 +7,16 @@ import { tourismBoardAdapter } from "../external/tourismBoardAdapter";
 import { associationAdapter } from "../external/associationAdapter";
 import { storeExternalCandidates } from "../external/candidateStore";
 import { promoteCandidates } from "../external/candidatePromotion";
+import { isSuppressed } from "../external/sourceSuppression";
+import { sourceQualityScore } from "../external/sourceQuality";
 
-// Scheduled independently of the Google grid crawl; adapters are currently empty skeletons.
-const adapters: ExternalAdapter[] = [
-  osmAdapter,
-  cityOpenDataAdapter,
-  govRegistryAdapter,
-  tourismBoardAdapter,
-  associationAdapter,
+// Only OSM has a live endpoint. Other adapters remain dormant pending real licensed feeds.
+const adapters: { name: string; adapter: ExternalAdapter }[] = [
+  { name: "OSM", adapter: osmAdapter },
+  { name: "CityOpenData", adapter: cityOpenDataAdapter },
+  { name: "GovRegistry", adapter: govRegistryAdapter },
+  { name: "TourismBoard", adapter: tourismBoardAdapter },
+  { name: "RestaurantAssociation", adapter: associationAdapter },
 ];
 
 export async function runExternalCandidateIngestion(now: Date): Promise<void> {
@@ -23,12 +25,30 @@ export async function runExternalCandidateIngestion(now: Date): Promise<void> {
     "External candidate ingestion started (open-data adapters)",
   );
 
-  const allCandidates: ExternalCandidate[] = [];
-
-  for (const adapter of adapters) {
-    const candidates = await adapter.fetch({ now });
-    allCandidates.push(...candidates);
-  }
+  const results = await Promise.all(
+    adapters.map(async ({ name, adapter }) => {
+      if (isSuppressed(name)) {
+        logger.warn({ adapterName: name }, "Skipping suppressed adapter");
+        return { candidates: [] as ExternalCandidate[], error: null as unknown, skipped: name };
+      }
+      try {
+        const candidates = await adapter.fetch({ now });
+        const quality = sourceQualityScore(candidates);
+        logger.info({ adapterName: name, quality, count: candidates.length }, "Source quality score");
+        logger.info(
+          { adapter: name, count: candidates.length, at: now.toISOString() },
+          "Adapter ingestion completed",
+        );
+        return { candidates, error: null as unknown, skipped: null as string | null };
+      } catch (err) {
+        logger.error({ err, adapter: name, at: now.toISOString() }, "Adapter ingestion failed");
+        return { candidates: [] as ExternalCandidate[], error: err, skipped: null as string | null };
+      }
+    }),
+  );
+  const failed = results.find((result) => result.error !== null);
+  if (failed) throw failed.error;
+  const allCandidates = results.flatMap((result) => result.candidates);
 
   const unique = new Map<string, ExternalCandidate>();
 
@@ -45,10 +65,11 @@ export async function runExternalCandidateIngestion(now: Date): Promise<void> {
     {
       at: now.toISOString(),
       adapters: adapters.length,
+      skippedAdapters: results.flatMap((result) => result.skipped ? [result.skipped] : []),
       candidatesFetched: allCandidates.length,
       candidatesUnique: dedupedCandidates.length,
     },
-    "External candidate ingestion completed (candidates stored as unverified; promotion is a placeholder)",
+    "External candidate ingestion completed (candidates stored as unverified; publication remains disabled)",
   );
 
   // Promotion remains a no-op until validation and rights checks are implemented.

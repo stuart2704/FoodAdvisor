@@ -17,6 +17,7 @@
   "dependencies": {
     "@clerk/express": "^2.1.69",
     "@clerk/shared": "^4.33.0",
+    "@elastic/elasticsearch": "^9.5.1",
     "@google-cloud/storage": "^7.22.0",
     "@replit/connectors-sdk": "^0.4.1",
     "@workspace/api-zod": "workspace:*",

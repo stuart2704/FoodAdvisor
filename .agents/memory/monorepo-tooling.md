@@ -9,6 +9,12 @@ The package-install callback targets the workspace root and can fail with the pn
 
 **How to apply:** Check the target package manifest and keep app dependencies owned by that package.
 
+After a package-scoped add introduces a new optional peer, workspace links may still point at the old peer variant even when the lockfile expects the new one. Reconcile the workspace from its frozen lockfile before diagnosing widespread type errors.
+
+**Why:** A transitive telemetry dependency changed a shared ORM's peer variant; stale package links made otherwise identical private types incompatible, and a file watcher briefly saw install-time temporary directories.
+
+**How to apply:** If unrelated cross-package type errors appear immediately after a scoped install, compare the resolved peer variants and package symlinks; sync installs from the lockfile and restart any watcher interrupted mid-install.
+
 Orval's automatic Zod version detection does not reliably interpret workspace catalog references. Keep generation aligned with the runtime's actual Zod major version.
 
 **Why:** Adding integer response schemas exposed generation of Zod 4-only validators against a Zod 3 runtime. Other schemas had hidden the mismatch.

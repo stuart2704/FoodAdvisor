@@ -40,6 +40,7 @@ import googleReviewsRouter from "./google-reviews";
 import betterContactRouter from "./betterContact";
 import collectionsRouter from "./collections";
 import chefStorageRouter from "./chefStorage";
+import adminIngestionRouter from "./adminIngestion";
 
 const router: IRouter = Router();
 
@@ -84,5 +85,6 @@ router.use(googleReviewsRouter);
 router.use(betterContactRouter);
 router.use(collectionsRouter);
 router.use(chefStorageRouter);
+router.use(adminIngestionRouter);
 
 export default router;

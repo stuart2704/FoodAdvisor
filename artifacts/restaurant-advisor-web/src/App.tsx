@@ -17,6 +17,7 @@ import AdminLogout from "./pages/admin/logout";
 import AdminOutreach from "./pages/admin/outreach";
 import AdminOwnerContacts from "./pages/admin/owner-contacts";
 import AdminPerformance from "./pages/admin/performance";
+import AdminIngestion from "./pages/admin/ingestion";
 import ManageRestaurantsPage from "./pages/admin-restaurants";
 import AdminChefReviewPage from "./pages/admin-chef-review";
 import ClaimRestaurant from "./pages/claim";
@@ -79,6 +80,7 @@ function AppRoutes() {
         <Route path="/admin/logout" element={<AdminLogout />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/admin/performance" element={<AdminPerformance />} />
+        <Route path="/admin/ingestion" element={<AdminIngestion />} />
         <Route path="/admin/errors" element={<AdminErrors />} />
         <Route path="/admin/outreach" element={<AdminOutreach />} />
         <Route path="/admin/owner-contacts" element={<AdminOwnerContacts />} />
