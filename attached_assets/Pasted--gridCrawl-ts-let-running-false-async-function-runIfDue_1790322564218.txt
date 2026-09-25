@@ -1,0 +1,72 @@
+// gridCrawl.ts
+
+let running = false;
+
+async function runIfDue(): Promise<void> {
+  if (running) return;
+  running = true;
+
+  try {
+    const now = new Date();
+    const state = await getGridRuntimeState();
+
+    // 1. If the scheduled Google grid crawl should run, keep existing behaviour.
+    if (shouldRunScheduledGridCrawl(state, now)) {
+      const localGrid = resolve(process.cwd(), "coordinates.json");
+      const gridFile = existsSync(localGrid)
+        ? localGrid
+        : resolve(process.cwd(), "artifacts/api-server/coordinates.json");
+
+      await runDailyCrawl([
+        "--grid", gridFile,
+        "--state", resolve(process.cwd(), "grid-progress.json"),
+        "--monthly-budget-cents", String(state.monthly_budget_cents),
+        "--confirm", "--auto",
+      ]);
+
+      return;
+    }
+
+    // 2. If Google crawl is NOT due and the monthly budget is exhausted,
+    //    run a separate external-candidate ingestion pipeline.
+    if (state.monthly_budget_cents === 0) {
+      await runExternalCandidateIngestion(state, now);
+      return;
+    }
+
+    // 3. Otherwise: nothing to do this hour.
+  } catch (error) {
+    logger.error(
+      { err: error },
+      "Automatic grid crawl or external ingestion stopped; no uncertain point was retried."
+    );
+  } finally {
+    running = false;
+  }
+}
+
+/**
+ * External candidate ingestion:
+ * - Fetches Zomato / Michelin / OSM / other free sources.
+ * - Stores results ONLY in a candidate store.
+ * - Does NOT write place_id, google_maps_url, enrichmentStatus, or outreachStatus.
+ * - Does NOT touch restaurant or outreach records.
+ */
+async function runExternalCandidateIngestion(
+  state: GridRuntimeState,
+  now: Date
+): Promise<void> {
+  // TODO: implement your external candidate ingestion here.
+  // Example shape (conceptual only):
+
+  // await ingestExternalCandidates({
+  //   cities: state.cities,          // or a configured list
+  //   country: state.country,        // if applicable
+  //   runDate: now,
+  // });
+
+  logger.info(
+    { at: now.toISOString() },
+    "External candidate ingestion run because Google monthly budget is exhausted."
+  );
+}
