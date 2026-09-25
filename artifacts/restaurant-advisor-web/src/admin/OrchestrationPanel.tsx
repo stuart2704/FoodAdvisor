@@ -48,7 +48,6 @@ export default function OrchestrationPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
-
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);

@@ -25,3 +25,4 @@
 - [Offline PostgreSQL tests](offline-postgresql-tests.md) — point temporary clusters at their own socket directory; this environment lacks the default lock directory.
 - [Location slug continuity](location-slug-continuity.md) — a rename can change neighbors' computed slugs; preserve every changed URL and allow aliases to be retargeted repeatedly.
 - [External source activation](external-source-activation.md) — placeholder provider URLs stay dormant; scheduled ingestion must report real fetch failures rather than mark them successful.
+- [Manual OSM ingestion policy](manual-osm-ingestion-policy.md) — keep manual city runs local and separate from the existing all-city schedule; do not imply regional dispatch.

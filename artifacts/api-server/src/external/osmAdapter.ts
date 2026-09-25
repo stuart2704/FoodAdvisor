@@ -15,10 +15,11 @@ type OsmElement = {
 const HALF_BOX_DEGREES = 0.05;
 const REQUEST_PAUSE_MS = 1_500;
 
-export const osmAdapter: ExternalAdapter = {
-  async fetch({ now }): Promise<ExternalCandidate[]> {
+type City = (typeof globalCities)[number];
+
+async function fetchCities(now: Date, cities: readonly City[]): Promise<ExternalCandidate[]> {
     const candidates = new Map<string, ExternalCandidate>();
-    for (const [index, city] of globalCities.entries()) {
+    for (const [index, city] of cities.entries()) {
       const region = regionForCountry(city.country);
       if (index > 0) {
         await new Promise<void>((resolve) => setTimeout(resolve, REQUEST_PAUSE_MS));
@@ -102,5 +103,12 @@ export const osmAdapter: ExternalAdapter = {
       }
     }
     return [...candidates.values()];
-  },
+}
+
+export function fetchOsmCandidatesForCity(city: City, now: Date): Promise<ExternalCandidate[]> {
+  return fetchCities(now, [city]);
+}
+
+export const osmAdapter: ExternalAdapter = {
+  fetch: ({ now }) => fetchCities(now, globalCities),
 };

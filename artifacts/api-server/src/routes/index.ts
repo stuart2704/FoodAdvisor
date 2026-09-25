@@ -43,6 +43,7 @@ import collectionsRouter from "./collections";
 import chefStorageRouter from "./chefStorage";
 import adminIngestionRouter from "./adminIngestion";
 import orchestrationRouter from "./orchestration";
+import ingestRouter from "./ingest";
 
 const router: IRouter = Router();
 
@@ -90,5 +91,6 @@ router.use(collectionsRouter);
 router.use(chefStorageRouter);
 router.use(adminIngestionRouter);
 router.use("/dashboard/orchestration", orchestrationRouter);
+router.use("/dashboard/ingest", ingestRouter);
 
 export default router;

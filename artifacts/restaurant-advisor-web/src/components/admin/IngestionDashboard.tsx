@@ -24,7 +24,7 @@ function isHealth(value: unknown): value is IngestionHealth {
     (metrics.eligible === null || typeof metrics.eligible === "number");
 }
 
-export default function IngestionDashboard() {
+export default function IngestionDashboard({ refreshKey = 0 }: { refreshKey?: number }) {
   const navigate = useNavigate();
   const [health, setHealth] = useState<IngestionHealth | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +60,7 @@ export default function IngestionDashboard() {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [navigate, revision]);
+  }, [navigate, revision, refreshKey]);
 
   return (
     <section aria-labelledby="ingestion-title">
