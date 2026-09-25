@@ -23,3 +23,4 @@
 - [Social publishing safety](social-publishing-safety.md) — keep scheduled publishing opt-in and treat ambiguous provider outcomes as non-retriable until reviewed.
 - [Instagram connection boundary](instagram-connection-boundary.md) — workspace connector authorization does not connect Instagram inside The Food Advisor.
 - [Offline PostgreSQL tests](offline-postgresql-tests.md) — point temporary clusters at their own socket directory; this environment lacks the default lock directory.
+- [External source activation](external-source-activation.md) — placeholder provider URLs stay dormant; scheduled ingestion must report real fetch failures rather than mark them successful.
