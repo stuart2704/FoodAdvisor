@@ -11,14 +11,15 @@ let task: ScheduledTask | undefined;
 /** Independent of the Google grid crawl; the database records successful runs. */
 export async function runExternalIngestionIfDue(now: Date): Promise<void> {
   const client = await pool.connect();
-  let locked = false;
+  let transactionOpen = false;
   try {
+    await client.query("BEGIN");
+    transactionOpen = true;
     const lock = await client.query<{ locked: boolean }>(
-      "SELECT pg_try_advisory_lock($1, $2) AS locked",
+      "SELECT pg_try_advisory_xact_lock($1, $2) AS locked",
       EXTERNAL_INGESTION_LOCK_KEYS,
     );
-    locked = lock.rows[0]?.locked === true;
-    if (!locked) return;
+    if (lock.rows[0]?.locked !== true) return;
 
     const state = await client.query<{ last_run_at: Date | null }>(
       "SELECT last_run_at FROM external_ingestion_schedule WHERE id = $1",
@@ -34,13 +35,15 @@ export async function runExternalIngestionIfDue(now: Date): Promise<void> {
        ON CONFLICT (id) DO UPDATE SET last_run_at = EXCLUDED.last_run_at`,
       [EXTERNAL_INGESTION_STATE_KEY, now],
     );
+    await client.query("COMMIT");
+    transactionOpen = false;
   } finally {
     try {
-      if (locked) {
-        await client.query("SELECT pg_advisory_unlock($1, $2)", EXTERNAL_INGESTION_LOCK_KEYS);
-      }
-    } finally {
+      if (transactionOpen) await client.query("ROLLBACK");
       client.release();
+    } catch (error) {
+      client.release(error instanceof Error ? error : new Error("Failed to release ingestion transaction"));
+      throw error;
     }
   }
 }
