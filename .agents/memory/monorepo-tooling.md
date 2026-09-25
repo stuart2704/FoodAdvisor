@@ -9,6 +9,12 @@ The package-install callback targets the workspace root and can fail with the pn
 
 **How to apply:** Check the target package manifest and keep app dependencies owned by that package.
 
+For app-local test runners, match the runner's Vite peer compatibility to the artifact's Vite major rather than installing the newest runner indiscriminately.
+
+**Why:** The latest Vitest release loaded a Vite module-runner export that the existing Vite major does not provide; a compatible Vitest major worked without changing the app's build toolchain.
+
+**How to apply:** Check the artifact's Vite version before adding or upgrading Vitest, especially when the package firewall prevents use of an older pin.
+
 After a package-scoped add introduces a new optional peer, workspace links may still point at the old peer variant even when the lockfile expects the new one. Reconcile the workspace from its frozen lockfile before diagnosing widespread type errors.
 
 **Why:** A transitive telemetry dependency changed a shared ORM's peer variant; stale package links made otherwise identical private types incompatible, and a file watcher briefly saw install-time temporary directories.
