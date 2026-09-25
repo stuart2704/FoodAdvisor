@@ -1,4 +1,5 @@
 import type { Region } from "./globalRouter";
+import { clusterHeartbeat } from "./clusterHeartbeat";
 
 export type RegionHealth = "healthy" | "degraded" | "offline";
 
@@ -21,4 +22,16 @@ export function setRegionHealth(region: Region, status: RegionHealth): void {
 export function getRegionHealth(region: Region): RegionHealth | "unknown" {
   assertRegion(region);
   return health[region] ?? "unknown";
+}
+
+/** Refresh from the regional heartbeat, never the shared OSM upstream probe. */
+export async function updateRegionHealth(region: Region): Promise<RegionHealth | "unknown"> {
+  assertRegion(region);
+  const { status } = await clusterHeartbeat(region);
+  if (status === "unknown") {
+    delete health[region];
+  } else {
+    health[region] = status;
+  }
+  return status;
 }

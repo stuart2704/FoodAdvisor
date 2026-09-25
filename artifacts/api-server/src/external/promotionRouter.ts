@@ -2,8 +2,8 @@ import { orchestrateIngestion } from "./ingestionOrchestrator";
 import type { Region } from "./globalRouter";
 
 /** Describes a possible destination; does not publish candidates. */
-export function promotionRegion(region: Region) {
-  const ingestion = orchestrateIngestion(region);
+export async function promotionRegion(region: Region) {
+  const ingestion = await orchestrateIngestion(region);
 
   return {
     promotionRegion: ingestion.ingestRegion,

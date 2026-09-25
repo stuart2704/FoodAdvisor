@@ -21,8 +21,8 @@ Process-local suppression sets are only temporary operational filters, not durab
 
 **How to apply:** Use persisted source state for automatic circuit breaking and the existing restaurant database suppression fields for outreach. If adding a worker, choose a durable queue with leases or equivalent retry semantics.
 
-Do not connect cross-region candidate routing until regional health has a real source. Process-local adapter suppression is not a health check, and choosing an alternate label is not failover.
+Do not connect cross-region candidate routing until regional health has a verified source. Shared OSM availability, process-local adapter suppression, and choosing an alternate label are not proof of regional service health or live failover.
 
 **Why:** A degraded region could otherwise be selected again or data could be sent to an unverified destination while the system reports a successful fallback.
 
-**How to apply:** Keep region-selection helpers advisory. Before any live routing, verify per-region service availability and define how unknown/offline destinations fail closed.
+**How to apply:** Keep region-selection helpers advisory. Before any live routing, verify each region's actual service endpoint and define how unknown/offline destinations fail closed. A DNS/network failure from one observer means unknown, not confirmed remote outage; never suppress a region based on that alone.

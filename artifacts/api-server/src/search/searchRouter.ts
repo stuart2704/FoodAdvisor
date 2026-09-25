@@ -2,12 +2,14 @@ import { routingDecision } from "../external/routingDecision";
 import type { Region } from "../external/globalRouter";
 
 /** Advisory selection only; public restaurant search still uses PostgreSQL. */
-export function searchRouter(region: Region) {
-  const decision = routingDecision(region);
+export async function searchRouter(region: Region) {
+  const decision = await routingDecision(region);
 
   return {
+    region,
     searchRegion: decision.routedTo,
+    failover: decision.failover,
     reason: decision.reason,
-    failover: decision.routedTo !== null && region !== decision.routedTo,
+    clusterConnected: decision.clusterConnected,
   };
 }
