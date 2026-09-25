@@ -122,9 +122,9 @@ const restaurant = {
   address: "Example Street",
 };
 
-function reset(restaurants = [restaurant], offers = []) {
+function reset(restaurants = [restaurant], offers = [], events = []) {
   globalThis.__profileTestState = {
-    restaurants, offers, events: [], menu: [], chef: [], members: [], collections: [],
+    restaurants, offers, events, menu: [], chef: [], members: [], collections: [],
     queries: [],
   };
 }
@@ -145,6 +145,13 @@ async function profileAtFixedDay(id) {
 
 function offer(id, title, startDate, endDate, restaurantId = restaurant.placeId) {
   return { id, title, description: title + " description", startDate, endDate, restaurantId };
+}
+
+function event(id, title, eventDate, eventTime, restaurantId = restaurant.placeId) {
+  return {
+    id, title, description: title + " description", eventDate, eventTime,
+    price: "Free", restaurantId,
+  };
 }
 
 test("profile exposes only active offers, including both same-day boundaries", async () => {
@@ -199,6 +206,51 @@ test("active offers with matching expiry dates have a stable start-date and ID o
   assert.deepEqual(profile.offers.map((item) => item.title), [
     "Sooner expiry", "Earlier start", "Later start, low ID", "Later start, high ID",
   ]);
+});
+
+test("verified public profile includes today's and future events in date/time order, not past or other listings", async () => {
+  reset([restaurant], [], [
+    event(1, "Future evening", "2026-09-26", "20:00"),
+    event(2, "Today evening", today, "20:00"),
+    event(3, "Yesterday", "2026-09-24", "23:59"),
+    event(4, "Today morning", today, "09:00"),
+    event(5, "Future morning", "2026-09-26", "09:00"),
+    event(6, "Other listing", today, "08:00", "other-place"),
+    event(7, "Today midnight", today, "00:00"),
+  ]);
+
+  const profile = await profileAtFixedDay(restaurant.placeId);
+  assert.equal(profile.verified, true);
+  assert.deepEqual(profile.events.map((item) => item.title), [
+    "Today midnight", "Today morning", "Today evening",
+    "Future morning", "Future evening",
+  ]);
+  assert.deepEqual(profile.events[1], {
+    title: "Today morning", description: "Today morning description",
+    date: today, time: "09:00", price: "Free",
+  });
+});
+
+test("unverified and unpublished listings never expose stored future events", async () => {
+  const states = [
+    { claimStatus: null, claimedAt: null },
+    { claimStatus: "pending", claimedAt: null },
+    { claimStatus: "verified", claimedAt: null },
+    { claimStatus: "pending", claimedAt: restaurant.claimedAt, published: false },
+  ];
+  for (const state of states) {
+    reset([{ ...restaurant, ...state }], [], [
+      event(1, "Stored event", "2026-09-26", "19:00"),
+    ]);
+    const profile = await profileAtFixedDay(restaurant.placeId);
+    if (state.published === false) {
+      assert.equal(profile, null);
+    } else {
+      assert.equal(profile.verified, false);
+      assert.deepEqual(profile.events, []);
+    }
+    assert.equal(globalThis.__profileTestState.queries.includes("events"), false);
+  }
 });
 
 test.after(async () => {
