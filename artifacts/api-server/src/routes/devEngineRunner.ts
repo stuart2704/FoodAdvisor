@@ -4,7 +4,7 @@ import { adminOnly } from "../middleware/adminOnly";
 
 const router: IRouter = Router();
 
-router.post("/run-engines", adminOnly, async (req, res) => {
+router.post("/run-engines", (req, res, next) => {
   if (process.env.NODE_ENV === "production") {
     res.status(403).json({
       error: "Engine runner is disabled in production.",
@@ -12,6 +12,8 @@ router.post("/run-engines", adminOnly, async (req, res) => {
     return;
   }
 
+  next();
+}, adminOnly, async (req, res) => {
   try {
     await runEngineCycle();
     res.json({ status: "ok", message: "Engine cycle executed." });
