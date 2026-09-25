@@ -1,5 +1,5 @@
 import { db, restaurantsTable } from "@workspace/db";
-import { eq, or } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import QRCode from "qrcode";
 import { z } from "zod";
@@ -25,9 +25,12 @@ router.get(["/qr/:id", "/qrcode/:id"], async (req, res) => {
       })
       .from(restaurantsTable)
       .where(
-        or(
-          eq(restaurantsTable.placeId, parsed.data.id),
-          eq(restaurantsTable.slug, parsed.data.id),
+        and(
+          eq(restaurantsTable.published, true),
+          or(
+            eq(restaurantsTable.placeId, parsed.data.id),
+            eq(restaurantsTable.slug, parsed.data.id),
+          ),
         ),
       )
       .limit(1);

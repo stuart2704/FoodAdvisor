@@ -1,5 +1,5 @@
-import { db, restaurantMenuItemsTable } from "@workspace/db";
-import { asc, eq } from "drizzle-orm";
+import { db, restaurantMenuItemsTable, restaurantsTable } from "@workspace/db";
+import { and, asc, eq } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
@@ -45,7 +45,14 @@ router.get("/menus/:id", async (req, res) => {
         category: restaurantMenuItemsTable.category,
       })
       .from(restaurantMenuItemsTable)
-      .where(eq(restaurantMenuItemsTable.restaurantId, parsed.data.id))
+      .innerJoin(
+        restaurantsTable,
+        eq(restaurantMenuItemsTable.restaurantId, restaurantsTable.placeId),
+      )
+      .where(and(
+        eq(restaurantMenuItemsTable.restaurantId, parsed.data.id),
+        eq(restaurantsTable.published, true),
+      ))
       .orderBy(
         asc(restaurantMenuItemsTable.category),
         asc(restaurantMenuItemsTable.name),

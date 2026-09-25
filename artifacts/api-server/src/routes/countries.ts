@@ -1,5 +1,5 @@
 import { db, restaurantsTable } from "@workspace/db";
-import { asc, eq, isNotNull, sql } from "drizzle-orm";
+import { and, asc, eq, isNotNull, sql } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { locationSlugs, slugify } from "../utils/slugify";
@@ -18,7 +18,7 @@ router.get("/countries", async (req, res) => {
         count: sql<number>`count(*)`.mapWith(Number),
       })
       .from(restaurantsTable)
-      .where(isNotNull(restaurantsTable.country))
+      .where(and(isNotNull(restaurantsTable.country), eq(restaurantsTable.published, true)))
       .groupBy(restaurantsTable.country)
       .orderBy(asc(restaurantsTable.country))
       .limit(250);
@@ -50,7 +50,7 @@ router.get("/countries/:slug", async (req, res) => {
     const countries = await db
       .selectDistinct({ country: restaurantsTable.country })
       .from(restaurantsTable)
-      .where(isNotNull(restaurantsTable.country))
+      .where(and(isNotNull(restaurantsTable.country), eq(restaurantsTable.published, true)))
       .limit(250);
     const country = countries.find(
       (row) => row.country && slugify(row.country) === parsed.data.slug,
@@ -66,13 +66,17 @@ router.get("/countries/:slug", async (req, res) => {
         count: sql<number>`count(*)`.mapWith(Number),
       })
       .from(restaurantsTable)
-      .where(eq(restaurantsTable.country, country))
+      .where(and(
+        eq(restaurantsTable.country, country),
+        eq(restaurantsTable.published, true),
+      ))
       .groupBy(restaurantsTable.city, restaurantsTable.region)
       .orderBy(asc(restaurantsTable.city))
       .limit(1_000);
     const allCities = await db
       .selectDistinct({ city: restaurantsTable.city })
       .from(restaurantsTable)
+      .where(eq(restaurantsTable.published, true))
       .orderBy(asc(restaurantsTable.city))
       .limit(1_000);
     const citySlugs = locationSlugs(allCities.map((row) => row.city));

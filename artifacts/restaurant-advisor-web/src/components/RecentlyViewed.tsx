@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import RestaurantPhoto from "./RestaurantPhoto";
+import OsmAttribution from "./OsmAttribution";
 
 interface RecentlyViewedRestaurant {
   id: string;
@@ -63,7 +64,7 @@ export default function RecentlyViewed() {
         {items.map((restaurant) => (
           <Link
             key={restaurant.id}
-            to={`/restaurant/${restaurant.id}`}
+            to={`/restaurant/${encodeURIComponent(restaurant.id)}`}
             style={{ textDecoration: "none", color: "inherit" }}
           >
             <div
@@ -83,6 +84,7 @@ export default function RecentlyViewed() {
               <div style={{ padding: "12px" }}>
                 <div style={{ fontWeight: 600 }}>{restaurant.name}</div>
                 <div style={{ opacity: 0.7 }}>{restaurant.city}</div>
+                {restaurant.id.startsWith("osm:") && <OsmAttribution />}
               </div>
             </div>
           </Link>

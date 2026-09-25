@@ -1,5 +1,6 @@
 import { AuthenticateWithRedirectCallback } from "@clerk/react";
 import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Navbar from "./components/Navbar";
 import RestaurantDetail from "./components/RestaurantDetail";
 import Trending from "./components/Trending";
@@ -35,6 +36,12 @@ import OwnerPage from "./pages/OwnerPage";
 import RestaurantsPage from "./pages/RestaurantsPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import CityHighlights from "./components/CityHighlights";
+import AdminCandidatesPage from "./pages/admin/candidates";
+import { RequireAdmin } from "./components/admin/RequireAdmin";
+import OsmClaimPage from "./pages/osm-claim";
+import OsmOwnerPage from "./pages/osm-owner";
+
+const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } });
 
 function AppRoutes() {
   const location = useLocation();
@@ -50,8 +57,10 @@ function AppRoutes() {
         <Route path="/about" element={<AboutPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/owner" element={<OwnerPage />} />
+        <Route path="/owner/claim" element={<OsmOwnerPage />} />
         <Route path="/restaurant/:id" element={<RestaurantDetail />} />
         <Route path="/claim/:placeId" element={<ClaimRestaurant />} />
+        <Route path="/claim/:candidateId/:token" element={<OsmClaimPage />} />
         <Route path="/claim/:id/success" element={<ClaimSuccessPage />} />
         <Route path="/portal/:token" element={<PortalPage />} />
         <Route path="/portal/:token/analytics" element={<PortalAnalyticsPage />} />
@@ -86,6 +95,7 @@ function AppRoutes() {
         <Route path="/admin/outreach" element={<AdminOutreach />} />
         <Route path="/admin/owner-contacts" element={<AdminOwnerContacts />} />
         <Route path="/admin/restaurants" element={<ManageRestaurantsPage />} />
+        <Route path="/admin/candidates" element={<RequireAdmin><AdminCandidatesPage /></RequireAdmin>} />
         <Route path="/admin/chef-review" element={<AdminChefReviewPage />} />
         <Route path="/admin/logs" element={<AdminLogs />} />
         <Route path="/admin/automation/social" element={<SocialAutomationPage />} />
@@ -104,8 +114,10 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AppRoutes />
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </QueryClientProvider>
   );
 }

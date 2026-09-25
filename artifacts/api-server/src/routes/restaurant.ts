@@ -7,7 +7,7 @@ import {
 import { z } from "zod";
 import { getRestaurantProfile } from "../services/restaurantProfileEngine";
 import { db, restaurantProfileViewEventsTable, restaurantsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { adminOnly } from "../middleware/adminOnly";
 import { restaurantSlug } from "../utils/slugify";
@@ -182,7 +182,7 @@ async function serveRestaurantProfile(
         premium: data.premium,
         claimed: data.claimed,
       });
-      await logEvent(data.id, "profile_view");
+      await logEvent(data.id, "profile_view", { source: "server_profile" });
     } catch (error) {
       req.log.warn({ err: error }, "Restaurant profile metric could not be recorded");
     }
@@ -217,7 +217,10 @@ router.get("/restaurants/:slug", async (req, res) => {
   const [restaurant] = await db
     .select({ placeId: restaurantsTable.placeId })
     .from(restaurantsTable)
-    .where(eq(restaurantsTable.slug, parsed.data.slug))
+    .where(and(
+      eq(restaurantsTable.slug, parsed.data.slug),
+      eq(restaurantsTable.published, true),
+    ))
     .limit(1);
   if (!restaurant) {
     res.status(404).json({ success: false, error: "Restaurant not found." });

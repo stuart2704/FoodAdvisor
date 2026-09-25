@@ -37,3 +37,4 @@ export * from "./socialLogs";
 export * from "./socialSettings";
 export * from "./externalIngestionSchedule";
 export * from "./externalCandidates";
+export * from "./osmClaimWorkflow";

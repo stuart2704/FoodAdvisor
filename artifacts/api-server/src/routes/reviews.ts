@@ -5,7 +5,7 @@ import {
   restaurantsTable,
   userRewardEventsTable,
 } from "@workspace/db";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
@@ -45,7 +45,10 @@ router.post("/reviews", reviewLimiter, async (req, res) => {
     const [restaurant] = await db
       .select({ id: restaurantsTable.placeId })
       .from(restaurantsTable)
-      .where(eq(restaurantsTable.placeId, parsed.data.restaurantId))
+      .where(and(
+        eq(restaurantsTable.placeId, parsed.data.restaurantId),
+        eq(restaurantsTable.published, true),
+      ))
       .limit(1);
     if (!restaurant) {
       res.status(404).json({ success: false, error: "Restaurant not found." });
@@ -88,6 +91,15 @@ router.get("/reviews/:id", async (req, res) => {
     return;
   }
   try {
+    const [restaurant] = await db.select({ id: restaurantsTable.placeId })
+      .from(restaurantsTable).where(and(
+        eq(restaurantsTable.placeId, parsed.data.id),
+        eq(restaurantsTable.published, true),
+      )).limit(1);
+    if (!restaurant) {
+      res.status(404).json({ success: false, error: "Restaurant not found." });
+      return;
+    }
     const reviews = await db
       .select({
         id: restaurantReviewsTable.id,

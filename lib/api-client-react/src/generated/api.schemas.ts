@@ -5,6 +5,438 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type OsmCandidateState = typeof OsmCandidateState[keyof typeof OsmCandidateState];
+
+
+export const OsmCandidateState = {
+  unverified: 'unverified',
+  reviewed: 'reviewed',
+  claim_invited: 'claim_invited',
+  claim_verified: 'claim_verified',
+  activated: 'activated',
+  published: 'published',
+  suppressed: 'suppressed',
+} as const;
+
+export type OsmEvidenceStatus = typeof OsmEvidenceStatus[keyof typeof OsmEvidenceStatus];
+
+
+export const OsmEvidenceStatus = {
+  not_submitted: 'not_submitted',
+  pending: 'pending',
+  approved: 'approved',
+  rejected: 'rejected',
+} as const;
+
+export type OsmActivationStep = typeof OsmActivationStep[keyof typeof OsmActivationStep];
+
+
+export const OsmActivationStep = {
+  promotion: 'promotion',
+  enrichment: 'enrichment',
+  scoring: 'scoring',
+  publication: 'publication',
+  finalization: 'finalization',
+} as const;
+
+export interface OsmCandidate {
+  sourceName: string;
+  sourceId: string;
+  name: string;
+  /** @nullable */
+  address: string | null;
+  /** @nullable */
+  phone: string | null;
+  /** @nullable */
+  website: string | null;
+  /**
+     * @minimum -90
+     * @maximum 90
+     * @nullable
+     */
+  latitude: number | null;
+  /**
+     * @minimum -180
+     * @maximum 180
+     * @nullable
+     */
+  longitude: number | null;
+  importedAt: string;
+  /** @nullable */
+  reviewedAt?: string | null;
+  state: OsmCandidateState;
+  reviewed: boolean;
+  claimed: boolean;
+  /** Email channel ownership only; not business ownership proof. */
+  identityVerified: boolean;
+  /** True only after explicit admin approval of source reuse rights evidence. */
+  rightsConfirmed: boolean;
+  published: boolean;
+  suppressed: boolean;
+  outreachBlocked: boolean;
+  highConfidence: boolean;
+  /**
+     * @minimum 0
+     * @maximum 3
+     */
+  inviteCount: number;
+  requiredFieldsComplete: boolean;
+}
+
+/**
+ * Private evidence details returned only to authenticated administrators.
+ */
+export interface OsmEvidenceRecord {
+  status: OsmEvidenceStatus;
+  description: string;
+  /** @nullable */
+  evidenceUrl: string | null;
+  /** @nullable */
+  sourceAttribution: string | null;
+  submittedAt: string;
+  /** @nullable */
+  reviewedAt: string | null;
+  /** @nullable */
+  reviewedBy: string | null;
+  /** @nullable */
+  reviewerNote: string | null;
+}
+
+export type OsmCandidateWorkflowEvidence = {
+  ownershipStatus: OsmEvidenceStatus;
+  rightsStatus: OsmEvidenceStatus;
+  /** @nullable */
+  submittedAt: string | null;
+  ownershipSubmission: OsmEvidenceRecord | null;
+  sourceRightsSubmission: OsmEvidenceRecord | null;
+};
+
+export type OsmActivationProgressErrorsItem = {
+  step: OsmActivationStep;
+  /** @maxLength 100 */
+  errorCode: string;
+  timestamp: string;
+};
+
+export interface OsmActivationProgress {
+  promoted: boolean;
+  enriched: boolean;
+  scored: boolean;
+  published: boolean;
+  /** @nullable */
+  currentStep: string | null;
+  errors: OsmActivationProgressErrorsItem[];
+  /** @nullable */
+  activatedAt: string | null;
+}
+
+export interface OsmCandidateWorkflow {
+  candidate: OsmCandidate;
+  evidence: OsmCandidateWorkflowEvidence;
+  activation: OsmActivationProgress;
+}
+
+export interface OsmCandidatePage {
+  items: OsmCandidateWorkflow[];
+  /** @nullable */
+  nextCursor: string | null;
+}
+
+export interface OsmSuppressionInput {
+  /** @maxLength 1000 */
+  reason?: string;
+}
+
+export type OsmClaimInviteInputMethod = typeof OsmClaimInviteInputMethod[keyof typeof OsmClaimInviteInputMethod];
+
+
+export const OsmClaimInviteInputMethod = {
+  email: 'email',
+  sms: 'sms',
+  outreach: 'outreach',
+} as const;
+
+export interface OsmClaimInviteInput {
+  /**
+     * Email address, or a future explicitly configured channel address; provider-specific validation applies.
+     * @maxLength 254
+     */
+  sentTo: string;
+  method: OsmClaimInviteInputMethod;
+}
+
+export type OsmOutreachLogMethod = typeof OsmOutreachLogMethod[keyof typeof OsmOutreachLogMethod];
+
+
+export const OsmOutreachLogMethod = {
+  email: 'email',
+  sms: 'sms',
+  outreach: 'outreach',
+} as const;
+
+export type OsmOutreachLogStatus = typeof OsmOutreachLogStatus[keyof typeof OsmOutreachLogStatus];
+
+
+export const OsmOutreachLogStatus = {
+  sent: 'sent',
+  failed: 'failed',
+  bounced: 'bounced',
+  unknown: 'unknown',
+} as const;
+
+export interface OsmOutreachLog {
+  id: string;
+  sourceName: string;
+  sourceId: string;
+  /**
+     * Private contact data; admin-only response.
+     * @nullable
+     */
+  sentTo: string | null;
+  method: OsmOutreachLogMethod;
+  status: OsmOutreachLogStatus;
+  createdAt: string;
+  /**
+     * Sanitized provider error category; never raw error text.
+     * @nullable
+     */
+  errorCode?: string | null;
+}
+
+export type OsmEvidenceDecisionInputKind = typeof OsmEvidenceDecisionInputKind[keyof typeof OsmEvidenceDecisionInputKind];
+
+
+export const OsmEvidenceDecisionInputKind = {
+  ownership: 'ownership',
+  source_rights: 'source_rights',
+} as const;
+
+export type OsmEvidenceDecisionInputDecision = typeof OsmEvidenceDecisionInputDecision[keyof typeof OsmEvidenceDecisionInputDecision];
+
+
+export const OsmEvidenceDecisionInputDecision = {
+  approved: 'approved',
+  rejected: 'rejected',
+} as const;
+
+export interface OsmEvidenceDecisionInput {
+  kind: OsmEvidenceDecisionInputKind;
+  decision: OsmEvidenceDecisionInputDecision;
+  /**
+     * @maxLength 2000
+     * @nullable
+     */
+  reviewerNote?: string | null;
+}
+
+export interface OsmOutreachPreferenceInput {
+  blocked: boolean;
+}
+
+export interface OsmClaimExchangeInput {
+  /**
+     * @minLength 32
+     * @maxLength 512
+     */
+  claimToken: string;
+}
+
+export type OsmOwnerSessionResponseDashboardMode = typeof OsmOwnerSessionResponseDashboardMode[keyof typeof OsmOwnerSessionResponseDashboardMode];
+
+
+export const OsmOwnerSessionResponseDashboardMode = {
+  pre_activation: 'pre_activation',
+  activated: 'activated',
+} as const;
+
+export interface OsmOwnerSessionResponse {
+  /** Returned once; server stores only a hash. */
+  ownerSession: string;
+  expiresAt: string;
+  dashboardMode: OsmOwnerSessionResponseDashboardMode;
+  state: OsmCandidateState;
+}
+
+export interface OsmVerificationCodeInput {
+  /**
+     * @minLength 6
+     * @maxLength 10
+     * @pattern ^[0-9]+$
+     */
+  code: string;
+}
+
+export interface OsmContactVerification {
+  /** Confirms control of the invitation email only. */
+  identityVerified: boolean;
+  state: OsmCandidateState;
+}
+
+export interface OsmClaimEvidenceInput {
+  /**
+     * @minLength 10
+     * @maxLength 4000
+     */
+  ownershipDescription: string;
+  /**
+     * @maxLength 2048
+     * @nullable
+     */
+  ownershipEvidenceUrl?: string | null;
+  /**
+     * @minLength 10
+     * @maxLength 4000
+     */
+  rightsDescription: string;
+  /**
+     * @maxLength 2048
+     * @nullable
+     */
+  rightsEvidenceUrl?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 1000
+     */
+  sourceAttribution: string;
+}
+
+export interface OsmEvidenceSubmission {
+  ownershipStatus: OsmEvidenceStatus;
+  rightsStatus: OsmEvidenceStatus;
+  submittedAt: string;
+}
+
+export type OsmOwnerDashboardDashboardMode = typeof OsmOwnerDashboardDashboardMode[keyof typeof OsmOwnerDashboardDashboardMode];
+
+
+export const OsmOwnerDashboardDashboardMode = {
+  pre_activation: 'pre_activation',
+  activated: 'activated',
+} as const;
+
+export type OsmOwnerDashboardEvidence = {
+  ownershipStatus: OsmEvidenceStatus;
+  rightsStatus: OsmEvidenceStatus;
+};
+
+export interface OsmOwnerDraft {
+  name: string;
+  /** @nullable */
+  address: string | null;
+  /** @nullable */
+  city: string | null;
+  /** @nullable */
+  phone: string | null;
+  /** @nullable */
+  website: string | null;
+  /** @nullable */
+  description: string | null;
+  /**
+     * @maxItems 14
+     * @items.maxLength 200
+     */
+  openingHours: string[];
+  /**
+     * @minimum -90
+     * @maximum 90
+     * @nullable
+     */
+  latitude: number | null;
+  /**
+     * @minimum -180
+     * @maximum 180
+     * @nullable
+     */
+  longitude: number | null;
+  requiredFieldsComplete: boolean;
+}
+
+export interface OsmOwnerDashboard {
+  dashboardMode: OsmOwnerDashboardDashboardMode;
+  candidate: OsmCandidate;
+  draft: OsmOwnerDraft;
+  evidence: OsmOwnerDashboardEvidence;
+  activation: OsmActivationProgress;
+}
+
+export interface OsmOwnerDraftInput {
+  /**
+     * @minLength 1
+     * @maxLength 300
+     */
+  name?: string;
+  /**
+     * @maxLength 1000
+     * @nullable
+     */
+  address?: string | null;
+  /**
+     * @maxLength 200
+     * @nullable
+     */
+  city?: string | null;
+  /**
+     * @maxLength 100
+     * @nullable
+     */
+  phone?: string | null;
+  /**
+     * @maxLength 2048
+     * @nullable
+     */
+  website?: string | null;
+  /**
+     * @maxLength 4000
+     * @nullable
+     */
+  description?: string | null;
+  /**
+     * @maxItems 14
+     * @items.maxLength 200
+     */
+  openingHours?: string[];
+  /**
+     * @minimum -90
+     * @maximum 90
+     * @nullable
+     */
+  latitude?: number | null;
+  /**
+     * @minimum -180
+     * @maximum 180
+     * @nullable
+     */
+  longitude?: number | null;
+}
+
+export type OsmOwnerAnalyticsLast30Days = {
+  /** @minimum 0 */
+  views: number;
+  /** @minimum 0 */
+  searches: number;
+  /** @minimum 0 */
+  clicks: number;
+};
+
+export interface OsmOwnerAnalytics {
+  /** @minimum 0 */
+  views: number;
+  /** @minimum 0 */
+  searches: number;
+  /** @minimum 0 */
+  clicks: number;
+  last30Days: OsmOwnerAnalyticsLast30Days;
+}
+
+export interface OsmOwnerOutreachPreferenceInput {
+  disabled: boolean;
+}
+
+export interface OsmOwnerOutreachPreference {
+  disabled: boolean;
+  updatedAt: string;
+}
+
 export type RewardActivityAction = typeof RewardActivityAction[keyof typeof RewardActivityAction];
 
 
@@ -174,6 +606,14 @@ export interface RestaurantImportStatus {
   cities: string[];
 }
 
+export type RestaurantSourceName = typeof RestaurantSourceName[keyof typeof RestaurantSourceName];
+
+
+export const RestaurantSourceName = {
+  google: 'google',
+  OSM: 'OSM',
+} as const;
+
 export interface GeoLocation {
   /**
      * @minimum -90
@@ -197,7 +637,12 @@ export interface Restaurant {
   rating: number | null;
   /** @nullable */
   website: string | null;
-  googleMapsUrl: string;
+  /** @nullable */
+  googleMapsUrl: string | null;
+  sourceName: RestaurantSourceName;
+  /** @nullable */
+  sourceAttribution: string | null;
+  published: boolean;
   types: string[];
   outreachStatus: string;
   claimed: boolean;
@@ -524,5 +969,18 @@ export type AdminRenewGmailWatch200 = {
 export type AdminActivateGmailWatch200 = {
   ok: true;
   result: GmailWatch;
+};
+
+export type ListOsmCandidatesParams = {
+state?: OsmCandidateState;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+/**
+ * @maxLength 1024
+ */
+cursor?: string;
 };
 

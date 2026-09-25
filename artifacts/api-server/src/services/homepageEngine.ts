@@ -1,6 +1,6 @@
 import { db, restaurantsTable, type RestaurantRecord } from "@workspace/db";
 import { createHash } from "node:crypto";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { calculateRanking } from "./rankingEngine";
 
 export interface HomepageRestaurant {
@@ -49,6 +49,7 @@ export async function getHomepageData(): Promise<HomepageData> {
   const restaurants = await db
     .select()
     .from(restaurantsTable)
+    .where(eq(restaurantsTable.published, true))
     .orderBy(
       desc(restaurantsTable.rankingScore),
       desc(restaurantsTable.rating),

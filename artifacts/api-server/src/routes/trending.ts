@@ -1,5 +1,5 @@
 import { db, restaurantsTable } from "@workspace/db";
-import { desc, sql } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import { cache } from "../lib/cache";
 
@@ -25,6 +25,7 @@ router.get(["/trending", "/trends"], async (req, res) => {
           count: sql<number>`count(*)`.mapWith(Number),
         })
         .from(restaurantsTable)
+        .where(eq(restaurantsTable.published, true))
         .groupBy(restaurantsTable.city)
         .orderBy(desc(sql`count(*)`))
         .limit(5),
@@ -32,7 +33,7 @@ router.get(["/trending", "/trends"], async (req, res) => {
         select cuisine_tag as cuisine, count(*)::int as count
         from ${restaurantsTable}
         cross join lateral unnest(${restaurantsTable.cuisineTags}) as cuisine_tag
-        where cuisine_tag <> ''
+        where ${restaurantsTable.published} = true and cuisine_tag <> ''
         group by cuisine_tag
         order by count(*) desc, cuisine_tag asc
         limit 5

@@ -1,5 +1,5 @@
 import { db, restaurantsTable } from "@workspace/db";
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import {
   Router,
   type IRouter,
@@ -37,12 +37,14 @@ async function handleChat(req: Request, res: Response): Promise<void> {
       db
         .selectDistinct({ city: restaurantsTable.city })
         .from(restaurantsTable)
+        .where(eq(restaurantsTable.published, true))
         .limit(1_000),
       db
         .select({
           cuisine: sql<string>`unnest(${restaurantsTable.cuisineTags})`,
         })
         .from(restaurantsTable)
+        .where(eq(restaurantsTable.published, true))
         .limit(2_000),
     ]);
     const city = cities
@@ -79,7 +81,7 @@ async function handleChat(req: Request, res: Response): Promise<void> {
         premium: restaurantsTable.premium,
       })
       .from(restaurantsTable)
-      .where(sql.join(conditions, sql` and `))
+      .where(and(eq(restaurantsTable.published, true), sql.join(conditions, sql` and `)))
       .orderBy(desc(restaurantsTable.premium), desc(restaurantsTable.rating))
       .limit(5);
 

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getCityPage } from "../services/cityPageEngine";
 import { cityPageViewEventsTable, db } from "@workspace/db";
 import { restaurantsTable } from "@workspace/db";
-import { asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { locationSlugs } from "../utils/slugify";
 import { aliasTarget, canonicalLocationLink, canonicalLocationPath } from "../utils/locationAliases";
 import { cache } from "../lib/cache";
@@ -34,6 +34,7 @@ router.get("/cities", async (req, res) => {
         count: sql<number>`count(*)`.mapWith(Number),
       })
       .from(restaurantsTable)
+      .where(eq(restaurantsTable.published, true))
       .groupBy(restaurantsTable.city)
       .orderBy(asc(restaurantsTable.city))
       .limit(1_000);
@@ -62,6 +63,7 @@ router.get("/cities/:slug", async (req, res) => {
     const cities = await db
       .selectDistinct({ city: restaurantsTable.city })
       .from(restaurantsTable)
+      .where(eq(restaurantsTable.published, true))
        .orderBy(asc(restaurantsTable.city))
       .limit(1_000);
     const slugs = locationSlugs(cities.map((row) => row.city));
@@ -95,10 +97,15 @@ router.get("/cities/:slug", async (req, res) => {
         priceLevel: restaurantsTable.priceLevel,
         website: restaurantsTable.website,
         googleMapsUrl: restaurantsTable.googleMapsUrl,
+        sourceName: restaurantsTable.sourceName,
+        sourceAttribution: restaurantsTable.sourceAttribution,
         premium: restaurantsTable.premium,
       })
       .from(restaurantsTable)
-      .where(eq(restaurantsTable.city, city))
+      .where(and(
+        eq(restaurantsTable.city, city),
+        eq(restaurantsTable.published, true),
+      ))
       .orderBy(
         desc(restaurantsTable.premium),
         desc(restaurantsTable.rankingScore),

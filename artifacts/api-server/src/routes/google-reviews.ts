@@ -1,4 +1,6 @@
-import { Router, type IRouter } from "express";
+import { db, restaurantsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { Router, type IRouter, type Response } from "express";
 import { z } from "zod";
 import { budgetedPlacesFetch, PlacesBudgetExceededError } from "../lib/budgetedPlacesFetch";
 
@@ -24,6 +26,27 @@ const openCache = new Map<
 const PlaceParams = z.object({
   placeId: z.string().trim().min(1).max(300),
 });
+
+async function requireGoogleRestaurant(placeId: string, res: Response): Promise<boolean> {
+  try {
+    const [restaurant] = await db.select({
+      sourceName: restaurantsTable.sourceName,
+      published: restaurantsTable.published,
+    }).from(restaurantsTable).where(eq(restaurantsTable.placeId, placeId)).limit(1);
+    if (!restaurant || !restaurant.published) {
+      res.status(404).json({ error: "Published restaurant not found." });
+      return false;
+    }
+    if (restaurant.sourceName !== "google") {
+      res.status(409).json({ error: "Google Places data is unavailable for non-Google listings." });
+      return false;
+    }
+    return true;
+  } catch {
+    res.status(503).json({ error: "Restaurant provider details are unavailable." });
+    return false;
+  }
+}
 
 type PlaceReviewsResponse = {
   reviews: unknown[];
@@ -58,6 +81,7 @@ router.get("/reviews/google/:placeId", async (req, res): Promise<void> => {
   }
 
   const { placeId } = parsed.data;
+  if (!(await requireGoogleRestaurant(placeId, res))) return;
   const cached = reviewsCache.get(placeId);
   if (cached && cached.expiresAt > Date.now()) {
     res.setHeader("Cache-Control", "public, max-age=21600");
@@ -144,6 +168,7 @@ router.get("/price/:placeId", async (req, res): Promise<void> => {
   }
 
   const { placeId } = parsed.data;
+  if (!(await requireGoogleRestaurant(placeId, res))) return;
   const cached = priceCache.get(placeId);
   if (cached && cached.expiresAt > Date.now()) {
     res.setHeader("Cache-Control", "public, max-age=21600");
@@ -208,6 +233,7 @@ router.get("/open/:placeId", async (req, res): Promise<void> => {
   }
 
   const { placeId } = parsed.data;
+  if (!(await requireGoogleRestaurant(placeId, res))) return;
   const cached = openCache.get(placeId);
   if (cached && cached.expiresAt > Date.now()) {
     res.setHeader("Cache-Control", "public, max-age=21600");
@@ -274,6 +300,7 @@ router.get("/hours/:placeId", async (req, res): Promise<void> => {
   }
 
   const { placeId } = parsed.data;
+  if (!(await requireGoogleRestaurant(placeId, res))) return;
   const cached = hoursCache.get(placeId);
   if (cached && cached.expiresAt > Date.now()) {
     res.setHeader("Cache-Control", "public, max-age=21600");

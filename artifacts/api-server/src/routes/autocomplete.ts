@@ -1,5 +1,5 @@
 import { db, restaurantsTable } from "@workspace/db";
-import { desc, ilike } from "drizzle-orm";
+import { and, desc, eq, ilike } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
@@ -36,7 +36,10 @@ router.get("/autocomplete", limiter, async (req, res) => {
         city: restaurantsTable.city,
       })
       .from(restaurantsTable)
-      .where(ilike(restaurantsTable.name, `%${escapeLike(parsed.data.q)}%`))
+      .where(and(
+        ilike(restaurantsTable.name, `%${escapeLike(parsed.data.q)}%`),
+        eq(restaurantsTable.published, true),
+      ))
       .orderBy(desc(restaurantsTable.premium), desc(restaurantsTable.rating))
       .limit(10);
     res.setHeader("Cache-Control", "public, max-age=60");

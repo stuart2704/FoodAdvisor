@@ -38,7 +38,8 @@ router.post("/match", limiter, async (req, res) => {
       })
       .from(restaurantsTable)
       .where(
-        sql`${ilike(restaurantsTable.region, parsed.data.region)}
+        sql`${restaurantsTable.published} = true
+          and ${ilike(restaurantsTable.region, parsed.data.region)}
           and exists (
             select 1 from unnest(${restaurantsTable.cuisineTags}) as cuisine_tag
             where cuisine_tag ilike ${parsed.data.cuisine}

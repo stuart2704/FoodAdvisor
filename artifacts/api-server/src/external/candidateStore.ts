@@ -1,4 +1,8 @@
-import { db, externalCandidatesTable } from "@workspace/db";
+import {
+  db,
+  externalCandidatesTable,
+  osmCandidateWorkflowsTable,
+} from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import type { ExternalCandidate } from "./candidateTypes";
 import { isReadyForCandidateReview } from "./candidateReviewEligibility";
@@ -61,6 +65,35 @@ export async function storeExternalCandidates(
             eq(externalCandidatesTable.sourceId, c.sourceId),
             eq(externalCandidatesTable.verificationStatus, "unverified"),
           ));
+      }
+      if (c.sourceName === "OSM") {
+        await tx
+          .insert(osmCandidateWorkflowsTable)
+          .values({
+            sourceName: c.sourceName,
+            sourceId: c.sourceId,
+            // Ingestion always begins unverified. Completeness is only a
+            // review-priority signal and never sends an invite or publishes.
+            state: "unverified",
+            highConfidence: readyForReview,
+            ownerDraft: {
+              name: c.rawName,
+              address: c.rawAddress,
+              city: null,
+              phone: c.rawPhone,
+              website: c.rawWebsite,
+              description: null,
+              openingHours: [],
+              latitude: c.rawCoords?.lat ?? null,
+              longitude: c.rawCoords?.lon ?? null,
+            },
+          })
+          .onConflictDoNothing({
+            target: [
+              osmCandidateWorkflowsTable.sourceName,
+              osmCandidateWorkflowsTable.sourceId,
+            ],
+          });
       }
     }
     return count;

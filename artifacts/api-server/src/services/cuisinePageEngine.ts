@@ -68,7 +68,7 @@ export async function getCuisinePage(
   const candidates = await db
     .select()
     .from(restaurantsTable)
-    .where(sql`(
+    .where(sql`${restaurantsTable.published} = true and (
       exists (
         select 1 from unnest(${restaurantsTable.cuisineTags}) as cuisine_tag
         where lower(cuisine_tag) = lower(${normalizedCuisine})

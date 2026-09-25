@@ -57,6 +57,8 @@ function deriveBadges(restaurant: {
 
 export interface RestaurantProfile {
   id: string;
+  sourceName: string;
+  sourceAttribution: string | null;
   name: string;
   cuisine: string | null;
   city: string;
@@ -69,7 +71,7 @@ export interface RestaurantProfile {
   premium: boolean;
   rankingScore: number;
   description: string | null;
-  phone: null;
+  phone: string | null;
   address: string;
   website: string | null;
   deliveryUrl: string | null;
@@ -110,12 +112,12 @@ export interface RestaurantProfile {
     photo: string | null;
     verifiedAt: Date | null;
   };
-  googleMapsUrl: string;
+  googleMapsUrl: string | null;
   rating: number | null;
   lat: number | null;
   lng: number | null;
   deliveryPlatforms: string[];
-  openingHours: null;
+  openingHours: string[];
   menu: Array<{
     id: number;
     name: string;
@@ -138,7 +140,10 @@ export async function getRestaurantProfile(
   const [restaurant] = await db
     .select()
     .from(restaurantsTable)
-    .where(eq(restaurantsTable.placeId, placeId))
+    .where(and(
+      eq(restaurantsTable.placeId, placeId),
+      eq(restaurantsTable.published, true),
+    ))
     .limit(1);
   if (!restaurant) return null;
   const today = new Date().toISOString().slice(0, 10);
@@ -223,17 +228,26 @@ export async function getRestaurantProfile(
         ),
       )
       .where(
-        inArray(
-          restaurantCollectionMembersTable.collectionId,
-          db
-            .select({ id: restaurantCollectionMembersTable.collectionId })
-            .from(restaurantCollectionMembersTable)
-            .where(
-              eq(
-                restaurantCollectionMembersTable.restaurantId,
-                restaurant.placeId,
+        and(
+          inArray(
+            restaurantCollectionMembersTable.collectionId,
+            db
+              .select({ id: restaurantCollectionMembersTable.collectionId })
+              .from(restaurantCollectionMembersTable)
+              .where(
+                eq(
+                  restaurantCollectionMembersTable.restaurantId,
+                  restaurant.placeId,
+                ),
               ),
-            ),
+          ),
+          inArray(
+            restaurantCollectionMembersTable.restaurantId,
+            db
+              .select({ placeId: restaurantsTable.placeId })
+              .from(restaurantsTable)
+              .where(eq(restaurantsTable.published, true)),
+          ),
         ),
       )
       .orderBy(
@@ -245,6 +259,8 @@ export async function getRestaurantProfile(
 
   return {
     id: restaurant.placeId,
+    sourceName: restaurant.sourceName,
+    sourceAttribution: restaurant.sourceAttribution,
     name: restaurant.name,
     cuisine,
     city: restaurant.city,
@@ -264,16 +280,18 @@ export async function getRestaurantProfile(
       country: restaurant.country ?? "",
       cuisine,
     }),
-    description:
-      restaurant.websiteDescription ??
-      `${restaurant.name} is a ${cuisine ?? "restaurant"} in ${[
-        restaurant.city,
-        restaurant.region,
-        restaurant.country,
-      ]
-        .filter(Boolean)
-        .join(", ")}.`,
-    phone: null,
+    description: restaurant.ownerDescription
+      ?? restaurant.websiteDescription
+      ?? (restaurant.sourceName === "OSM"
+        ? null
+        : `${restaurant.name} is a ${cuisine ?? "restaurant"} in ${[
+            restaurant.city,
+            restaurant.region,
+            restaurant.country,
+          ]
+            .filter(Boolean)
+            .join(", ")}.`),
+    phone: restaurant.phone,
     address: restaurant.address,
     website: restaurant.website,
     deliveryUrl: restaurant.deliveryUrl,
@@ -330,7 +348,7 @@ export async function getRestaurantProfile(
     lat: restaurant.latitude,
     lng: restaurant.longitude,
     deliveryPlatforms: [],
-    openingHours: null,
+    openingHours: restaurant.openingHours,
     menu,
     photos: [],
     analytics: null,

@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { ListNearbyRestaurantsQueryParams, ListNearbyRestaurantsResponse } from "@workspace/api-zod";
 import { db, restaurantsTable } from "@workspace/db";
-import { and, asc, isNotNull, sql } from "drizzle-orm";
+import { and, asc, eq, isNotNull, sql } from "drizzle-orm";
 import {
   MAX_NEARBY_RADIUS_MILES,
   MIN_NEARBY_RADIUS_MILES,
@@ -58,6 +58,7 @@ router.get("/restaurants/nearby", async (req, res): Promise<void> => {
     .from(restaurantsTable)
     .where(
       and(
+        eq(restaurantsTable.published, true),
         isNotNull(restaurantsTable.latitude),
         isNotNull(restaurantsTable.longitude),
         sql`${distanceMiles} <= ${radiusMiles}`,

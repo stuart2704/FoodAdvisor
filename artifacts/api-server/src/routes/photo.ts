@@ -1,6 +1,9 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { budgetedPlacesFetch, PlacesBudgetExceededError } from "../lib/budgetedPlacesFetch";
+import { db, restaurantsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { checkGooglePhotoAccess } from "../lib/photo-provider";
 
 const router: IRouter = Router();
 const CACHE_TTL_MS = 60 * 60 * 1000;
@@ -22,6 +25,25 @@ type PhotoMediaResponse = {
   photoUri?: string;
 };
 
+async function guardGooglePhotoProvider(placeId: string, res: import("express").Response) {
+  try {
+    const [restaurant] = await db.select({
+      sourceName: restaurantsTable.sourceName,
+      sourceAttribution: restaurantsTable.sourceAttribution,
+      published: restaurantsTable.published,
+    }).from(restaurantsTable).where(eq(restaurantsTable.placeId, placeId)).limit(1);
+    const access = checkGooglePhotoAccess(placeId, restaurant ?? null);
+    if (!access.allowed) {
+      res.status(access.status).json(access.body);
+      return false;
+    }
+    return true;
+  } catch {
+    res.status(503).json({ error: "Restaurant photo provider could not be determined." });
+    return false;
+  }
+}
+
 router.get("/photo/:placeId", async (req, res): Promise<void> => {
   const parsed = PlaceParams.safeParse(req.params);
   if (!parsed.success) {
@@ -30,6 +52,7 @@ router.get("/photo/:placeId", async (req, res): Promise<void> => {
   }
 
   const { placeId } = parsed.data;
+  if (!(await guardGooglePhotoProvider(placeId, res))) return;
   const cached = photoCache.get(placeId);
   if (cached && cached.expiresAt > Date.now()) {
     res.setHeader("Cache-Control", "public, max-age=3600");
@@ -124,6 +147,7 @@ router.get("/photos/:placeId", async (req, res): Promise<void> => {
   }
 
   const { placeId } = parsed.data;
+  if (!(await guardGooglePhotoProvider(placeId, res))) return;
   const cached = galleryCache.get(placeId);
   if (cached && cached.expiresAt > Date.now()) {
     res.setHeader("Cache-Control", "public, max-age=3600");

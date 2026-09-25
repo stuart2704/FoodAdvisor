@@ -36,8 +36,29 @@ import type {
   IncomingReplyInput,
   InstantlyReplyPollResult,
   ListNearbyRestaurantsParams,
+  ListOsmCandidatesParams,
   ListRestaurantsParams,
   NearbyRestaurantsResponse,
+  OsmActivationProgress,
+  OsmCandidatePage,
+  OsmCandidateWorkflow,
+  OsmClaimEvidenceInput,
+  OsmClaimExchangeInput,
+  OsmClaimInviteInput,
+  OsmContactVerification,
+  OsmEvidenceDecisionInput,
+  OsmEvidenceSubmission,
+  OsmOutreachLog,
+  OsmOutreachPreferenceInput,
+  OsmOwnerAnalytics,
+  OsmOwnerDashboard,
+  OsmOwnerDraft,
+  OsmOwnerDraftInput,
+  OsmOwnerOutreachPreference,
+  OsmOwnerOutreachPreferenceInput,
+  OsmOwnerSessionResponse,
+  OsmSuppressionInput,
+  OsmVerificationCodeInput,
   OutreachRunResult,
   PubSubPushEnvelope,
   ReplyClassification,
@@ -2244,5 +2265,1857 @@ export const useEnrichRestaurant = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getEnrichRestaurantMutationOptions(options));
+    }
+
+export const getListOsmCandidatesUrl = (params?: ListOsmCandidatesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/dashboard/osm-candidates?${stringifiedParams}` : `/api/dashboard/osm-candidates`
+}
+
+/**
+ * @summary List OSM candidates for the admin workflow
+ */
+export const listOsmCandidates = async (params?: ListOsmCandidatesParams, options?: Parameters<typeof customFetch>[1]): Promise<OsmCandidatePage> => {
+
+  return customFetch<OsmCandidatePage>(getListOsmCandidatesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOsmCandidatesQueryKey = (params?: ListOsmCandidatesParams,) => {
+    return [
+    `/api/dashboard/osm-candidates`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListOsmCandidatesQueryOptions = <TData = Awaited<ReturnType<typeof listOsmCandidates>>, TError = ErrorType<void | ErrorResponse>>(params?: ListOsmCandidatesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOsmCandidates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOsmCandidatesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOsmCandidates>>> = ({ signal }) => listOsmCandidates(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOsmCandidates>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOsmCandidatesQueryResult = NonNullable<Awaited<ReturnType<typeof listOsmCandidates>>>
+export type ListOsmCandidatesQueryError = ErrorType<void | ErrorResponse>
+
+
+/**
+ * @summary List OSM candidates for the admin workflow
+ */
+
+export function useListOsmCandidates<TData = Awaited<ReturnType<typeof listOsmCandidates>>, TError = ErrorType<void | ErrorResponse>>(
+ params?: ListOsmCandidatesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOsmCandidates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOsmCandidatesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetOsmCandidateUrl = (sourceName: string,
+    sourceId: string,) => {
+
+
+
+
+  return `/api/dashboard/osm-candidates/${sourceName}/${sourceId}`
+}
+
+/**
+ * @summary Read one candidate and its workflow record
+ */
+export const getOsmCandidate = async (sourceName: string,
+    sourceId: string, options?: Parameters<typeof customFetch>[1]): Promise<OsmCandidateWorkflow> => {
+
+  return customFetch<OsmCandidateWorkflow>(getGetOsmCandidateUrl(sourceName,sourceId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOsmCandidateQueryKey = (sourceName: string,
+    sourceId: string,) => {
+    return [
+    `/api/dashboard/osm-candidates/${sourceName}/${sourceId}`
+    ] as const;
+    }
+
+
+export const getGetOsmCandidateQueryOptions = <TData = Awaited<ReturnType<typeof getOsmCandidate>>, TError = ErrorType<void | ErrorResponse>>(sourceName: string,
+    sourceId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOsmCandidate>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOsmCandidateQueryKey(sourceName,sourceId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOsmCandidate>>> = ({ signal }) => getOsmCandidate(sourceName,sourceId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: sourceName !== null && sourceName !== undefined && sourceId !== null && sourceId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOsmCandidate>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOsmCandidateQueryResult = NonNullable<Awaited<ReturnType<typeof getOsmCandidate>>>
+export type GetOsmCandidateQueryError = ErrorType<void | ErrorResponse>
+
+
+/**
+ * @summary Read one candidate and its workflow record
+ */
+
+export function useGetOsmCandidate<TData = Awaited<ReturnType<typeof getOsmCandidate>>, TError = ErrorType<void | ErrorResponse>>(
+ sourceName: string,
+    sourceId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOsmCandidate>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOsmCandidateQueryOptions(sourceName,sourceId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getReviewOsmCandidateUrl = (sourceName: string,
+    sourceId: string,) => {
+
+
+
+
+  return `/api/dashboard/osm-candidates/${sourceName}/${sourceId}/review`
+}
+
+/**
+ * @summary Mark a candidate reviewed without verifying ownership or publishing
+ */
+export const reviewOsmCandidate = async (sourceName: string,
+    sourceId: string, options?: Parameters<typeof customFetch>[1]): Promise<OsmCandidateWorkflow> => {
+
+  return customFetch<OsmCandidateWorkflow>(getReviewOsmCandidateUrl(sourceName,sourceId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getReviewOsmCandidateMutationOptions = <TError = ErrorType<void | ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewOsmCandidate>>, TError,{sourceName: string;sourceId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reviewOsmCandidate>>, TError,{sourceName: string;sourceId: string}, TContext> => {
+
+const mutationKey = ['reviewOsmCandidate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reviewOsmCandidate>>, {sourceName: string;sourceId: string}> = (props) => {
+          const {sourceName,sourceId} = props ?? {};
+
+          return  reviewOsmCandidate(sourceName,sourceId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReviewOsmCandidateMutationResult = NonNullable<Awaited<ReturnType<typeof reviewOsmCandidate>>>
+
+    export type ReviewOsmCandidateMutationError = ErrorType<void | ErrorResponse>
+
+    /**
+ * @summary Mark a candidate reviewed without verifying ownership or publishing
+ */
+export const useReviewOsmCandidate = <TError = ErrorType<void | ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewOsmCandidate>>, TError,{sourceName: string;sourceId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reviewOsmCandidate>>,
+        TError,
+        {sourceName: string;sourceId: string},
+        TContext
+      > => {
+      return useMutation(getReviewOsmCandidateMutationOptions(options));
+    }
+
+export const getSuppressOsmCandidateUrl = (sourceName: string,
+    sourceId: string,) => {
+
+
+
+
+  return `/api/dashboard/osm-candidates/${sourceName}/${sourceId}/reject`
+}
+
+/**
+ * @summary Suppress a candidate permanently
+ */
+export const suppressOsmCandidate = async (sourceName: string,
+    sourceId: string,
+    osmSuppressionInput?: OsmSuppressionInput, options?: Parameters<typeof customFetch>[1]): Promise<OsmCandidateWorkflow> => {
+
+  return customFetch<OsmCandidateWorkflow>(getSuppressOsmCandidateUrl(sourceName,sourceId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(osmSuppressionInput)
+  }
+);}
+
+
+
+
+
+export const getSuppressOsmCandidateMutationOptions = <TError = ErrorType<void | ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof suppressOsmCandidate>>, TError,{sourceName: string;sourceId: string;data?: BodyType<OsmSuppressionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof suppressOsmCandidate>>, TError,{sourceName: string;sourceId: string;data?: BodyType<OsmSuppressionInput>}, TContext> => {
+
+const mutationKey = ['suppressOsmCandidate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof suppressOsmCandidate>>, {sourceName: string;sourceId: string;data?: BodyType<OsmSuppressionInput>}> = (props) => {
+          const {sourceName,sourceId,data} = props ?? {};
+
+          return  suppressOsmCandidate(sourceName,sourceId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SuppressOsmCandidateMutationResult = NonNullable<Awaited<ReturnType<typeof suppressOsmCandidate>>>
+    export type SuppressOsmCandidateMutationBody = BodyType<OsmSuppressionInput> | undefined
+    export type SuppressOsmCandidateMutationError = ErrorType<void | ErrorResponse>
+
+    /**
+ * @summary Suppress a candidate permanently
+ */
+export const useSuppressOsmCandidate = <TError = ErrorType<void | ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof suppressOsmCandidate>>, TError,{sourceName: string;sourceId: string;data?: BodyType<OsmSuppressionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof suppressOsmCandidate>>,
+        TError,
+        {sourceName: string;sourceId: string;data?: BodyType<OsmSuppressionInput>},
+        TContext
+      > => {
+      return useMutation(getSuppressOsmCandidateMutationOptions(options));
+    }
+
+export const getSendOsmClaimInviteUrl = (sourceName: string,
+    sourceId: string,) => {
+
+
+
+
+  return `/api/dashboard/osm-candidates/${sourceName}/${sourceId}/invites`
+}
+
+/**
+ * Sends no invitation during ingestion. Caps invitations at three with at least seven days between provider-confirmed sends. SMS fails closed unless a sender is configured.
+ * @summary Reserve and send a claim invitation for a reviewed candidate
+ */
+export const sendOsmClaimInvite = async (sourceName: string,
+    sourceId: string,
+    osmClaimInviteInput: OsmClaimInviteInput, options?: Parameters<typeof customFetch>[1]): Promise<OsmOutreachLog> => {
+
+  return customFetch<OsmOutreachLog>(getSendOsmClaimInviteUrl(sourceName,sourceId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(osmClaimInviteInput)
+  }
+);}
+
+
+
+
+
+export const getSendOsmClaimInviteMutationOptions = <TError = ErrorType<ErrorResponse | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendOsmClaimInvite>>, TError,{sourceName: string;sourceId: string;data: BodyType<OsmClaimInviteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendOsmClaimInvite>>, TError,{sourceName: string;sourceId: string;data: BodyType<OsmClaimInviteInput>}, TContext> => {
+
+const mutationKey = ['sendOsmClaimInvite'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendOsmClaimInvite>>, {sourceName: string;sourceId: string;data: BodyType<OsmClaimInviteInput>}> = (props) => {
+          const {sourceName,sourceId,data} = props ?? {};
+
+          return  sendOsmClaimInvite(sourceName,sourceId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendOsmClaimInviteMutationResult = NonNullable<Awaited<ReturnType<typeof sendOsmClaimInvite>>>
+    export type SendOsmClaimInviteMutationBody = BodyType<OsmClaimInviteInput>
+    export type SendOsmClaimInviteMutationError = ErrorType<ErrorResponse | void>
+
+    /**
+ * @summary Reserve and send a claim invitation for a reviewed candidate
+ */
+export const useSendOsmClaimInvite = <TError = ErrorType<ErrorResponse | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendOsmClaimInvite>>, TError,{sourceName: string;sourceId: string;data: BodyType<OsmClaimInviteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendOsmClaimInvite>>,
+        TError,
+        {sourceName: string;sourceId: string;data: BodyType<OsmClaimInviteInput>},
+        TContext
+      > => {
+      return useMutation(getSendOsmClaimInviteMutationOptions(options));
+    }
+
+export const getResendOsmClaimInviteUrl = (sourceName: string,
+    sourceId: string,) => {
+
+
+
+
+  return `/api/dashboard/osm-candidates/${sourceName}/${sourceId}/invites/resend`
+}
+
+/**
+ * @summary Send a new, single-use claim invitation subject to the same limits
+ */
+export const resendOsmClaimInvite = async (sourceName: string,
+    sourceId: string, options?: Parameters<typeof customFetch>[1]): Promise<OsmOutreachLog> => {
+
+  return customFetch<OsmOutreachLog>(getResendOsmClaimInviteUrl(sourceName,sourceId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getResendOsmClaimInviteMutationOptions = <TError = ErrorType<void | ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resendOsmClaimInvite>>, TError,{sourceName: string;sourceId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resendOsmClaimInvite>>, TError,{sourceName: string;sourceId: string}, TContext> => {
+
+const mutationKey = ['resendOsmClaimInvite'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resendOsmClaimInvite>>, {sourceName: string;sourceId: string}> = (props) => {
+          const {sourceName,sourceId} = props ?? {};
+
+          return  resendOsmClaimInvite(sourceName,sourceId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResendOsmClaimInviteMutationResult = NonNullable<Awaited<ReturnType<typeof resendOsmClaimInvite>>>
+
+    export type ResendOsmClaimInviteMutationError = ErrorType<void | ErrorResponse>
+
+    /**
+ * @summary Send a new, single-use claim invitation subject to the same limits
+ */
+export const useResendOsmClaimInvite = <TError = ErrorType<void | ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resendOsmClaimInvite>>, TError,{sourceName: string;sourceId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resendOsmClaimInvite>>,
+        TError,
+        {sourceName: string;sourceId: string},
+        TContext
+      > => {
+      return useMutation(getResendOsmClaimInviteMutationOptions(options));
+    }
+
+export const getDecideOsmCandidateEvidenceUrl = (sourceName: string,
+    sourceId: string,) => {
+
+
+
+
+  return `/api/dashboard/osm-candidates/${sourceName}/${sourceId}/evidence/decision`
+}
+
+/**
+ * Each evidence category requires an explicit admin decision. Contact-channel verification alone is not ownership proof.
+ * @summary Approve or reject submitted owner-identity or source-rights evidence
+ */
+export const decideOsmCandidateEvidence = async (sourceName: string,
+    sourceId: string,
+    osmEvidenceDecisionInput: OsmEvidenceDecisionInput, options?: Parameters<typeof customFetch>[1]): Promise<OsmCandidateWorkflow> => {
+
+  return customFetch<OsmCandidateWorkflow>(getDecideOsmCandidateEvidenceUrl(sourceName,sourceId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(osmEvidenceDecisionInput)
+  }
+);}
+
+
+
+
+
+export const getDecideOsmCandidateEvidenceMutationOptions = <TError = ErrorType<void | ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof decideOsmCandidateEvidence>>, TError,{sourceName: string;sourceId: string;data: BodyType<OsmEvidenceDecisionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof decideOsmCandidateEvidence>>, TError,{sourceName: string;sourceId: string;data: BodyType<OsmEvidenceDecisionInput>}, TContext> => {
+
+const mutationKey = ['decideOsmCandidateEvidence'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof decideOsmCandidateEvidence>>, {sourceName: string;sourceId: string;data: BodyType<OsmEvidenceDecisionInput>}> = (props) => {
+          const {sourceName,sourceId,data} = props ?? {};
+
+          return  decideOsmCandidateEvidence(sourceName,sourceId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DecideOsmCandidateEvidenceMutationResult = NonNullable<Awaited<ReturnType<typeof decideOsmCandidateEvidence>>>
+    export type DecideOsmCandidateEvidenceMutationBody = BodyType<OsmEvidenceDecisionInput>
+    export type DecideOsmCandidateEvidenceMutationError = ErrorType<void | ErrorResponse>
+
+    /**
+ * @summary Approve or reject submitted owner-identity or source-rights evidence
+ */
+export const useDecideOsmCandidateEvidence = <TError = ErrorType<void | ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof decideOsmCandidateEvidence>>, TError,{sourceName: string;sourceId: string;data: BodyType<OsmEvidenceDecisionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof decideOsmCandidateEvidence>>,
+        TError,
+        {sourceName: string;sourceId: string;data: BodyType<OsmEvidenceDecisionInput>},
+        TContext
+      > => {
+      return useMutation(getDecideOsmCandidateEvidenceMutationOptions(options));
+    }
+
+export const getSetOsmCandidateOutreachBlockedUrl = (sourceName: string,
+    sourceId: string,) => {
+
+
+
+
+  return `/api/dashboard/osm-candidates/${sourceName}/${sourceId}/outreach`
+}
+
+/**
+ * @summary Enable or block further claim invitation outreach
+ */
+export const setOsmCandidateOutreachBlocked = async (sourceName: string,
+    sourceId: string,
+    osmOutreachPreferenceInput: OsmOutreachPreferenceInput, options?: Parameters<typeof customFetch>[1]): Promise<OsmCandidateWorkflow> => {
+
+  return customFetch<OsmCandidateWorkflow>(getSetOsmCandidateOutreachBlockedUrl(sourceName,sourceId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(osmOutreachPreferenceInput)
+  }
+);}
+
+
+
+
+
+export const getSetOsmCandidateOutreachBlockedMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setOsmCandidateOutreachBlocked>>, TError,{sourceName: string;sourceId: string;data: BodyType<OsmOutreachPreferenceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setOsmCandidateOutreachBlocked>>, TError,{sourceName: string;sourceId: string;data: BodyType<OsmOutreachPreferenceInput>}, TContext> => {
+
+const mutationKey = ['setOsmCandidateOutreachBlocked'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setOsmCandidateOutreachBlocked>>, {sourceName: string;sourceId: string;data: BodyType<OsmOutreachPreferenceInput>}> = (props) => {
+          const {sourceName,sourceId,data} = props ?? {};
+
+          return  setOsmCandidateOutreachBlocked(sourceName,sourceId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetOsmCandidateOutreachBlockedMutationResult = NonNullable<Awaited<ReturnType<typeof setOsmCandidateOutreachBlocked>>>
+    export type SetOsmCandidateOutreachBlockedMutationBody = BodyType<OsmOutreachPreferenceInput>
+    export type SetOsmCandidateOutreachBlockedMutationError = ErrorType<void>
+
+    /**
+ * @summary Enable or block further claim invitation outreach
+ */
+export const useSetOsmCandidateOutreachBlocked = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setOsmCandidateOutreachBlocked>>, TError,{sourceName: string;sourceId: string;data: BodyType<OsmOutreachPreferenceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setOsmCandidateOutreachBlocked>>,
+        TError,
+        {sourceName: string;sourceId: string;data: BodyType<OsmOutreachPreferenceInput>},
+        TContext
+      > => {
+      return useMutation(getSetOsmCandidateOutreachBlockedMutationOptions(options));
+    }
+
+export const getListOsmCandidateOutreachLogsUrl = (sourceName: string,
+    sourceId: string,) => {
+
+
+
+
+  return `/api/dashboard/osm-candidates/${sourceName}/${sourceId}/outreach-logs`
+}
+
+/**
+ * @summary Read delivery attempts without exposing raw claim tokens
+ */
+export const listOsmCandidateOutreachLogs = async (sourceName: string,
+    sourceId: string, options?: Parameters<typeof customFetch>[1]): Promise<OsmOutreachLog[]> => {
+
+  return customFetch<OsmOutreachLog[]>(getListOsmCandidateOutreachLogsUrl(sourceName,sourceId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOsmCandidateOutreachLogsQueryKey = (sourceName: string,
+    sourceId: string,) => {
+    return [
+    `/api/dashboard/osm-candidates/${sourceName}/${sourceId}/outreach-logs`
+    ] as const;
+    }
+
+
+export const getListOsmCandidateOutreachLogsQueryOptions = <TData = Awaited<ReturnType<typeof listOsmCandidateOutreachLogs>>, TError = ErrorType<void>>(sourceName: string,
+    sourceId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOsmCandidateOutreachLogs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOsmCandidateOutreachLogsQueryKey(sourceName,sourceId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOsmCandidateOutreachLogs>>> = ({ signal }) => listOsmCandidateOutreachLogs(sourceName,sourceId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: sourceName !== null && sourceName !== undefined && sourceId !== null && sourceId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOsmCandidateOutreachLogs>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOsmCandidateOutreachLogsQueryResult = NonNullable<Awaited<ReturnType<typeof listOsmCandidateOutreachLogs>>>
+export type ListOsmCandidateOutreachLogsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Read delivery attempts without exposing raw claim tokens
+ */
+
+export function useListOsmCandidateOutreachLogs<TData = Awaited<ReturnType<typeof listOsmCandidateOutreachLogs>>, TError = ErrorType<void>>(
+ sourceName: string,
+    sourceId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOsmCandidateOutreachLogs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOsmCandidateOutreachLogsQueryOptions(sourceName,sourceId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getExchangeOsmClaimLinkUrl = () => {
+
+
+
+
+  return `/api/claim/exchange`
+}
+
+/**
+ * The raw invitation token is accepted only in the request body, stored as a hash, consumed once, and never returned or logged.
+ * @summary Exchange a one-use claim-link token for a scoped owner session
+ */
+export const exchangeOsmClaimLink = async (osmClaimExchangeInput: OsmClaimExchangeInput, options?: Parameters<typeof customFetch>[1]): Promise<OsmOwnerSessionResponse> => {
+
+  return customFetch<OsmOwnerSessionResponse>(getExchangeOsmClaimLinkUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(osmClaimExchangeInput)
+  }
+);}
+
+
+
+
+
+export const getExchangeOsmClaimLinkMutationOptions = <TError = ErrorType<ErrorResponse | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof exchangeOsmClaimLink>>, TError,{data: BodyType<OsmClaimExchangeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof exchangeOsmClaimLink>>, TError,{data: BodyType<OsmClaimExchangeInput>}, TContext> => {
+
+const mutationKey = ['exchangeOsmClaimLink'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof exchangeOsmClaimLink>>, {data: BodyType<OsmClaimExchangeInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  exchangeOsmClaimLink(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ExchangeOsmClaimLinkMutationResult = NonNullable<Awaited<ReturnType<typeof exchangeOsmClaimLink>>>
+    export type ExchangeOsmClaimLinkMutationBody = BodyType<OsmClaimExchangeInput>
+    export type ExchangeOsmClaimLinkMutationError = ErrorType<ErrorResponse | void>
+
+    /**
+ * @summary Exchange a one-use claim-link token for a scoped owner session
+ */
+export const useExchangeOsmClaimLink = <TError = ErrorType<ErrorResponse | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof exchangeOsmClaimLink>>, TError,{data: BodyType<OsmClaimExchangeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof exchangeOsmClaimLink>>,
+        TError,
+        {data: BodyType<OsmClaimExchangeInput>},
+        TContext
+      > => {
+      return useMutation(getExchangeOsmClaimLinkMutationOptions(options));
+    }
+
+export const getRequestOsmClaimUrl = () => {
+
+
+
+
+  return `/api/claim/request`
+}
+
+/**
+ * Alias of POST /claim/exchange. This route is registered before the existing /claim/{id} routes.
+ * @summary Exchange a one-use OSM claim invitation for a scoped owner session
+ */
+export const requestOsmClaim = async (osmClaimExchangeInput: OsmClaimExchangeInput, options?: Parameters<typeof customFetch>[1]): Promise<OsmOwnerSessionResponse> => {
+
+  return customFetch<OsmOwnerSessionResponse>(getRequestOsmClaimUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(osmClaimExchangeInput)
+  }
+);}
+
+
+
+
+
+export const getRequestOsmClaimMutationOptions = <TError = ErrorType<ErrorResponse | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestOsmClaim>>, TError,{data: BodyType<OsmClaimExchangeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestOsmClaim>>, TError,{data: BodyType<OsmClaimExchangeInput>}, TContext> => {
+
+const mutationKey = ['requestOsmClaim'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestOsmClaim>>, {data: BodyType<OsmClaimExchangeInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  requestOsmClaim(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestOsmClaimMutationResult = NonNullable<Awaited<ReturnType<typeof requestOsmClaim>>>
+    export type RequestOsmClaimMutationBody = BodyType<OsmClaimExchangeInput>
+    export type RequestOsmClaimMutationError = ErrorType<ErrorResponse | void>
+
+    /**
+ * @summary Exchange a one-use OSM claim invitation for a scoped owner session
+ */
+export const useRequestOsmClaim = <TError = ErrorType<ErrorResponse | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestOsmClaim>>, TError,{data: BodyType<OsmClaimExchangeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestOsmClaim>>,
+        TError,
+        {data: BodyType<OsmClaimExchangeInput>},
+        TContext
+      > => {
+      return useMutation(getRequestOsmClaimMutationOptions(options));
+    }
+
+export const getVerifyOsmClaimContactUrl = () => {
+
+
+
+
+  return `/api/claim/verify`
+}
+
+/**
+ * Alias of POST /claim/verification-code/submit. Email possession is not ownership or source-rights proof.
+ * @summary Submit a one-time code to verify the invited email channel
+ */
+export const verifyOsmClaimContact = async (osmVerificationCodeInput: OsmVerificationCodeInput, options?: Parameters<typeof customFetch>[1]): Promise<OsmContactVerification> => {
+
+  return customFetch<OsmContactVerification>(getVerifyOsmClaimContactUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(osmVerificationCodeInput)
+  }
+);}
+
+
+
+
+
+export const getVerifyOsmClaimContactMutationOptions = <TError = ErrorType<ErrorResponse | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyOsmClaimContact>>, TError,{data: BodyType<OsmVerificationCodeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof verifyOsmClaimContact>>, TError,{data: BodyType<OsmVerificationCodeInput>}, TContext> => {
+
+const mutationKey = ['verifyOsmClaimContact'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof verifyOsmClaimContact>>, {data: BodyType<OsmVerificationCodeInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  verifyOsmClaimContact(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type VerifyOsmClaimContactMutationResult = NonNullable<Awaited<ReturnType<typeof verifyOsmClaimContact>>>
+    export type VerifyOsmClaimContactMutationBody = BodyType<OsmVerificationCodeInput>
+    export type VerifyOsmClaimContactMutationError = ErrorType<ErrorResponse | void>
+
+    /**
+ * @summary Submit a one-time code to verify the invited email channel
+ */
+export const useVerifyOsmClaimContact = <TError = ErrorType<ErrorResponse | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyOsmClaimContact>>, TError,{data: BodyType<OsmVerificationCodeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof verifyOsmClaimContact>>,
+        TError,
+        {data: BodyType<OsmVerificationCodeInput>},
+        TContext
+      > => {
+      return useMutation(getVerifyOsmClaimContactMutationOptions(options));
+    }
+
+export const getSubmitOsmRightsEvidenceUrl = () => {
+
+
+
+
+  return `/api/claim/rights`
+}
+
+/**
+ * Alias of PUT /claim/evidence. Submission alone does not approve source rights.
+ * @summary Submit OSM source reuse-rights evidence for admin review
+ */
+export const submitOsmRightsEvidence = async (osmClaimEvidenceInput: OsmClaimEvidenceInput, options?: Parameters<typeof customFetch>[1]): Promise<OsmEvidenceSubmission> => {
+
+  return customFetch<OsmEvidenceSubmission>(getSubmitOsmRightsEvidenceUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(osmClaimEvidenceInput)
+  }
+);}
+
+
+
+
+
+export const getSubmitOsmRightsEvidenceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitOsmRightsEvidence>>, TError,{data: BodyType<OsmClaimEvidenceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitOsmRightsEvidence>>, TError,{data: BodyType<OsmClaimEvidenceInput>}, TContext> => {
+
+const mutationKey = ['submitOsmRightsEvidence'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitOsmRightsEvidence>>, {data: BodyType<OsmClaimEvidenceInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  submitOsmRightsEvidence(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitOsmRightsEvidenceMutationResult = NonNullable<Awaited<ReturnType<typeof submitOsmRightsEvidence>>>
+    export type SubmitOsmRightsEvidenceMutationBody = BodyType<OsmClaimEvidenceInput>
+    export type SubmitOsmRightsEvidenceMutationError = ErrorType<void>
+
+    /**
+ * @summary Submit OSM source reuse-rights evidence for admin review
+ */
+export const useSubmitOsmRightsEvidence = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitOsmRightsEvidence>>, TError,{data: BodyType<OsmClaimEvidenceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof submitOsmRightsEvidence>>,
+        TError,
+        {data: BodyType<OsmClaimEvidenceInput>},
+        TContext
+      > => {
+      return useMutation(getSubmitOsmRightsEvidenceMutationOptions(options));
+    }
+
+export const getConfirmOsmRightsEvidenceUrl = () => {
+
+
+
+
+  return `/api/claim/rights/confirm`
+}
+
+/**
+ * Alias of PUT /claim/evidence and idempotent for an unchanged evidence submission; it does not set rightsConfirmed.
+ * @summary Confirm the submitted source-rights evidence for admin review
+ */
+export const confirmOsmRightsEvidence = async (osmClaimEvidenceInput: OsmClaimEvidenceInput, options?: Parameters<typeof customFetch>[1]): Promise<OsmEvidenceSubmission> => {
+
+  return customFetch<OsmEvidenceSubmission>(getConfirmOsmRightsEvidenceUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(osmClaimEvidenceInput)
+  }
+);}
+
+
+
+
+
+export const getConfirmOsmRightsEvidenceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmOsmRightsEvidence>>, TError,{data: BodyType<OsmClaimEvidenceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof confirmOsmRightsEvidence>>, TError,{data: BodyType<OsmClaimEvidenceInput>}, TContext> => {
+
+const mutationKey = ['confirmOsmRightsEvidence'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof confirmOsmRightsEvidence>>, {data: BodyType<OsmClaimEvidenceInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  confirmOsmRightsEvidence(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ConfirmOsmRightsEvidenceMutationResult = NonNullable<Awaited<ReturnType<typeof confirmOsmRightsEvidence>>>
+    export type ConfirmOsmRightsEvidenceMutationBody = BodyType<OsmClaimEvidenceInput>
+    export type ConfirmOsmRightsEvidenceMutationError = ErrorType<void>
+
+    /**
+ * @summary Confirm the submitted source-rights evidence for admin review
+ */
+export const useConfirmOsmRightsEvidence = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmOsmRightsEvidence>>, TError,{data: BodyType<OsmClaimEvidenceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof confirmOsmRightsEvidence>>,
+        TError,
+        {data: BodyType<OsmClaimEvidenceInput>},
+        TContext
+      > => {
+      return useMutation(getConfirmOsmRightsEvidenceMutationOptions(options));
+    }
+
+export const getRequestOsmClaimVerificationCodeAliasUrl = () => {
+
+
+
+
+  return `/api/claim/verify/request`
+}
+
+/**
+ * Alias of POST /claim/verification-code/request. SMS is not sent unless a configured sender is available.
+ * @summary Send a short-lived verification code to the invited email
+ */
+export const requestOsmClaimVerificationCodeAlias = async ( options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getRequestOsmClaimVerificationCodeAliasUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRequestOsmClaimVerificationCodeAliasMutationOptions = <TError = ErrorType<void | ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestOsmClaimVerificationCodeAlias>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestOsmClaimVerificationCodeAlias>>, TError,void, TContext> => {
+
+const mutationKey = ['requestOsmClaimVerificationCodeAlias'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestOsmClaimVerificationCodeAlias>>, void> = () => {
+
+
+          return  requestOsmClaimVerificationCodeAlias(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestOsmClaimVerificationCodeAliasMutationResult = NonNullable<Awaited<ReturnType<typeof requestOsmClaimVerificationCodeAlias>>>
+
+    export type RequestOsmClaimVerificationCodeAliasMutationError = ErrorType<void | ErrorResponse>
+
+    /**
+ * @summary Send a short-lived verification code to the invited email
+ */
+export const useRequestOsmClaimVerificationCodeAlias = <TError = ErrorType<void | ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestOsmClaimVerificationCodeAlias>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestOsmClaimVerificationCodeAlias>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getRequestOsmClaimVerificationCodeAliasMutationOptions(options));
+    }
+
+export const getSubmitOsmClaimVerificationUrl = () => {
+
+
+
+
+  return `/api/claim/verify/submit`
+}
+
+/**
+ * Alias of POST /claim/verification-code/submit.
+ * @summary Submit the one-time email verification code
+ */
+export const submitOsmClaimVerification = async (osmVerificationCodeInput: OsmVerificationCodeInput, options?: Parameters<typeof customFetch>[1]): Promise<OsmContactVerification> => {
+
+  return customFetch<OsmContactVerification>(getSubmitOsmClaimVerificationUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(osmVerificationCodeInput)
+  }
+);}
+
+
+
+
+
+export const getSubmitOsmClaimVerificationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitOsmClaimVerification>>, TError,{data: BodyType<OsmVerificationCodeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitOsmClaimVerification>>, TError,{data: BodyType<OsmVerificationCodeInput>}, TContext> => {
+
+const mutationKey = ['submitOsmClaimVerification'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitOsmClaimVerification>>, {data: BodyType<OsmVerificationCodeInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  submitOsmClaimVerification(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitOsmClaimVerificationMutationResult = NonNullable<Awaited<ReturnType<typeof submitOsmClaimVerification>>>
+    export type SubmitOsmClaimVerificationMutationBody = BodyType<OsmVerificationCodeInput>
+    export type SubmitOsmClaimVerificationMutationError = ErrorType<void>
+
+    /**
+ * @summary Submit the one-time email verification code
+ */
+export const useSubmitOsmClaimVerification = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitOsmClaimVerification>>, TError,{data: BodyType<OsmVerificationCodeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof submitOsmClaimVerification>>,
+        TError,
+        {data: BodyType<OsmVerificationCodeInput>},
+        TContext
+      > => {
+      return useMutation(getSubmitOsmClaimVerificationMutationOptions(options));
+    }
+
+export const getActivateOsmClaimListingUrl = () => {
+
+
+
+
+  return `/api/claim/activate`
+}
+
+/**
+ * Alias of POST /owner/claim/activate; all server-side proof, completeness, suppression, and idempotency gates are identical.
+ * @summary Activate and publish the fully approved OSM candidate
+ */
+export const activateOsmClaimListing = async ( options?: Parameters<typeof customFetch>[1]): Promise<OsmActivationProgress> => {
+
+  return customFetch<OsmActivationProgress>(getActivateOsmClaimListingUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getActivateOsmClaimListingMutationOptions = <TError = ErrorType<void | ErrorResponse | OsmActivationProgress>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof activateOsmClaimListing>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof activateOsmClaimListing>>, TError,void, TContext> => {
+
+const mutationKey = ['activateOsmClaimListing'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof activateOsmClaimListing>>, void> = () => {
+
+
+          return  activateOsmClaimListing(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ActivateOsmClaimListingMutationResult = NonNullable<Awaited<ReturnType<typeof activateOsmClaimListing>>>
+
+    export type ActivateOsmClaimListingMutationError = ErrorType<void | ErrorResponse | OsmActivationProgress>
+
+    /**
+ * @summary Activate and publish the fully approved OSM candidate
+ */
+export const useActivateOsmClaimListing = <TError = ErrorType<void | ErrorResponse | OsmActivationProgress>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof activateOsmClaimListing>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof activateOsmClaimListing>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getActivateOsmClaimListingMutationOptions(options));
+    }
+
+export const getRequestOsmClaimVerificationCodeUrl = () => {
+
+
+
+
+  return `/api/claim/verification-code/request`
+}
+
+/**
+ * Verifies control of the invitation email only; it does not establish business ownership or source rights. Codes are hashed, rate limited, and never returned or logged.
+ * @summary Send a short-lived email verification code to the invited address
+ */
+export const requestOsmClaimVerificationCode = async ( options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getRequestOsmClaimVerificationCodeUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRequestOsmClaimVerificationCodeMutationOptions = <TError = ErrorType<void | ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestOsmClaimVerificationCode>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestOsmClaimVerificationCode>>, TError,void, TContext> => {
+
+const mutationKey = ['requestOsmClaimVerificationCode'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestOsmClaimVerificationCode>>, void> = () => {
+
+
+          return  requestOsmClaimVerificationCode(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestOsmClaimVerificationCodeMutationResult = NonNullable<Awaited<ReturnType<typeof requestOsmClaimVerificationCode>>>
+
+    export type RequestOsmClaimVerificationCodeMutationError = ErrorType<void | ErrorResponse>
+
+    /**
+ * @summary Send a short-lived email verification code to the invited address
+ */
+export const useRequestOsmClaimVerificationCode = <TError = ErrorType<void | ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestOsmClaimVerificationCode>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestOsmClaimVerificationCode>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getRequestOsmClaimVerificationCodeMutationOptions(options));
+    }
+
+export const getSubmitOsmClaimVerificationCodeUrl = () => {
+
+
+
+
+  return `/api/claim/verification-code/submit`
+}
+
+/**
+ * @summary Verify the invited email address using a one-time code
+ */
+export const submitOsmClaimVerificationCode = async (osmVerificationCodeInput: OsmVerificationCodeInput, options?: Parameters<typeof customFetch>[1]): Promise<OsmContactVerification> => {
+
+  return customFetch<OsmContactVerification>(getSubmitOsmClaimVerificationCodeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(osmVerificationCodeInput)
+  }
+);}
+
+
+
+
+
+export const getSubmitOsmClaimVerificationCodeMutationOptions = <TError = ErrorType<ErrorResponse | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitOsmClaimVerificationCode>>, TError,{data: BodyType<OsmVerificationCodeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitOsmClaimVerificationCode>>, TError,{data: BodyType<OsmVerificationCodeInput>}, TContext> => {
+
+const mutationKey = ['submitOsmClaimVerificationCode'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitOsmClaimVerificationCode>>, {data: BodyType<OsmVerificationCodeInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  submitOsmClaimVerificationCode(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitOsmClaimVerificationCodeMutationResult = NonNullable<Awaited<ReturnType<typeof submitOsmClaimVerificationCode>>>
+    export type SubmitOsmClaimVerificationCodeMutationBody = BodyType<OsmVerificationCodeInput>
+    export type SubmitOsmClaimVerificationCodeMutationError = ErrorType<ErrorResponse | void>
+
+    /**
+ * @summary Verify the invited email address using a one-time code
+ */
+export const useSubmitOsmClaimVerificationCode = <TError = ErrorType<ErrorResponse | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitOsmClaimVerificationCode>>, TError,{data: BodyType<OsmVerificationCodeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof submitOsmClaimVerificationCode>>,
+        TError,
+        {data: BodyType<OsmVerificationCodeInput>},
+        TContext
+      > => {
+      return useMutation(getSubmitOsmClaimVerificationCodeMutationOptions(options));
+    }
+
+export const getSubmitOsmClaimEvidenceUrl = () => {
+
+
+
+
+  return `/api/claim/evidence`
+}
+
+/**
+ * Evidence is recorded separately for ownership and source reuse rights. Submission does not set either approval flag.
+ * @summary Submit ownership and OSM source-rights evidence for admin review
+ */
+export const submitOsmClaimEvidence = async (osmClaimEvidenceInput: OsmClaimEvidenceInput, options?: Parameters<typeof customFetch>[1]): Promise<OsmEvidenceSubmission> => {
+
+  return customFetch<OsmEvidenceSubmission>(getSubmitOsmClaimEvidenceUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(osmClaimEvidenceInput)
+  }
+);}
+
+
+
+
+
+export const getSubmitOsmClaimEvidenceMutationOptions = <TError = ErrorType<ErrorResponse | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitOsmClaimEvidence>>, TError,{data: BodyType<OsmClaimEvidenceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitOsmClaimEvidence>>, TError,{data: BodyType<OsmClaimEvidenceInput>}, TContext> => {
+
+const mutationKey = ['submitOsmClaimEvidence'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitOsmClaimEvidence>>, {data: BodyType<OsmClaimEvidenceInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  submitOsmClaimEvidence(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitOsmClaimEvidenceMutationResult = NonNullable<Awaited<ReturnType<typeof submitOsmClaimEvidence>>>
+    export type SubmitOsmClaimEvidenceMutationBody = BodyType<OsmClaimEvidenceInput>
+    export type SubmitOsmClaimEvidenceMutationError = ErrorType<ErrorResponse | void>
+
+    /**
+ * @summary Submit ownership and OSM source-rights evidence for admin review
+ */
+export const useSubmitOsmClaimEvidence = <TError = ErrorType<ErrorResponse | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitOsmClaimEvidence>>, TError,{data: BodyType<OsmClaimEvidenceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof submitOsmClaimEvidence>>,
+        TError,
+        {data: BodyType<OsmClaimEvidenceInput>},
+        TContext
+      > => {
+      return useMutation(getSubmitOsmClaimEvidenceMutationOptions(options));
+    }
+
+export const getGetOsmOwnerDashboardUrl = () => {
+
+
+
+
+  return `/api/owner/claim/dashboard`
+}
+
+/**
+ * @summary Read the scoped pre-activation or activated owner dashboard
+ */
+export const getOsmOwnerDashboard = async ( options?: Parameters<typeof customFetch>[1]): Promise<OsmOwnerDashboard> => {
+
+  return customFetch<OsmOwnerDashboard>(getGetOsmOwnerDashboardUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOsmOwnerDashboardQueryKey = () => {
+    return [
+    `/api/owner/claim/dashboard`
+    ] as const;
+    }
+
+
+export const getGetOsmOwnerDashboardQueryOptions = <TData = Awaited<ReturnType<typeof getOsmOwnerDashboard>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOsmOwnerDashboard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOsmOwnerDashboardQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOsmOwnerDashboard>>> = ({ signal }) => getOsmOwnerDashboard({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOsmOwnerDashboard>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOsmOwnerDashboardQueryResult = NonNullable<Awaited<ReturnType<typeof getOsmOwnerDashboard>>>
+export type GetOsmOwnerDashboardQueryError = ErrorType<void>
+
+
+/**
+ * @summary Read the scoped pre-activation or activated owner dashboard
+ */
+
+export function useGetOsmOwnerDashboard<TData = Awaited<ReturnType<typeof getOsmOwnerDashboard>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOsmOwnerDashboard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOsmOwnerDashboardQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateOsmOwnerDraftUrl = () => {
+
+
+
+
+  return `/api/owner/claim/draft`
+}
+
+/**
+ * @summary Edit owner-controlled candidate details without publishing them
+ */
+export const updateOsmOwnerDraft = async (osmOwnerDraftInput: OsmOwnerDraftInput, options?: Parameters<typeof customFetch>[1]): Promise<OsmOwnerDraft> => {
+
+  return customFetch<OsmOwnerDraft>(getUpdateOsmOwnerDraftUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(osmOwnerDraftInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateOsmOwnerDraftMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOsmOwnerDraft>>, TError,{data: BodyType<OsmOwnerDraftInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateOsmOwnerDraft>>, TError,{data: BodyType<OsmOwnerDraftInput>}, TContext> => {
+
+const mutationKey = ['updateOsmOwnerDraft'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateOsmOwnerDraft>>, {data: BodyType<OsmOwnerDraftInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateOsmOwnerDraft(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateOsmOwnerDraftMutationResult = NonNullable<Awaited<ReturnType<typeof updateOsmOwnerDraft>>>
+    export type UpdateOsmOwnerDraftMutationBody = BodyType<OsmOwnerDraftInput>
+    export type UpdateOsmOwnerDraftMutationError = ErrorType<void>
+
+    /**
+ * @summary Edit owner-controlled candidate details without publishing them
+ */
+export const useUpdateOsmOwnerDraft = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOsmOwnerDraft>>, TError,{data: BodyType<OsmOwnerDraftInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateOsmOwnerDraft>>,
+        TError,
+        {data: BodyType<OsmOwnerDraftInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateOsmOwnerDraftMutationOptions(options));
+    }
+
+export const getActivateOsmOwnerListingUrl = () => {
+
+
+
+
+  return `/api/owner/claim/activate`
+}
+
+/**
+ * Server-side checks require review, claimed status, email-channel verification, admin-approved ownership and source-rights evidence, complete required fields, and no suppression. Duplicate requests resume the same activation; publication and candidate state commit atomically.
+ * @summary Run the resumable promotion, enrichment, scoring, and publication pipeline
+ */
+export const activateOsmOwnerListing = async ( options?: Parameters<typeof customFetch>[1]): Promise<OsmActivationProgress> => {
+
+  return customFetch<OsmActivationProgress>(getActivateOsmOwnerListingUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getActivateOsmOwnerListingMutationOptions = <TError = ErrorType<void | ErrorResponse | OsmActivationProgress>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof activateOsmOwnerListing>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof activateOsmOwnerListing>>, TError,void, TContext> => {
+
+const mutationKey = ['activateOsmOwnerListing'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof activateOsmOwnerListing>>, void> = () => {
+
+
+          return  activateOsmOwnerListing(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ActivateOsmOwnerListingMutationResult = NonNullable<Awaited<ReturnType<typeof activateOsmOwnerListing>>>
+
+    export type ActivateOsmOwnerListingMutationError = ErrorType<void | ErrorResponse | OsmActivationProgress>
+
+    /**
+ * @summary Run the resumable promotion, enrichment, scoring, and publication pipeline
+ */
+export const useActivateOsmOwnerListing = <TError = ErrorType<void | ErrorResponse | OsmActivationProgress>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof activateOsmOwnerListing>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof activateOsmOwnerListing>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getActivateOsmOwnerListingMutationOptions(options));
+    }
+
+export const getGetOsmOwnerAnalyticsUrl = () => {
+
+
+
+
+  return `/api/owner/claim/analytics`
+}
+
+/**
+ * Available only after publication. Views and searches count events explicitly recorded by server-side profile and search handlers; client-submitted analytics events are excluded. Clicks remain zero until a trusted server-side click signal is implemented.
+ * @summary Read activated listing views, searches, and clicks
+ */
+export const getOsmOwnerAnalytics = async ( options?: Parameters<typeof customFetch>[1]): Promise<OsmOwnerAnalytics> => {
+
+  return customFetch<OsmOwnerAnalytics>(getGetOsmOwnerAnalyticsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOsmOwnerAnalyticsQueryKey = () => {
+    return [
+    `/api/owner/claim/analytics`
+    ] as const;
+    }
+
+
+export const getGetOsmOwnerAnalyticsQueryOptions = <TData = Awaited<ReturnType<typeof getOsmOwnerAnalytics>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOsmOwnerAnalytics>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOsmOwnerAnalyticsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOsmOwnerAnalytics>>> = ({ signal }) => getOsmOwnerAnalytics({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOsmOwnerAnalytics>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOsmOwnerAnalyticsQueryResult = NonNullable<Awaited<ReturnType<typeof getOsmOwnerAnalytics>>>
+export type GetOsmOwnerAnalyticsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Read activated listing views, searches, and clicks
+ */
+
+export function useGetOsmOwnerAnalytics<TData = Awaited<ReturnType<typeof getOsmOwnerAnalytics>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOsmOwnerAnalytics>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOsmOwnerAnalyticsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSetOsmOwnerOutreachPreferenceUrl = () => {
+
+
+
+
+  return `/api/owner/claim/outreach-preference`
+}
+
+/**
+ * @summary Disable or enable future claim outreach for the scoped listing
+ */
+export const setOsmOwnerOutreachPreference = async (osmOwnerOutreachPreferenceInput: OsmOwnerOutreachPreferenceInput, options?: Parameters<typeof customFetch>[1]): Promise<OsmOwnerOutreachPreference> => {
+
+  return customFetch<OsmOwnerOutreachPreference>(getSetOsmOwnerOutreachPreferenceUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(osmOwnerOutreachPreferenceInput)
+  }
+);}
+
+
+
+
+
+export const getSetOsmOwnerOutreachPreferenceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setOsmOwnerOutreachPreference>>, TError,{data: BodyType<OsmOwnerOutreachPreferenceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setOsmOwnerOutreachPreference>>, TError,{data: BodyType<OsmOwnerOutreachPreferenceInput>}, TContext> => {
+
+const mutationKey = ['setOsmOwnerOutreachPreference'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setOsmOwnerOutreachPreference>>, {data: BodyType<OsmOwnerOutreachPreferenceInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  setOsmOwnerOutreachPreference(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetOsmOwnerOutreachPreferenceMutationResult = NonNullable<Awaited<ReturnType<typeof setOsmOwnerOutreachPreference>>>
+    export type SetOsmOwnerOutreachPreferenceMutationBody = BodyType<OsmOwnerOutreachPreferenceInput>
+    export type SetOsmOwnerOutreachPreferenceMutationError = ErrorType<void>
+
+    /**
+ * @summary Disable or enable future claim outreach for the scoped listing
+ */
+export const useSetOsmOwnerOutreachPreference = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setOsmOwnerOutreachPreference>>, TError,{data: BodyType<OsmOwnerOutreachPreferenceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setOsmOwnerOutreachPreference>>,
+        TError,
+        {data: BodyType<OsmOwnerOutreachPreferenceInput>},
+        TContext
+      > => {
+      return useMutation(getSetOsmOwnerOutreachPreferenceMutationOptions(options));
     }
 

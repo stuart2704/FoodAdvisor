@@ -20,6 +20,8 @@ tags:
     description: Gmail watch renewal and authenticated Pub/Sub push
   - name: rewards
     description: Authenticated diner reward balances and activity
+  - name: osm-candidates
+    description: Admin-controlled OSM candidate review, claim, rights, and publication workflow
 paths:
   /rewards:
     get:
@@ -810,9 +812,579 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /dashboard/osm-candidates:
+    get:
+      operationId: listOsmCandidates
+      tags: [osm-candidates]
+      security: [{ adminSession: [] }]
+      summary: List OSM candidates for the admin workflow
+      parameters:
+        - in: query
+          name: state
+          schema:
+            $ref: "#/components/schemas/OsmCandidateState"
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - in: query
+          name: cursor
+          schema: { type: string, maxLength: 1024 }
+      responses:
+        "200":
+          description: Candidate page with durable workflow status and progress
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OsmCandidatePage" }
+        "401":
+          description: Admin login required
+        "503":
+          description: Candidate queue unavailable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /dashboard/osm-candidates/{sourceName}/{sourceId}:
+    get:
+      operationId: getOsmCandidate
+      tags: [osm-candidates]
+      security: [{ adminSession: [] }]
+      summary: Read one candidate and its workflow record
+      parameters:
+        - $ref: "#/components/parameters/OsmSourceName"
+        - $ref: "#/components/parameters/OsmSourceId"
+      responses:
+        "200":
+          description: Candidate details and workflow
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OsmCandidateWorkflow" }
+        "401": { description: Admin login required }
+        "404":
+          description: Candidate not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /dashboard/osm-candidates/{sourceName}/{sourceId}/review:
+    post:
+      operationId: reviewOsmCandidate
+      tags: [osm-candidates]
+      security: [{ adminSession: [] }]
+      summary: Mark a candidate reviewed without verifying ownership or publishing
+      parameters:
+        - $ref: "#/components/parameters/OsmSourceName"
+        - $ref: "#/components/parameters/OsmSourceId"
+      responses:
+        "200":
+          description: Candidate is now reviewed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OsmCandidateWorkflow" }
+        "401": { description: Admin login required }
+        "409":
+          description: Candidate cannot transition to reviewed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /dashboard/osm-candidates/{sourceName}/{sourceId}/reject:
+    post:
+      operationId: suppressOsmCandidate
+      tags: [osm-candidates]
+      security: [{ adminSession: [] }]
+      summary: Suppress a candidate permanently
+      parameters:
+        - $ref: "#/components/parameters/OsmSourceName"
+        - $ref: "#/components/parameters/OsmSourceId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OsmSuppressionInput" }
+      responses:
+        "200":
+          description: Candidate is terminally suppressed and unused claim tokens revoked
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OsmCandidateWorkflow" }
+        "401": { description: Admin login required }
+        "409":
+          description: Published candidates cannot be suppressed by this action
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /dashboard/osm-candidates/{sourceName}/{sourceId}/invites:
+    post:
+      operationId: sendOsmClaimInvite
+      tags: [osm-candidates]
+      security: [{ adminSession: [] }]
+      summary: Reserve and send a claim invitation for a reviewed candidate
+      description: Sends no invitation during ingestion. Caps invitations at three with at least seven days between provider-confirmed sends. SMS fails closed unless a sender is configured.
+      parameters:
+        - $ref: "#/components/parameters/OsmSourceName"
+        - $ref: "#/components/parameters/OsmSourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OsmClaimInviteInput" }
+      responses:
+        "201":
+          description: Invitation accepted by the configured provider; raw token is never returned
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OsmOutreachLog" }
+        "400":
+          description: Invalid destination or delivery method
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401": { description: Admin login required }
+        "409":
+          description: Candidate is ineligible, suppressed, already claimed, or at an invitation limit
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "503":
+          description: Sender is unconfigured or delivery outcome is unavailable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /dashboard/osm-candidates/{sourceName}/{sourceId}/invites/resend:
+    post:
+      operationId: resendOsmClaimInvite
+      tags: [osm-candidates]
+      security: [{ adminSession: [] }]
+      summary: Send a new, single-use claim invitation subject to the same limits
+      parameters:
+        - $ref: "#/components/parameters/OsmSourceName"
+        - $ref: "#/components/parameters/OsmSourceId"
+      responses:
+        "201":
+          description: New invitation accepted by the configured provider
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OsmOutreachLog" }
+        "401": { description: Admin login required }
+        "409":
+          description: Candidate is not invite-eligible or limits have been reached
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "503":
+          description: Sender is unconfigured or delivery outcome is unavailable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /dashboard/osm-candidates/{sourceName}/{sourceId}/evidence/decision:
+    post:
+      operationId: decideOsmCandidateEvidence
+      tags: [osm-candidates]
+      security: [{ adminSession: [] }]
+      summary: Approve or reject submitted owner-identity or source-rights evidence
+      description: Each evidence category requires an explicit admin decision. Contact-channel verification alone is not ownership proof.
+      parameters:
+        - $ref: "#/components/parameters/OsmSourceName"
+        - $ref: "#/components/parameters/OsmSourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OsmEvidenceDecisionInput" }
+      responses:
+        "200":
+          description: Evidence decision recorded with reviewer and timestamp
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OsmCandidateWorkflow" }
+        "401": { description: Admin login required }
+        "409":
+          description: Candidate is suppressed or published, or the current evidence submission is not pending and valid
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /dashboard/osm-candidates/{sourceName}/{sourceId}/outreach:
+    put:
+      operationId: setOsmCandidateOutreachBlocked
+      tags: [osm-candidates]
+      security: [{ adminSession: [] }]
+      summary: Enable or block further claim invitation outreach
+      parameters:
+        - $ref: "#/components/parameters/OsmSourceName"
+        - $ref: "#/components/parameters/OsmSourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OsmOutreachPreferenceInput" }
+      responses:
+        "200":
+          description: Outreach preference saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OsmCandidateWorkflow" }
+        "401": { description: Admin login required }
+        "404": { description: Candidate not found }
+  /dashboard/osm-candidates/{sourceName}/{sourceId}/outreach-logs:
+    get:
+      operationId: listOsmCandidateOutreachLogs
+      tags: [osm-candidates]
+      security: [{ adminSession: [] }]
+      summary: Read delivery attempts without exposing raw claim tokens
+      parameters:
+        - $ref: "#/components/parameters/OsmSourceName"
+        - $ref: "#/components/parameters/OsmSourceId"
+      responses:
+        "200":
+          description: Private outreach delivery history
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/OsmOutreachLog" }
+        "401": { description: Admin login required }
+        "404": { description: Candidate not found }
+  /claim/exchange:
+    post:
+      operationId: exchangeOsmClaimLink
+      tags: [osm-candidates]
+      summary: Exchange a one-use claim-link token for a scoped owner session
+      description: The raw invitation token is accepted only in the request body, stored as a hash, consumed once, and never returned or logged.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OsmClaimExchangeInput" }
+      responses:
+        "200":
+          description: Scoped owner session and pre-activation state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OsmOwnerSessionResponse" }
+        "400":
+          description: Claim link is invalid, expired, used, or suppressed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "429": { description: Too many claim-link attempts }
+  /claim/request:
+    post:
+      operationId: requestOsmClaim
+      tags: [osm-candidates]
+      summary: Exchange a one-use OSM claim invitation for a scoped owner session
+      description: Alias of POST /claim/exchange. This route is registered before the existing /claim/{id} routes.
+      x-canonical-operation: exchangeOsmClaimLink
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OsmClaimExchangeInput" }
+      responses:
+        "200":
+          description: Scoped owner session and pre-activation state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OsmOwnerSessionResponse" }
+        "400":
+          description: Claim link is invalid, expired, used, or suppressed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "429": { description: Too many claim-link attempts }
+  /claim/verify:
+    post:
+      operationId: verifyOsmClaimContact
+      tags: [osm-candidates]
+      security: [{ ownerSession: [] }]
+      summary: Submit a one-time code to verify the invited email channel
+      description: Alias of POST /claim/verification-code/submit. Email possession is not ownership or source-rights proof.
+      x-canonical-operation: submitOsmClaimVerificationCode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OsmVerificationCodeInput" }
+      responses:
+        "200":
+          description: Contact-channel verification status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OsmContactVerification" }
+        "400":
+          description: Invalid, expired, exhausted, or previously used code
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401": { description: Valid owner session required }
+  /claim/rights:
+    post:
+      operationId: submitOsmRightsEvidence
+      tags: [osm-candidates]
+      security: [{ ownerSession: [] }]
+      summary: Submit OSM source reuse-rights evidence for admin review
+      description: Alias of PUT /claim/evidence. Submission alone does not approve source rights.
+      x-canonical-operation: submitOsmClaimEvidence
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OsmClaimEvidenceInput" }
+      responses:
+        "200":
+          description: Evidence submitted and awaiting admin decisions
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OsmEvidenceSubmission" }
+        "400": { description: Evidence or attribution is incomplete }
+        "401": { description: Valid owner session required }
+        "409": { description: Candidate is suppressed or already published }
+  /claim/rights/confirm:
+    post:
+      operationId: confirmOsmRightsEvidence
+      tags: [osm-candidates]
+      security: [{ ownerSession: [] }]
+      summary: Confirm the submitted source-rights evidence for admin review
+      description: Alias of PUT /claim/evidence and idempotent for an unchanged evidence submission; it does not set rightsConfirmed.
+      x-canonical-operation: submitOsmClaimEvidence
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OsmClaimEvidenceInput" }
+      responses:
+        "200":
+          description: Evidence submitted and awaiting admin decisions
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OsmEvidenceSubmission" }
+        "400": { description: Evidence or attribution is incomplete }
+        "401": { description: Valid owner session required }
+        "409": { description: Candidate is suppressed or already published }
+  /claim/verify/request:
+    post:
+      operationId: requestOsmClaimVerificationCodeAlias
+      tags: [osm-candidates]
+      security: [{ ownerSession: [] }]
+      summary: Send a short-lived verification code to the invited email
+      description: Alias of POST /claim/verification-code/request. SMS is not sent unless a configured sender is available.
+      x-canonical-operation: requestOsmClaimVerificationCode
+      responses:
+        "202": { description: Verification request accepted without revealing whether an address exists }
+        "401": { description: Valid owner session required }
+        "429": { description: Verification code rate limit reached }
+        "503":
+          description: Email provider is not configured
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /claim/verify/submit:
+    post:
+      operationId: submitOsmClaimVerification
+      tags: [osm-candidates]
+      security: [{ ownerSession: [] }]
+      summary: Submit the one-time email verification code
+      description: Alias of POST /claim/verification-code/submit.
+      x-canonical-operation: submitOsmClaimVerificationCode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OsmVerificationCodeInput" }
+      responses:
+        "200":
+          description: Contact-channel verification status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OsmContactVerification" }
+        "400": { description: "Invalid, expired, exhausted, or previously used code" }
+        "401": { description: Valid owner session required }
+  /claim/activate:
+    post:
+      operationId: activateOsmClaimListing
+      tags: [osm-candidates]
+      security: [{ ownerSession: [] }]
+      summary: Activate and publish the fully approved OSM candidate
+      description: Alias of POST /owner/claim/activate; all server-side proof, completeness, suppression, and idempotency gates are identical.
+      x-canonical-operation: activateOsmOwnerListing
+      responses:
+        "200":
+          description: Current activation state and step progress
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OsmActivationProgress" }
+        "401": { description: Valid owner session required }
+        "409":
+          description: Activation preconditions are not satisfied or candidate is terminal
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "503":
+          description: Activation is incomplete and safely resumable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OsmActivationProgress" }
+  /claim/verification-code/request:
+    post:
+      operationId: requestOsmClaimVerificationCode
+      tags: [osm-candidates]
+      security: [{ ownerSession: [] }]
+      summary: Send a short-lived email verification code to the invited address
+      description: Verifies control of the invitation email only; it does not establish business ownership or source rights. Codes are hashed, rate limited, and never returned or logged.
+      responses:
+        "202": { description: Verification request accepted without revealing whether an address exists }
+        "401": { description: Valid owner session required }
+        "429": { description: Verification code rate limit reached }
+        "503":
+          description: Email provider is not configured
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /claim/verification-code/submit:
+    post:
+      operationId: submitOsmClaimVerificationCode
+      tags: [osm-candidates]
+      security: [{ ownerSession: [] }]
+      summary: Verify the invited email address using a one-time code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OsmVerificationCodeInput" }
+      responses:
+        "200":
+          description: Contact-channel verification status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OsmContactVerification" }
+        "400":
+          description: Invalid, expired, exhausted, or previously used code
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401": { description: Valid owner session required }
+  /claim/evidence:
+    put:
+      operationId: submitOsmClaimEvidence
+      tags: [osm-candidates]
+      security: [{ ownerSession: [] }]
+      summary: Submit ownership and OSM source-rights evidence for admin review
+      description: Evidence is recorded separately for ownership and source reuse rights. Submission does not set either approval flag.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OsmClaimEvidenceInput" }
+      responses:
+        "200":
+          description: Evidence submitted and awaiting admin decisions
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OsmEvidenceSubmission" }
+        "400":
+          description: Evidence description or source attribution is incomplete
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401": { description: Valid owner session required }
+        "409": { description: Candidate is suppressed or already published }
+  /owner/claim/dashboard:
+    get:
+      operationId: getOsmOwnerDashboard
+      tags: [osm-candidates]
+      security: [{ ownerSession: [] }]
+      summary: Read the scoped pre-activation or activated owner dashboard
+      responses:
+        "200":
+          description: Owner dashboard, draft, proof decisions, and activation progress
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OsmOwnerDashboard" }
+        "401": { description: Valid owner session required }
+  /owner/claim/draft:
+    patch:
+      operationId: updateOsmOwnerDraft
+      tags: [osm-candidates]
+      security: [{ ownerSession: [] }]
+      summary: Edit owner-controlled candidate details without publishing them
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OsmOwnerDraftInput" }
+      responses:
+        "200":
+          description: Private draft and required-field completeness
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OsmOwnerDraft" }
+        "400": { description: Invalid draft fields }
+        "401": { description: Valid owner session required }
+        "409": { description: Candidate is suppressed or published }
+  /owner/claim/activate:
+    post:
+      operationId: activateOsmOwnerListing
+      tags: [osm-candidates]
+      security: [{ ownerSession: [] }]
+      summary: Run the resumable promotion, enrichment, scoring, and publication pipeline
+      description: Server-side checks require review, claimed status, email-channel verification, admin-approved ownership and source-rights evidence, complete required fields, and no suppression. Duplicate requests resume the same activation; publication and candidate state commit atomically.
+      responses:
+        "200":
+          description: Current activation state and step progress
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OsmActivationProgress" }
+        "401": { description: Valid owner session required }
+        "409":
+          description: Activation preconditions are not satisfied or candidate is terminal
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "503":
+          description: Activation is incomplete and safely resumable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OsmActivationProgress" }
+  /owner/claim/analytics:
+    get:
+      operationId: getOsmOwnerAnalytics
+      tags: [osm-candidates]
+      security: [{ ownerSession: [] }]
+      summary: Read activated listing views, searches, and clicks
+      description: Available only after publication. Views and searches count events explicitly recorded by server-side profile and search handlers; client-submitted analytics events are excluded. Clicks remain zero until a trusted server-side click signal is implemented.
+      responses:
+        "200":
+          description: Lifetime and last-30-day metrics from trusted server-side event sources only
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OsmOwnerAnalytics" }
+        "401": { description: Valid owner session required }
+        "409": { description: Listing is not published }
+  /owner/claim/outreach-preference:
+    put:
+      operationId: setOsmOwnerOutreachPreference
+      tags: [osm-candidates]
+      security: [{ ownerSession: [] }]
+      summary: Disable or enable future claim outreach for the scoped listing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OsmOwnerOutreachPreferenceInput" }
+      responses:
+        "200":
+          description: Persisted owner outreach preference
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OsmOwnerOutreachPreference" }
+        "401": { description: Valid owner session required }
+        "409": { description: Listing is not activated }
 components:
   securitySchemes:
     automationBearer:
+      type: http
+      scheme: bearer
+    adminSession:
+      type: apiKey
+      in: cookie
+      name: tfa_admin
+    ownerSession:
       type: http
       scheme: bearer
     pubsubOidc:
@@ -827,7 +1399,295 @@ components:
       schema:
         type: string
         minLength: 1
+    OsmSourceName:
+      in: path
+      name: sourceName
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 80
+    OsmSourceId:
+      in: path
+      name: sourceId
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 512
   schemas:
+    OsmCandidateState:
+      type: string
+      enum: [unverified, reviewed, claim_invited, claim_verified, activated, published, suppressed]
+    OsmEvidenceStatus:
+      type: string
+      enum: [not_submitted, pending, approved, rejected]
+    OsmActivationStep:
+      type: string
+      enum: [promotion, enrichment, scoring, publication, finalization]
+    OsmCandidate:
+      type: object
+      additionalProperties: false
+      required: [sourceName, sourceId, name, address, phone, website, latitude, longitude, importedAt, state, reviewed, claimed, identityVerified, rightsConfirmed, published, suppressed, outreachBlocked, highConfidence, inviteCount, requiredFieldsComplete]
+      properties:
+        sourceName: { type: string }
+        sourceId: { type: string }
+        name: { type: string }
+        address: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        website: { type: ["string", "null"] }
+        latitude: { type: ["number", "null"], minimum: -90, maximum: 90 }
+        longitude: { type: ["number", "null"], minimum: -180, maximum: 180 }
+        importedAt: { type: string, format: date-time }
+        reviewedAt: { type: ["string", "null"], format: date-time }
+        state: { $ref: "#/components/schemas/OsmCandidateState" }
+        reviewed: { type: boolean }
+        claimed: { type: boolean }
+        identityVerified: { type: boolean, description: Email channel ownership only; not business ownership proof. }
+        rightsConfirmed: { type: boolean, description: True only after explicit admin approval of source reuse rights evidence. }
+        published: { type: boolean }
+        suppressed: { type: boolean }
+        outreachBlocked: { type: boolean }
+        highConfidence: { type: boolean }
+        inviteCount: { type: integer, minimum: 0, maximum: 3 }
+        requiredFieldsComplete: { type: boolean }
+    OsmCandidateWorkflow:
+      type: object
+      additionalProperties: false
+      required: [candidate, evidence, activation]
+      properties:
+        candidate: { $ref: "#/components/schemas/OsmCandidate" }
+        evidence:
+          type: object
+          additionalProperties: false
+          required: [ownershipStatus, rightsStatus, submittedAt, ownershipSubmission, sourceRightsSubmission]
+          properties:
+            ownershipStatus: { $ref: "#/components/schemas/OsmEvidenceStatus" }
+            rightsStatus: { $ref: "#/components/schemas/OsmEvidenceStatus" }
+            submittedAt: { type: ["string", "null"], format: date-time }
+            ownershipSubmission:
+              anyOf:
+                - $ref: "#/components/schemas/OsmEvidenceRecord"
+                - type: "null"
+            sourceRightsSubmission:
+              anyOf:
+                - $ref: "#/components/schemas/OsmEvidenceRecord"
+                - type: "null"
+        activation: { $ref: "#/components/schemas/OsmActivationProgress" }
+    OsmCandidatePage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/OsmCandidateWorkflow" }
+        nextCursor: { type: ["string", "null"] }
+    OsmSuppressionInput:
+      type: object
+      additionalProperties: false
+      properties:
+        reason: { type: string, maxLength: 1000 }
+    OsmClaimInviteInput:
+      type: object
+      additionalProperties: false
+      required: [sentTo, method]
+      properties:
+        sentTo:
+          type: string
+          maxLength: 254
+          description: Email address, or a future explicitly configured channel address; provider-specific validation applies.
+        method:
+          type: string
+          enum: [email, sms, outreach]
+    OsmOutreachLog:
+      type: object
+      additionalProperties: false
+      required: [id, sourceName, sourceId, sentTo, method, status, createdAt]
+      properties:
+        id: { type: string }
+        sourceName: { type: string }
+        sourceId: { type: string }
+        sentTo: { type: ["string", "null"], description: Private contact data; admin-only response. }
+        method: { type: string, enum: [email, sms, outreach] }
+        status: { type: string, enum: [sent, failed, bounced, unknown] }
+        createdAt: { type: string, format: date-time }
+        errorCode: { type: ["string", "null"], description: Sanitized provider error category; never raw error text. }
+    OsmEvidenceDecisionInput:
+      type: object
+      additionalProperties: false
+      required: [kind, decision]
+      properties:
+        kind: { type: string, enum: [ownership, source_rights] }
+        decision: { type: string, enum: [approved, rejected] }
+        reviewerNote: { type: ["string", "null"], maxLength: 2000 }
+    OsmEvidenceRecord:
+      type: object
+      additionalProperties: false
+      description: Private evidence details returned only to authenticated administrators.
+      required: [status, description, evidenceUrl, sourceAttribution, submittedAt, reviewedAt, reviewedBy, reviewerNote]
+      properties:
+        status: { $ref: "#/components/schemas/OsmEvidenceStatus" }
+        description: { type: string }
+        evidenceUrl: { type: ["string", "null"], format: uri }
+        sourceAttribution: { type: ["string", "null"] }
+        submittedAt: { type: string, format: date-time }
+        reviewedAt: { type: ["string", "null"], format: date-time }
+        reviewedBy: { type: ["string", "null"] }
+        reviewerNote: { type: ["string", "null"] }
+    OsmOutreachPreferenceInput:
+      type: object
+      additionalProperties: false
+      required: [blocked]
+      properties:
+        blocked: { type: boolean }
+    OsmClaimExchangeInput:
+      type: object
+      additionalProperties: false
+      required: [claimToken]
+      properties:
+        claimToken: { type: string, minLength: 32, maxLength: 512 }
+    OsmOwnerSessionResponse:
+      type: object
+      additionalProperties: false
+      required: [ownerSession, expiresAt, dashboardMode, state]
+      properties:
+        ownerSession: { type: string, description: Returned once; server stores only a hash. }
+        expiresAt: { type: string, format: date-time }
+        dashboardMode: { type: string, enum: [pre_activation, activated] }
+        state: { $ref: "#/components/schemas/OsmCandidateState" }
+    OsmVerificationCodeInput:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code: { type: string, minLength: 6, maxLength: 10, pattern: "^[0-9]+$" }
+    OsmContactVerification:
+      type: object
+      additionalProperties: false
+      required: [identityVerified, state]
+      properties:
+        identityVerified: { type: boolean, description: Confirms control of the invitation email only. }
+        state: { $ref: "#/components/schemas/OsmCandidateState" }
+    OsmClaimEvidenceInput:
+      type: object
+      additionalProperties: false
+      required: [ownershipDescription, rightsDescription, sourceAttribution]
+      properties:
+        ownershipDescription: { type: string, minLength: 10, maxLength: 4000 }
+        ownershipEvidenceUrl: { type: ["string", "null"], format: uri, maxLength: 2048 }
+        rightsDescription: { type: string, minLength: 10, maxLength: 4000 }
+        rightsEvidenceUrl: { type: ["string", "null"], format: uri, maxLength: 2048 }
+        sourceAttribution: { type: string, minLength: 1, maxLength: 1000 }
+    OsmEvidenceSubmission:
+      type: object
+      additionalProperties: false
+      required: [ownershipStatus, rightsStatus, submittedAt]
+      properties:
+        ownershipStatus: { $ref: "#/components/schemas/OsmEvidenceStatus" }
+        rightsStatus: { $ref: "#/components/schemas/OsmEvidenceStatus" }
+        submittedAt: { type: string, format: date-time }
+    OsmOwnerDashboard:
+      type: object
+      additionalProperties: false
+      required: [dashboardMode, candidate, draft, evidence, activation]
+      properties:
+        dashboardMode: { type: string, enum: [pre_activation, activated] }
+        candidate: { $ref: "#/components/schemas/OsmCandidate" }
+        draft: { $ref: "#/components/schemas/OsmOwnerDraft" }
+        evidence:
+          type: object
+          additionalProperties: false
+          required: [ownershipStatus, rightsStatus]
+          properties:
+            ownershipStatus: { $ref: "#/components/schemas/OsmEvidenceStatus" }
+            rightsStatus: { $ref: "#/components/schemas/OsmEvidenceStatus" }
+        activation: { $ref: "#/components/schemas/OsmActivationProgress" }
+    OsmOwnerDraft:
+      type: object
+      additionalProperties: false
+      required: [name, address, city, phone, website, description, openingHours, latitude, longitude, requiredFieldsComplete]
+      properties:
+        name: { type: string }
+        address: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        website: { type: ["string", "null"], format: uri }
+        description: { type: ["string", "null"] }
+        openingHours:
+          type: array
+          items: { type: string, maxLength: 200 }
+          maxItems: 14
+        latitude: { type: ["number", "null"], minimum: -90, maximum: 90 }
+        longitude: { type: ["number", "null"], minimum: -180, maximum: 180 }
+        requiredFieldsComplete: { type: boolean }
+    OsmOwnerDraftInput:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name: { type: string, minLength: 1, maxLength: 300 }
+        address: { type: ["string", "null"], maxLength: 1000 }
+        city: { type: ["string", "null"], maxLength: 200 }
+        phone: { type: ["string", "null"], maxLength: 100 }
+        website: { type: ["string", "null"], format: uri, maxLength: 2048 }
+        description: { type: ["string", "null"], maxLength: 4000 }
+        openingHours:
+          type: array
+          items: { type: string, maxLength: 200 }
+          maxItems: 14
+        latitude: { type: ["number", "null"], minimum: -90, maximum: 90 }
+        longitude: { type: ["number", "null"], minimum: -180, maximum: 180 }
+    OsmActivationProgress:
+      type: object
+      additionalProperties: false
+      required: [promoted, enriched, scored, published, currentStep, errors, activatedAt]
+      properties:
+        promoted: { type: boolean }
+        enriched: { type: boolean }
+        scored: { type: boolean }
+        published: { type: boolean }
+        currentStep: { type: ["string", "null"], allOf: [{ $ref: "#/components/schemas/OsmActivationStep" }] }
+        errors:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [step, errorCode, timestamp]
+            properties:
+              step: { $ref: "#/components/schemas/OsmActivationStep" }
+              errorCode: { type: string, maxLength: 100 }
+              timestamp: { type: string, format: date-time }
+        activatedAt: { type: ["string", "null"], format: date-time }
+    OsmOwnerAnalytics:
+      type: object
+      additionalProperties: false
+      required: [views, searches, clicks, last30Days]
+      properties:
+        views: { type: integer, minimum: 0 }
+        searches: { type: integer, minimum: 0 }
+        clicks: { type: integer, minimum: 0 }
+        last30Days:
+          type: object
+          additionalProperties: false
+          required: [views, searches, clicks]
+          properties:
+            views: { type: integer, minimum: 0 }
+            searches: { type: integer, minimum: 0 }
+            clicks: { type: integer, minimum: 0 }
+    OsmOwnerOutreachPreferenceInput:
+      type: object
+      additionalProperties: false
+      required: [disabled]
+      properties:
+        disabled: { type: boolean }
+    OsmOwnerOutreachPreference:
+      type: object
+      additionalProperties: false
+      required: [disabled, updatedAt]
+      properties:
+        disabled: { type: boolean }
+        updatedAt: { type: string, format: date-time }
     RewardActivity:
       type: object
       additionalProperties: false
@@ -1079,7 +1939,14 @@ components:
         website:
           type: ["string", "null"]
         googleMapsUrl:
+          type: ["string", "null"]
+        sourceName:
           type: string
+          enum: [google, OSM]
+        sourceAttribution:
+          type: ["string", "null"]
+        published:
+          type: boolean
         types:
           type: array
           items:
@@ -1097,6 +1964,9 @@ components:
         - rating
         - website
         - googleMapsUrl
+        - sourceName
+        - sourceAttribution
+        - published
         - types
         - outreachStatus
         - claimed

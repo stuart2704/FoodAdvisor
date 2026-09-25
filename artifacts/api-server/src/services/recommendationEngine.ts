@@ -43,6 +43,7 @@ export async function getRecommendedForVisitor(
   const restaurants = await db
     .select()
     .from(restaurantsTable)
+    .where(eq(restaurantsTable.published, true))
     .orderBy(
       desc(restaurantsTable.premium),
       desc(restaurantsTable.rankingScore),
@@ -85,7 +86,10 @@ export async function getSimilarRestaurants(
   const [restaurant] = await db
     .select()
     .from(restaurantsTable)
-    .where(eq(restaurantsTable.placeId, restaurantId))
+    .where(and(
+      eq(restaurantsTable.placeId, restaurantId),
+      eq(restaurantsTable.published, true),
+    ))
     .limit(1);
   if (!restaurant) throw new Error("Restaurant not found.");
   if (restaurant.cuisineTags.length === 0) return [];
@@ -96,6 +100,7 @@ export async function getSimilarRestaurants(
     .where(
       and(
         ne(restaurantsTable.placeId, restaurantId),
+        eq(restaurantsTable.published, true),
         eq(restaurantsTable.city, restaurant.city),
         sql`${restaurantsTable.cuisineTags} && ARRAY[${restaurant.cuisineTags[0]}]::text[]`,
       ),
@@ -124,6 +129,7 @@ export async function getTrending(city: string): Promise<RestaurantRecord[]> {
     .where(
       and(
         eq(restaurantsTable.city, normalisedCity),
+        eq(restaurantsTable.published, true),
         gt(restaurantsTable.popularity, 20),
       ),
     )
@@ -141,7 +147,7 @@ export async function getTopCuisine(
   const restaurants = await db
     .select()
     .from(restaurantsTable)
-    .where(sql`exists (
+    .where(sql`${restaurantsTable.published} = true and exists (
       select 1
       from unnest(${restaurantsTable.cuisineTags}) as cuisine_tag
       where lower(cuisine_tag) = lower(${normalisedCuisine})
@@ -192,7 +198,10 @@ export async function getOwnerCompetitors(
   const restaurants = await db
     .select()
     .from(restaurantsTable)
-    .where(inArray(restaurantsTable.placeId, ids));
+    .where(and(
+      inArray(restaurantsTable.placeId, ids),
+      eq(restaurantsTable.published, true),
+    ));
   const relationshipOrder = new Map(
     relationships.map((relationship, index) => [
       relationship.restaurantId,

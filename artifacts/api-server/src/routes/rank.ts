@@ -1,5 +1,5 @@
 import { db, restaurantsTable } from "@workspace/db";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import { calculateRanking } from "../services/rankingEngine";
 
@@ -21,6 +21,7 @@ router.get("/rank", async (req, res) => {
         aiRelevanceBoost: restaurantsTable.aiRelevanceBoost,
       })
       .from(restaurantsTable)
+      .where(eq(restaurantsTable.published, true))
       .orderBy(
         desc(restaurantsTable.premium),
         desc(restaurantsTable.rankingScore),

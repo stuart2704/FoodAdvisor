@@ -61,6 +61,7 @@ export async function getDirectoryPage(options: {
   const cuisine = options.cuisine?.trim();
   const price = options.price?.trim();
   const conditions = [];
+  conditions.push(eq(restaurantsTable.published, true));
   if (city) {
     conditions.push(
       sql`lower(${restaurantsTable.city}) = lower(${city})`,

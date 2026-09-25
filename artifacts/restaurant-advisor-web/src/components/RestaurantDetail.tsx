@@ -1,6 +1,7 @@
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import RestaurantPhoto from "./RestaurantPhoto";
+import OsmAttribution from "./OsmAttribution";
 
 function formatPrice(level: string | null) {
   if (level === null) return "Not available";
@@ -97,7 +98,7 @@ export default function RestaurantDetail() {
           setRestaurant({ ...value, chef: normalizeChef(value.chef) });
         }
         if (match?.id) {
-          fetch("/ai/describe", {
+          if (!String(match.id).startsWith("osm:")) fetch("/ai/describe", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -114,7 +115,7 @@ export default function RestaurantDetail() {
       })
       .catch(() => setRestaurant(null));
 
-    fetch(
+    if (!id.startsWith("osm:")) fetch(
       `/api/photos/${encodeURIComponent(id)}`
     )
         .then(res => {
@@ -128,15 +129,13 @@ export default function RestaurantDetail() {
         })
         .catch(() => setGallery([]));
 
-      fetch(
-        `/api/reviews/google/${encodeURIComponent(id)}`
-      )
-        .then(res => {
-          if (!res.ok) {
-            throw new Error("Google reviews are unavailable.");
-          }
-          return res.json();
-        })
+      const reviewsRequest = id.startsWith("osm:")
+        ? Promise.resolve({ reviews: [] })
+        : fetch(`/api/reviews/google/${encodeURIComponent(id)}`).then((res) => {
+            if (!res.ok) throw new Error("Google reviews are unavailable.");
+            return res.json();
+          });
+      reviewsRequest
         .then(data => {
           setReviews(Array.isArray(data.reviews) ? data.reviews : []);
           return fetch(
@@ -267,6 +266,7 @@ export default function RestaurantDetail() {
       <h1 style={{ fontSize: "2.2rem", marginBottom: "10px" }}>
         {restaurant.name}
       </h1>
+      {restaurant.id.startsWith("osm:") && <OsmAttribution />}
 
       {restaurant.badges && restaurant.badges.length > 0 && (
         <div style={{ marginTop: "20px" }}>
@@ -316,7 +316,7 @@ export default function RestaurantDetail() {
       )}
 
       <div style={{ marginBottom: "20px" }}>
-        <strong>Rating:</strong> {restaurant.rating} ⭐
+        <strong>Rating:</strong> {restaurant.rating == null ? "Not available" : restaurant.rating}
       </div>
 
       <div style={{ marginBottom: "20px" }}>
@@ -361,12 +361,14 @@ export default function RestaurantDetail() {
         </a> : "Not available"}
       </div>
 
-      <div style={{ marginBottom: "20px" }}>
-        <strong>Google Maps:</strong>{" "}
-        <a href={restaurant.googleMapsUrl} target="_blank" rel="noreferrer">
-          View on Maps
-        </a>
-      </div>
+      {restaurant.googleMapsUrl && (
+        <div style={{ marginBottom: "20px" }}>
+          <strong>Google Maps:</strong>{" "}
+          <a href={restaurant.googleMapsUrl} target="_blank" rel="noreferrer">
+            View on Maps
+          </a>
+        </div>
+      )}
 
       {restaurant.bookingUrl && (
         <a
@@ -742,7 +744,7 @@ interface RestaurantData {
   address: string;
   website: string | null;
   bookingUrl: string | null;
-  googleMapsUrl: string;
+  googleMapsUrl: string | null;
   rating: number | null;
   claimed: boolean;
   badges?: string[];

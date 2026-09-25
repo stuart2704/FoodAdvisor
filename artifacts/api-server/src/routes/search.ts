@@ -113,6 +113,7 @@ async function searchRestaurants(req: Request, res: Response): Promise<void> {
   if (premiumOnly === "true") {
     conditions.push(eq(restaurantsTable.premium, true));
   }
+  conditions.push(eq(restaurantsTable.published, true));
 
   try {
     const rows = await db
@@ -177,6 +178,8 @@ async function searchRestaurants(req: Request, res: Response): Promise<void> {
         name: row.name,
         cuisine: row.cuisineTags[0] ?? null,
         city: row.city,
+        sourceName: row.sourceName,
+        sourceAttribution: row.sourceAttribution,
         region: row.region,
         country: row.country,
         globalRegion: row.globalRegion,
@@ -244,6 +247,7 @@ async function searchRestaurants(req: Request, res: Response): Promise<void> {
     const impressionResults = await Promise.allSettled(
       results.map((restaurant, index) =>
         logEvent(restaurant.id, "search_impression", {
+          source: "server_search",
           position: offset + index + 1,
           queryProvided: Boolean(q),
           cityFiltered: Boolean(city),

@@ -20,6 +20,9 @@ import adminChefRoutes from "./routes/adminChef";
 import statusRoutes from "./routes/status";
 import dashboardRoutes from "./routes/dashboard";
 import candidateReviewRouter from "./routes/candidateReview";
+import osmCandidateWorkflowAdminRouter from "./routes/osmCandidateWorkflowAdmin";
+import { redactRequestUrl } from "./lib/requestUrlRedaction";
+import osmClaimWorkflowOwnerRouter from "./routes/osmClaimWorkflowOwner";
 import dashboardOutreachRoutes from "./routes/dashboardOutreach";
 import dashboardSchedulerRoutes from "./routes/dashboardScheduler";
 import dashboardSystemHealth from "./routes/dashboardSystemHealth";
@@ -78,7 +81,7 @@ app.use(
         return {
           id: req.id,
           method: req.method,
-          url: req.url?.split("?")[0],
+          url: redactRequestUrl(req.url ?? ""),
         };
       },
       res(res) {
@@ -158,6 +161,11 @@ app.use(
 
 app.use("/api", healthRoute);
 app.use("/api", adminSummaryRoute);
+// OSM claim paths precede the legacy /claim/:id handlers so fixed aliases
+// such as /api/claim/request cannot be treated as restaurant identifiers.
+app.use("/api", osmClaimWorkflowOwnerRouter);
+// Canonical admin API path matches the OpenAPI server base.
+app.use("/api", osmCandidateWorkflowAdminRouter);
 app.use("/api", router);
 app.use("/ai", aiRoutes);
 app.use("/api/ai", aiRoutes);
@@ -174,6 +182,7 @@ app.use("/admin", adminChefRoutes);
 app.use("/admin", socialRouter);
 app.use("/api/admin", adminChefRoutes);
 app.use("/status", statusRoutes);
+app.use(osmCandidateWorkflowAdminRouter);
 app.use("/dashboard", candidateReviewRouter);
 app.use("/dashboard", dashboardRoutes);
 app.use("/dashboard", dashboardOutreachRoutes);

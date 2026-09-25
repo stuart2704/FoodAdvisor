@@ -28,7 +28,7 @@ const EventBody = z.object({
   (value) =>
     !value.metadata ||
     (!Object.hasOwn(value.metadata, "viewedWith") &&
-      value.metadata.source !== "server_profile"),
+      !Object.hasOwn(value.metadata, "source")),
   { message: "Reserved analytics metadata is not accepted." },
 );
 
@@ -42,7 +42,7 @@ router.post("/analytics/events", analyticsLimiter, async (req, res) => {
     await logEvent(
       parsed.data.restaurantId,
       parsed.data.type,
-      parsed.data.metadata,
+      { ...parsed.data.metadata, source: "untrusted_client" },
     );
     res.status(204).end();
   } catch (error) {

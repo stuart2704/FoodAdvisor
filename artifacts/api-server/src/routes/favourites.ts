@@ -44,7 +44,10 @@ router.get("/favourites", async (req, res) => {
         restaurantsTable,
         eq(restaurantFavouritesTable.restaurantId, restaurantsTable.placeId),
       )
-      .where(eq(restaurantFavouritesTable.clerkUserId, userId))
+      .where(and(
+        eq(restaurantFavouritesTable.clerkUserId, userId),
+        eq(restaurantsTable.published, true),
+      ))
       .orderBy(desc(restaurantFavouritesTable.createdAt));
     res.setHeader("Cache-Control", "private, no-store");
     res.json({ success: true, results });
@@ -69,7 +72,10 @@ router.post("/favourites", writeLimiter, async (req, res) => {
     const [restaurant] = await db
       .select({ id: restaurantsTable.placeId })
       .from(restaurantsTable)
-      .where(eq(restaurantsTable.placeId, parsed.data.restaurantId))
+      .where(and(
+        eq(restaurantsTable.placeId, parsed.data.restaurantId),
+        eq(restaurantsTable.published, true),
+      ))
       .limit(1);
     if (!restaurant) {
       res.status(404).json({ success: false, error: "Restaurant not found." });

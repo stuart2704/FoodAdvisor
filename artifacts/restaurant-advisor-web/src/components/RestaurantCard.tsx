@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import RestaurantPhoto from "./RestaurantPhoto";
+import OsmAttribution from "./OsmAttribution";
 
 type Coordinates = {
   lat: number;
@@ -37,6 +38,9 @@ export default function RestaurantCard({
   useEffect(() => {
     const controller = new AbortController();
     setPhotoUrl(null);
+    if (typeof id === "string" && id.startsWith("osm:")) {
+      return () => controller.abort();
+    }
     fetch(`/api/photo/${encodeURIComponent(id)}`, { signal: controller.signal })
       .then(res => {
         if (!res.ok) throw new Error("Restaurant photo unavailable");
@@ -51,7 +55,7 @@ export default function RestaurantCard({
 
   return (
     <Link
-      to={`/restaurant/${id}`}
+      to={`/restaurant/${encodeURIComponent(id)}`}
       style={{ textDecoration: "none", color: "inherit" }}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -67,6 +71,7 @@ export default function RestaurantCard({
 
         <div style={{ fontSize: "1.2rem", fontWeight: 600 }}>{name}</div>
         <div style={{ opacity: 0.7 }}>{city} · {cuisine}</div>
+        {typeof id === "string" && id.startsWith("osm:") && <OsmAttribution />}
         {typeof score === "number" && (
           <div style={{ marginTop: "8px", fontWeight: 600 }}>
             🔥 Trending Score: {score}/100

@@ -60,7 +60,10 @@ async function validateRestaurants(
   const rows = await executor
     .select({ id: restaurantsTable.placeId, city: restaurantsTable.city })
     .from(restaurantsTable)
-    .where(inArray(restaurantsTable.placeId, restaurantIds));
+    .where(and(
+      inArray(restaurantsTable.placeId, restaurantIds),
+      eq(restaurantsTable.published, true),
+    ));
   const expectedCity = city.toLocaleLowerCase("en-GB");
   return (
     rows.length === restaurantIds.length &&
@@ -135,7 +138,10 @@ async function readCollections(city?: string) {
       restaurantsTable,
       eq(restaurantCollectionMembersTable.restaurantId, restaurantsTable.placeId),
     )
-    .where(city ? eq(restaurantCollectionsTable.city, city) : undefined)
+    .where(and(
+      eq(restaurantsTable.published, true),
+      city ? eq(restaurantCollectionsTable.city, city) : undefined,
+    ))
     .orderBy(
       asc(restaurantCollectionsTable.city),
       asc(restaurantCollectionsTable.title),

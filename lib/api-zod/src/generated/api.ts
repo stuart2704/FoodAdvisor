@@ -271,7 +271,10 @@ export const RunAdminRestaurantImportResponse = zod.object({
 }),zod.null()]),
   "rating": zod.number().nullable(),
   "website": zod.string().nullable(),
-  "googleMapsUrl": zod.string(),
+  "googleMapsUrl": zod.string().nullable(),
+  "sourceName": zod.enum(['google', 'OSM']),
+  "sourceAttribution": zod.string().nullable(),
+  "published": zod.boolean(),
   "types": zod.array(zod.string()),
   "outreachStatus": zod.string(),
   "claimed": zod.boolean()
@@ -450,7 +453,10 @@ export const RunRestaurantImportResponse = zod.object({
 }),zod.null()]),
   "rating": zod.number().nullable(),
   "website": zod.string().nullable(),
-  "googleMapsUrl": zod.string(),
+  "googleMapsUrl": zod.string().nullable(),
+  "sourceName": zod.enum(['google', 'OSM']),
+  "sourceAttribution": zod.string().nullable(),
+  "published": zod.boolean(),
   "types": zod.array(zod.string()),
   "outreachStatus": zod.string(),
   "claimed": zod.boolean()
@@ -484,7 +490,10 @@ export const ListRestaurantsResponseItem = zod.object({
 }),zod.null()]),
   "rating": zod.number().nullable(),
   "website": zod.string().nullable(),
-  "googleMapsUrl": zod.string(),
+  "googleMapsUrl": zod.string().nullable(),
+  "sourceName": zod.enum(['google', 'OSM']),
+  "sourceAttribution": zod.string().nullable(),
+  "published": zod.boolean(),
   "types": zod.array(zod.string()),
   "outreachStatus": zod.string(),
   "claimed": zod.boolean()
@@ -534,7 +543,10 @@ export const ListNearbyRestaurantsResponseItem = zod.object({
 }),zod.null()]),
   "rating": zod.number().nullable(),
   "website": zod.string().nullable(),
-  "googleMapsUrl": zod.string(),
+  "googleMapsUrl": zod.string().nullable(),
+  "sourceName": zod.enum(['google', 'OSM']),
+  "sourceAttribution": zod.string().nullable(),
+  "published": zod.boolean(),
   "types": zod.array(zod.string()),
   "outreachStatus": zod.string(),
   "claimed": zod.boolean()
@@ -825,6 +837,1129 @@ export const EnrichRestaurantResponse = zod.object({
   "cuisines": zod.array(zod.string()),
   "dietaryTags": zod.array(zod.string()),
   "confidence": zod.enum(['none', 'low', 'medium', 'high'])
+})
+
+
+/**
+ * @summary List OSM candidates for the admin workflow
+ */
+export const listOsmCandidatesQueryLimitDefault = 50;
+export const listOsmCandidatesQueryLimitMax = 100;
+
+export const listOsmCandidatesQueryCursorMax = 1024;
+
+
+
+export const ListOsmCandidatesQueryParams = zod.object({
+  "state": zod.enum(['unverified', 'reviewed', 'claim_invited', 'claim_verified', 'activated', 'published', 'suppressed']).optional(),
+  "limit": zod.coerce.number().int().min(1).max(listOsmCandidatesQueryLimitMax).default(listOsmCandidatesQueryLimitDefault),
+  "cursor": zod.coerce.string().max(listOsmCandidatesQueryCursorMax).optional()
+})
+
+export const listOsmCandidatesResponseItemsItemCandidateLatitudeMin = -90;
+export const listOsmCandidatesResponseItemsItemCandidateLatitudeMax = 90;
+
+export const listOsmCandidatesResponseItemsItemCandidateLongitudeMin = -180;
+export const listOsmCandidatesResponseItemsItemCandidateLongitudeMax = 180;
+
+export const listOsmCandidatesResponseItemsItemCandidateInviteCountMin = 0;
+export const listOsmCandidatesResponseItemsItemCandidateInviteCountMax = 3;
+
+export const listOsmCandidatesResponseItemsItemActivationErrorsItemErrorCodeMax = 100;
+
+
+
+export const ListOsmCandidatesResponse = zod.object({
+  "items": zod.array(zod.object({
+  "candidate": zod.object({
+  "sourceName": zod.string(),
+  "sourceId": zod.string(),
+  "name": zod.string(),
+  "address": zod.string().nullable(),
+  "phone": zod.string().nullable(),
+  "website": zod.string().nullable(),
+  "latitude": zod.number().min(listOsmCandidatesResponseItemsItemCandidateLatitudeMin).max(listOsmCandidatesResponseItemsItemCandidateLatitudeMax).nullable(),
+  "longitude": zod.number().min(listOsmCandidatesResponseItemsItemCandidateLongitudeMin).max(listOsmCandidatesResponseItemsItemCandidateLongitudeMax).nullable(),
+  "importedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullish(),
+  "state": zod.enum(['unverified', 'reviewed', 'claim_invited', 'claim_verified', 'activated', 'published', 'suppressed']),
+  "reviewed": zod.boolean(),
+  "claimed": zod.boolean(),
+  "identityVerified": zod.boolean().describe('Email channel ownership only; not business ownership proof.'),
+  "rightsConfirmed": zod.boolean().describe('True only after explicit admin approval of source reuse rights evidence.'),
+  "published": zod.boolean(),
+  "suppressed": zod.boolean(),
+  "outreachBlocked": zod.boolean(),
+  "highConfidence": zod.boolean(),
+  "inviteCount": zod.number().int().min(listOsmCandidatesResponseItemsItemCandidateInviteCountMin).max(listOsmCandidatesResponseItemsItemCandidateInviteCountMax),
+  "requiredFieldsComplete": zod.boolean()
+}),
+  "evidence": zod.object({
+  "ownershipStatus": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "rightsStatus": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "submittedAt": zod.coerce.date().nullable(),
+  "ownershipSubmission": zod.union([zod.object({
+  "status": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "description": zod.string(),
+  "evidenceUrl": zod.string().url().nullable(),
+  "sourceAttribution": zod.string().nullable(),
+  "submittedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullable(),
+  "reviewedBy": zod.string().nullable(),
+  "reviewerNote": zod.string().nullable()
+}).describe('Private evidence details returned only to authenticated administrators.'),zod.null()]),
+  "sourceRightsSubmission": zod.union([zod.object({
+  "status": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "description": zod.string(),
+  "evidenceUrl": zod.string().url().nullable(),
+  "sourceAttribution": zod.string().nullable(),
+  "submittedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullable(),
+  "reviewedBy": zod.string().nullable(),
+  "reviewerNote": zod.string().nullable()
+}).describe('Private evidence details returned only to authenticated administrators.'),zod.null()])
+}),
+  "activation": zod.object({
+  "promoted": zod.boolean(),
+  "enriched": zod.boolean(),
+  "scored": zod.boolean(),
+  "published": zod.boolean(),
+  "currentStep": zod.enum(['promotion', 'enrichment', 'scoring', 'publication', 'finalization']).nullable(),
+  "errors": zod.array(zod.object({
+  "step": zod.enum(['promotion', 'enrichment', 'scoring', 'publication', 'finalization']),
+  "errorCode": zod.string().max(listOsmCandidatesResponseItemsItemActivationErrorsItemErrorCodeMax),
+  "timestamp": zod.coerce.date()
+})),
+  "activatedAt": zod.coerce.date().nullable()
+})
+})),
+  "nextCursor": zod.string().nullable()
+})
+
+
+/**
+ * @summary Read one candidate and its workflow record
+ */
+export const getOsmCandidatePathSourceNameMax = 80;
+
+export const getOsmCandidatePathSourceIdMax = 512;
+
+
+
+export const GetOsmCandidateParams = zod.object({
+  "sourceName": zod.coerce.string().min(1).max(getOsmCandidatePathSourceNameMax),
+  "sourceId": zod.coerce.string().min(1).max(getOsmCandidatePathSourceIdMax)
+})
+
+export const getOsmCandidateResponseCandidateLatitudeMin = -90;
+export const getOsmCandidateResponseCandidateLatitudeMax = 90;
+
+export const getOsmCandidateResponseCandidateLongitudeMin = -180;
+export const getOsmCandidateResponseCandidateLongitudeMax = 180;
+
+export const getOsmCandidateResponseCandidateInviteCountMin = 0;
+export const getOsmCandidateResponseCandidateInviteCountMax = 3;
+
+export const getOsmCandidateResponseActivationErrorsItemErrorCodeMax = 100;
+
+
+
+export const GetOsmCandidateResponse = zod.object({
+  "candidate": zod.object({
+  "sourceName": zod.string(),
+  "sourceId": zod.string(),
+  "name": zod.string(),
+  "address": zod.string().nullable(),
+  "phone": zod.string().nullable(),
+  "website": zod.string().nullable(),
+  "latitude": zod.number().min(getOsmCandidateResponseCandidateLatitudeMin).max(getOsmCandidateResponseCandidateLatitudeMax).nullable(),
+  "longitude": zod.number().min(getOsmCandidateResponseCandidateLongitudeMin).max(getOsmCandidateResponseCandidateLongitudeMax).nullable(),
+  "importedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullish(),
+  "state": zod.enum(['unverified', 'reviewed', 'claim_invited', 'claim_verified', 'activated', 'published', 'suppressed']),
+  "reviewed": zod.boolean(),
+  "claimed": zod.boolean(),
+  "identityVerified": zod.boolean().describe('Email channel ownership only; not business ownership proof.'),
+  "rightsConfirmed": zod.boolean().describe('True only after explicit admin approval of source reuse rights evidence.'),
+  "published": zod.boolean(),
+  "suppressed": zod.boolean(),
+  "outreachBlocked": zod.boolean(),
+  "highConfidence": zod.boolean(),
+  "inviteCount": zod.number().int().min(getOsmCandidateResponseCandidateInviteCountMin).max(getOsmCandidateResponseCandidateInviteCountMax),
+  "requiredFieldsComplete": zod.boolean()
+}),
+  "evidence": zod.object({
+  "ownershipStatus": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "rightsStatus": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "submittedAt": zod.coerce.date().nullable(),
+  "ownershipSubmission": zod.union([zod.object({
+  "status": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "description": zod.string(),
+  "evidenceUrl": zod.string().url().nullable(),
+  "sourceAttribution": zod.string().nullable(),
+  "submittedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullable(),
+  "reviewedBy": zod.string().nullable(),
+  "reviewerNote": zod.string().nullable()
+}).describe('Private evidence details returned only to authenticated administrators.'),zod.null()]),
+  "sourceRightsSubmission": zod.union([zod.object({
+  "status": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "description": zod.string(),
+  "evidenceUrl": zod.string().url().nullable(),
+  "sourceAttribution": zod.string().nullable(),
+  "submittedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullable(),
+  "reviewedBy": zod.string().nullable(),
+  "reviewerNote": zod.string().nullable()
+}).describe('Private evidence details returned only to authenticated administrators.'),zod.null()])
+}),
+  "activation": zod.object({
+  "promoted": zod.boolean(),
+  "enriched": zod.boolean(),
+  "scored": zod.boolean(),
+  "published": zod.boolean(),
+  "currentStep": zod.enum(['promotion', 'enrichment', 'scoring', 'publication', 'finalization']).nullable(),
+  "errors": zod.array(zod.object({
+  "step": zod.enum(['promotion', 'enrichment', 'scoring', 'publication', 'finalization']),
+  "errorCode": zod.string().max(getOsmCandidateResponseActivationErrorsItemErrorCodeMax),
+  "timestamp": zod.coerce.date()
+})),
+  "activatedAt": zod.coerce.date().nullable()
+})
+})
+
+
+/**
+ * @summary Mark a candidate reviewed without verifying ownership or publishing
+ */
+export const reviewOsmCandidatePathSourceNameMax = 80;
+
+export const reviewOsmCandidatePathSourceIdMax = 512;
+
+
+
+export const ReviewOsmCandidateParams = zod.object({
+  "sourceName": zod.coerce.string().min(1).max(reviewOsmCandidatePathSourceNameMax),
+  "sourceId": zod.coerce.string().min(1).max(reviewOsmCandidatePathSourceIdMax)
+})
+
+export const reviewOsmCandidateResponseCandidateLatitudeMin = -90;
+export const reviewOsmCandidateResponseCandidateLatitudeMax = 90;
+
+export const reviewOsmCandidateResponseCandidateLongitudeMin = -180;
+export const reviewOsmCandidateResponseCandidateLongitudeMax = 180;
+
+export const reviewOsmCandidateResponseCandidateInviteCountMin = 0;
+export const reviewOsmCandidateResponseCandidateInviteCountMax = 3;
+
+export const reviewOsmCandidateResponseActivationErrorsItemErrorCodeMax = 100;
+
+
+
+export const ReviewOsmCandidateResponse = zod.object({
+  "candidate": zod.object({
+  "sourceName": zod.string(),
+  "sourceId": zod.string(),
+  "name": zod.string(),
+  "address": zod.string().nullable(),
+  "phone": zod.string().nullable(),
+  "website": zod.string().nullable(),
+  "latitude": zod.number().min(reviewOsmCandidateResponseCandidateLatitudeMin).max(reviewOsmCandidateResponseCandidateLatitudeMax).nullable(),
+  "longitude": zod.number().min(reviewOsmCandidateResponseCandidateLongitudeMin).max(reviewOsmCandidateResponseCandidateLongitudeMax).nullable(),
+  "importedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullish(),
+  "state": zod.enum(['unverified', 'reviewed', 'claim_invited', 'claim_verified', 'activated', 'published', 'suppressed']),
+  "reviewed": zod.boolean(),
+  "claimed": zod.boolean(),
+  "identityVerified": zod.boolean().describe('Email channel ownership only; not business ownership proof.'),
+  "rightsConfirmed": zod.boolean().describe('True only after explicit admin approval of source reuse rights evidence.'),
+  "published": zod.boolean(),
+  "suppressed": zod.boolean(),
+  "outreachBlocked": zod.boolean(),
+  "highConfidence": zod.boolean(),
+  "inviteCount": zod.number().int().min(reviewOsmCandidateResponseCandidateInviteCountMin).max(reviewOsmCandidateResponseCandidateInviteCountMax),
+  "requiredFieldsComplete": zod.boolean()
+}),
+  "evidence": zod.object({
+  "ownershipStatus": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "rightsStatus": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "submittedAt": zod.coerce.date().nullable(),
+  "ownershipSubmission": zod.union([zod.object({
+  "status": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "description": zod.string(),
+  "evidenceUrl": zod.string().url().nullable(),
+  "sourceAttribution": zod.string().nullable(),
+  "submittedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullable(),
+  "reviewedBy": zod.string().nullable(),
+  "reviewerNote": zod.string().nullable()
+}).describe('Private evidence details returned only to authenticated administrators.'),zod.null()]),
+  "sourceRightsSubmission": zod.union([zod.object({
+  "status": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "description": zod.string(),
+  "evidenceUrl": zod.string().url().nullable(),
+  "sourceAttribution": zod.string().nullable(),
+  "submittedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullable(),
+  "reviewedBy": zod.string().nullable(),
+  "reviewerNote": zod.string().nullable()
+}).describe('Private evidence details returned only to authenticated administrators.'),zod.null()])
+}),
+  "activation": zod.object({
+  "promoted": zod.boolean(),
+  "enriched": zod.boolean(),
+  "scored": zod.boolean(),
+  "published": zod.boolean(),
+  "currentStep": zod.enum(['promotion', 'enrichment', 'scoring', 'publication', 'finalization']).nullable(),
+  "errors": zod.array(zod.object({
+  "step": zod.enum(['promotion', 'enrichment', 'scoring', 'publication', 'finalization']),
+  "errorCode": zod.string().max(reviewOsmCandidateResponseActivationErrorsItemErrorCodeMax),
+  "timestamp": zod.coerce.date()
+})),
+  "activatedAt": zod.coerce.date().nullable()
+})
+})
+
+
+/**
+ * @summary Suppress a candidate permanently
+ */
+export const suppressOsmCandidatePathSourceNameMax = 80;
+
+export const suppressOsmCandidatePathSourceIdMax = 512;
+
+
+
+export const SuppressOsmCandidateParams = zod.object({
+  "sourceName": zod.coerce.string().min(1).max(suppressOsmCandidatePathSourceNameMax),
+  "sourceId": zod.coerce.string().min(1).max(suppressOsmCandidatePathSourceIdMax)
+})
+
+export const suppressOsmCandidateBodyReasonMax = 1000;
+
+
+
+export const SuppressOsmCandidateBody = zod.object({
+  "reason": zod.string().max(suppressOsmCandidateBodyReasonMax).optional()
+})
+
+export const suppressOsmCandidateResponseCandidateLatitudeMin = -90;
+export const suppressOsmCandidateResponseCandidateLatitudeMax = 90;
+
+export const suppressOsmCandidateResponseCandidateLongitudeMin = -180;
+export const suppressOsmCandidateResponseCandidateLongitudeMax = 180;
+
+export const suppressOsmCandidateResponseCandidateInviteCountMin = 0;
+export const suppressOsmCandidateResponseCandidateInviteCountMax = 3;
+
+export const suppressOsmCandidateResponseActivationErrorsItemErrorCodeMax = 100;
+
+
+
+export const SuppressOsmCandidateResponse = zod.object({
+  "candidate": zod.object({
+  "sourceName": zod.string(),
+  "sourceId": zod.string(),
+  "name": zod.string(),
+  "address": zod.string().nullable(),
+  "phone": zod.string().nullable(),
+  "website": zod.string().nullable(),
+  "latitude": zod.number().min(suppressOsmCandidateResponseCandidateLatitudeMin).max(suppressOsmCandidateResponseCandidateLatitudeMax).nullable(),
+  "longitude": zod.number().min(suppressOsmCandidateResponseCandidateLongitudeMin).max(suppressOsmCandidateResponseCandidateLongitudeMax).nullable(),
+  "importedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullish(),
+  "state": zod.enum(['unverified', 'reviewed', 'claim_invited', 'claim_verified', 'activated', 'published', 'suppressed']),
+  "reviewed": zod.boolean(),
+  "claimed": zod.boolean(),
+  "identityVerified": zod.boolean().describe('Email channel ownership only; not business ownership proof.'),
+  "rightsConfirmed": zod.boolean().describe('True only after explicit admin approval of source reuse rights evidence.'),
+  "published": zod.boolean(),
+  "suppressed": zod.boolean(),
+  "outreachBlocked": zod.boolean(),
+  "highConfidence": zod.boolean(),
+  "inviteCount": zod.number().int().min(suppressOsmCandidateResponseCandidateInviteCountMin).max(suppressOsmCandidateResponseCandidateInviteCountMax),
+  "requiredFieldsComplete": zod.boolean()
+}),
+  "evidence": zod.object({
+  "ownershipStatus": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "rightsStatus": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "submittedAt": zod.coerce.date().nullable(),
+  "ownershipSubmission": zod.union([zod.object({
+  "status": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "description": zod.string(),
+  "evidenceUrl": zod.string().url().nullable(),
+  "sourceAttribution": zod.string().nullable(),
+  "submittedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullable(),
+  "reviewedBy": zod.string().nullable(),
+  "reviewerNote": zod.string().nullable()
+}).describe('Private evidence details returned only to authenticated administrators.'),zod.null()]),
+  "sourceRightsSubmission": zod.union([zod.object({
+  "status": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "description": zod.string(),
+  "evidenceUrl": zod.string().url().nullable(),
+  "sourceAttribution": zod.string().nullable(),
+  "submittedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullable(),
+  "reviewedBy": zod.string().nullable(),
+  "reviewerNote": zod.string().nullable()
+}).describe('Private evidence details returned only to authenticated administrators.'),zod.null()])
+}),
+  "activation": zod.object({
+  "promoted": zod.boolean(),
+  "enriched": zod.boolean(),
+  "scored": zod.boolean(),
+  "published": zod.boolean(),
+  "currentStep": zod.enum(['promotion', 'enrichment', 'scoring', 'publication', 'finalization']).nullable(),
+  "errors": zod.array(zod.object({
+  "step": zod.enum(['promotion', 'enrichment', 'scoring', 'publication', 'finalization']),
+  "errorCode": zod.string().max(suppressOsmCandidateResponseActivationErrorsItemErrorCodeMax),
+  "timestamp": zod.coerce.date()
+})),
+  "activatedAt": zod.coerce.date().nullable()
+})
+})
+
+
+/**
+ * Sends no invitation during ingestion. Caps invitations at three with at least seven days between provider-confirmed sends. SMS fails closed unless a sender is configured.
+ * @summary Reserve and send a claim invitation for a reviewed candidate
+ */
+export const sendOsmClaimInvitePathSourceNameMax = 80;
+
+export const sendOsmClaimInvitePathSourceIdMax = 512;
+
+
+
+export const SendOsmClaimInviteParams = zod.object({
+  "sourceName": zod.coerce.string().min(1).max(sendOsmClaimInvitePathSourceNameMax),
+  "sourceId": zod.coerce.string().min(1).max(sendOsmClaimInvitePathSourceIdMax)
+})
+
+export const sendOsmClaimInviteBodySentToMax = 254;
+
+
+
+export const SendOsmClaimInviteBody = zod.object({
+  "sentTo": zod.string().max(sendOsmClaimInviteBodySentToMax).describe('Email address, or a future explicitly configured channel address; provider-specific validation applies.'),
+  "method": zod.enum(['email', 'sms', 'outreach'])
+})
+
+export const SendOsmClaimInviteResponse = zod.object({
+  "id": zod.string(),
+  "sourceName": zod.string(),
+  "sourceId": zod.string(),
+  "sentTo": zod.string().nullable().describe('Private contact data; admin-only response.'),
+  "method": zod.enum(['email', 'sms', 'outreach']),
+  "status": zod.enum(['sent', 'failed', 'bounced', 'unknown']),
+  "createdAt": zod.coerce.date(),
+  "errorCode": zod.string().nullish().describe('Sanitized provider error category; never raw error text.')
+})
+
+
+/**
+ * @summary Send a new, single-use claim invitation subject to the same limits
+ */
+export const resendOsmClaimInvitePathSourceNameMax = 80;
+
+export const resendOsmClaimInvitePathSourceIdMax = 512;
+
+
+
+export const ResendOsmClaimInviteParams = zod.object({
+  "sourceName": zod.coerce.string().min(1).max(resendOsmClaimInvitePathSourceNameMax),
+  "sourceId": zod.coerce.string().min(1).max(resendOsmClaimInvitePathSourceIdMax)
+})
+
+export const ResendOsmClaimInviteResponse = zod.object({
+  "id": zod.string(),
+  "sourceName": zod.string(),
+  "sourceId": zod.string(),
+  "sentTo": zod.string().nullable().describe('Private contact data; admin-only response.'),
+  "method": zod.enum(['email', 'sms', 'outreach']),
+  "status": zod.enum(['sent', 'failed', 'bounced', 'unknown']),
+  "createdAt": zod.coerce.date(),
+  "errorCode": zod.string().nullish().describe('Sanitized provider error category; never raw error text.')
+})
+
+
+/**
+ * Each evidence category requires an explicit admin decision. Contact-channel verification alone is not ownership proof.
+ * @summary Approve or reject submitted owner-identity or source-rights evidence
+ */
+export const decideOsmCandidateEvidencePathSourceNameMax = 80;
+
+export const decideOsmCandidateEvidencePathSourceIdMax = 512;
+
+
+
+export const DecideOsmCandidateEvidenceParams = zod.object({
+  "sourceName": zod.coerce.string().min(1).max(decideOsmCandidateEvidencePathSourceNameMax),
+  "sourceId": zod.coerce.string().min(1).max(decideOsmCandidateEvidencePathSourceIdMax)
+})
+
+export const decideOsmCandidateEvidenceBodyReviewerNoteMax = 2000;
+
+
+
+export const DecideOsmCandidateEvidenceBody = zod.object({
+  "kind": zod.enum(['ownership', 'source_rights']),
+  "decision": zod.enum(['approved', 'rejected']),
+  "reviewerNote": zod.string().max(decideOsmCandidateEvidenceBodyReviewerNoteMax).nullish()
+})
+
+export const decideOsmCandidateEvidenceResponseCandidateLatitudeMin = -90;
+export const decideOsmCandidateEvidenceResponseCandidateLatitudeMax = 90;
+
+export const decideOsmCandidateEvidenceResponseCandidateLongitudeMin = -180;
+export const decideOsmCandidateEvidenceResponseCandidateLongitudeMax = 180;
+
+export const decideOsmCandidateEvidenceResponseCandidateInviteCountMin = 0;
+export const decideOsmCandidateEvidenceResponseCandidateInviteCountMax = 3;
+
+export const decideOsmCandidateEvidenceResponseActivationErrorsItemErrorCodeMax = 100;
+
+
+
+export const DecideOsmCandidateEvidenceResponse = zod.object({
+  "candidate": zod.object({
+  "sourceName": zod.string(),
+  "sourceId": zod.string(),
+  "name": zod.string(),
+  "address": zod.string().nullable(),
+  "phone": zod.string().nullable(),
+  "website": zod.string().nullable(),
+  "latitude": zod.number().min(decideOsmCandidateEvidenceResponseCandidateLatitudeMin).max(decideOsmCandidateEvidenceResponseCandidateLatitudeMax).nullable(),
+  "longitude": zod.number().min(decideOsmCandidateEvidenceResponseCandidateLongitudeMin).max(decideOsmCandidateEvidenceResponseCandidateLongitudeMax).nullable(),
+  "importedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullish(),
+  "state": zod.enum(['unverified', 'reviewed', 'claim_invited', 'claim_verified', 'activated', 'published', 'suppressed']),
+  "reviewed": zod.boolean(),
+  "claimed": zod.boolean(),
+  "identityVerified": zod.boolean().describe('Email channel ownership only; not business ownership proof.'),
+  "rightsConfirmed": zod.boolean().describe('True only after explicit admin approval of source reuse rights evidence.'),
+  "published": zod.boolean(),
+  "suppressed": zod.boolean(),
+  "outreachBlocked": zod.boolean(),
+  "highConfidence": zod.boolean(),
+  "inviteCount": zod.number().int().min(decideOsmCandidateEvidenceResponseCandidateInviteCountMin).max(decideOsmCandidateEvidenceResponseCandidateInviteCountMax),
+  "requiredFieldsComplete": zod.boolean()
+}),
+  "evidence": zod.object({
+  "ownershipStatus": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "rightsStatus": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "submittedAt": zod.coerce.date().nullable(),
+  "ownershipSubmission": zod.union([zod.object({
+  "status": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "description": zod.string(),
+  "evidenceUrl": zod.string().url().nullable(),
+  "sourceAttribution": zod.string().nullable(),
+  "submittedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullable(),
+  "reviewedBy": zod.string().nullable(),
+  "reviewerNote": zod.string().nullable()
+}).describe('Private evidence details returned only to authenticated administrators.'),zod.null()]),
+  "sourceRightsSubmission": zod.union([zod.object({
+  "status": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "description": zod.string(),
+  "evidenceUrl": zod.string().url().nullable(),
+  "sourceAttribution": zod.string().nullable(),
+  "submittedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullable(),
+  "reviewedBy": zod.string().nullable(),
+  "reviewerNote": zod.string().nullable()
+}).describe('Private evidence details returned only to authenticated administrators.'),zod.null()])
+}),
+  "activation": zod.object({
+  "promoted": zod.boolean(),
+  "enriched": zod.boolean(),
+  "scored": zod.boolean(),
+  "published": zod.boolean(),
+  "currentStep": zod.enum(['promotion', 'enrichment', 'scoring', 'publication', 'finalization']).nullable(),
+  "errors": zod.array(zod.object({
+  "step": zod.enum(['promotion', 'enrichment', 'scoring', 'publication', 'finalization']),
+  "errorCode": zod.string().max(decideOsmCandidateEvidenceResponseActivationErrorsItemErrorCodeMax),
+  "timestamp": zod.coerce.date()
+})),
+  "activatedAt": zod.coerce.date().nullable()
+})
+})
+
+
+/**
+ * @summary Enable or block further claim invitation outreach
+ */
+export const setOsmCandidateOutreachBlockedPathSourceNameMax = 80;
+
+export const setOsmCandidateOutreachBlockedPathSourceIdMax = 512;
+
+
+
+export const SetOsmCandidateOutreachBlockedParams = zod.object({
+  "sourceName": zod.coerce.string().min(1).max(setOsmCandidateOutreachBlockedPathSourceNameMax),
+  "sourceId": zod.coerce.string().min(1).max(setOsmCandidateOutreachBlockedPathSourceIdMax)
+})
+
+export const SetOsmCandidateOutreachBlockedBody = zod.object({
+  "blocked": zod.boolean()
+})
+
+export const setOsmCandidateOutreachBlockedResponseCandidateLatitudeMin = -90;
+export const setOsmCandidateOutreachBlockedResponseCandidateLatitudeMax = 90;
+
+export const setOsmCandidateOutreachBlockedResponseCandidateLongitudeMin = -180;
+export const setOsmCandidateOutreachBlockedResponseCandidateLongitudeMax = 180;
+
+export const setOsmCandidateOutreachBlockedResponseCandidateInviteCountMin = 0;
+export const setOsmCandidateOutreachBlockedResponseCandidateInviteCountMax = 3;
+
+export const setOsmCandidateOutreachBlockedResponseActivationErrorsItemErrorCodeMax = 100;
+
+
+
+export const SetOsmCandidateOutreachBlockedResponse = zod.object({
+  "candidate": zod.object({
+  "sourceName": zod.string(),
+  "sourceId": zod.string(),
+  "name": zod.string(),
+  "address": zod.string().nullable(),
+  "phone": zod.string().nullable(),
+  "website": zod.string().nullable(),
+  "latitude": zod.number().min(setOsmCandidateOutreachBlockedResponseCandidateLatitudeMin).max(setOsmCandidateOutreachBlockedResponseCandidateLatitudeMax).nullable(),
+  "longitude": zod.number().min(setOsmCandidateOutreachBlockedResponseCandidateLongitudeMin).max(setOsmCandidateOutreachBlockedResponseCandidateLongitudeMax).nullable(),
+  "importedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullish(),
+  "state": zod.enum(['unverified', 'reviewed', 'claim_invited', 'claim_verified', 'activated', 'published', 'suppressed']),
+  "reviewed": zod.boolean(),
+  "claimed": zod.boolean(),
+  "identityVerified": zod.boolean().describe('Email channel ownership only; not business ownership proof.'),
+  "rightsConfirmed": zod.boolean().describe('True only after explicit admin approval of source reuse rights evidence.'),
+  "published": zod.boolean(),
+  "suppressed": zod.boolean(),
+  "outreachBlocked": zod.boolean(),
+  "highConfidence": zod.boolean(),
+  "inviteCount": zod.number().int().min(setOsmCandidateOutreachBlockedResponseCandidateInviteCountMin).max(setOsmCandidateOutreachBlockedResponseCandidateInviteCountMax),
+  "requiredFieldsComplete": zod.boolean()
+}),
+  "evidence": zod.object({
+  "ownershipStatus": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "rightsStatus": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "submittedAt": zod.coerce.date().nullable(),
+  "ownershipSubmission": zod.union([zod.object({
+  "status": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "description": zod.string(),
+  "evidenceUrl": zod.string().url().nullable(),
+  "sourceAttribution": zod.string().nullable(),
+  "submittedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullable(),
+  "reviewedBy": zod.string().nullable(),
+  "reviewerNote": zod.string().nullable()
+}).describe('Private evidence details returned only to authenticated administrators.'),zod.null()]),
+  "sourceRightsSubmission": zod.union([zod.object({
+  "status": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "description": zod.string(),
+  "evidenceUrl": zod.string().url().nullable(),
+  "sourceAttribution": zod.string().nullable(),
+  "submittedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullable(),
+  "reviewedBy": zod.string().nullable(),
+  "reviewerNote": zod.string().nullable()
+}).describe('Private evidence details returned only to authenticated administrators.'),zod.null()])
+}),
+  "activation": zod.object({
+  "promoted": zod.boolean(),
+  "enriched": zod.boolean(),
+  "scored": zod.boolean(),
+  "published": zod.boolean(),
+  "currentStep": zod.enum(['promotion', 'enrichment', 'scoring', 'publication', 'finalization']).nullable(),
+  "errors": zod.array(zod.object({
+  "step": zod.enum(['promotion', 'enrichment', 'scoring', 'publication', 'finalization']),
+  "errorCode": zod.string().max(setOsmCandidateOutreachBlockedResponseActivationErrorsItemErrorCodeMax),
+  "timestamp": zod.coerce.date()
+})),
+  "activatedAt": zod.coerce.date().nullable()
+})
+})
+
+
+/**
+ * @summary Read delivery attempts without exposing raw claim tokens
+ */
+export const listOsmCandidateOutreachLogsPathSourceNameMax = 80;
+
+export const listOsmCandidateOutreachLogsPathSourceIdMax = 512;
+
+
+
+export const ListOsmCandidateOutreachLogsParams = zod.object({
+  "sourceName": zod.coerce.string().min(1).max(listOsmCandidateOutreachLogsPathSourceNameMax),
+  "sourceId": zod.coerce.string().min(1).max(listOsmCandidateOutreachLogsPathSourceIdMax)
+})
+
+export const ListOsmCandidateOutreachLogsResponseItem = zod.object({
+  "id": zod.string(),
+  "sourceName": zod.string(),
+  "sourceId": zod.string(),
+  "sentTo": zod.string().nullable().describe('Private contact data; admin-only response.'),
+  "method": zod.enum(['email', 'sms', 'outreach']),
+  "status": zod.enum(['sent', 'failed', 'bounced', 'unknown']),
+  "createdAt": zod.coerce.date(),
+  "errorCode": zod.string().nullish().describe('Sanitized provider error category; never raw error text.')
+})
+export const ListOsmCandidateOutreachLogsResponse = zod.array(ListOsmCandidateOutreachLogsResponseItem)
+
+
+/**
+ * The raw invitation token is accepted only in the request body, stored as a hash, consumed once, and never returned or logged.
+ * @summary Exchange a one-use claim-link token for a scoped owner session
+ */
+export const exchangeOsmClaimLinkBodyClaimTokenMin = 32;
+export const exchangeOsmClaimLinkBodyClaimTokenMax = 512;
+
+
+
+export const ExchangeOsmClaimLinkBody = zod.object({
+  "claimToken": zod.string().min(exchangeOsmClaimLinkBodyClaimTokenMin).max(exchangeOsmClaimLinkBodyClaimTokenMax)
+})
+
+export const ExchangeOsmClaimLinkResponse = zod.object({
+  "ownerSession": zod.string().describe('Returned once; server stores only a hash.'),
+  "expiresAt": zod.coerce.date(),
+  "dashboardMode": zod.enum(['pre_activation', 'activated']),
+  "state": zod.enum(['unverified', 'reviewed', 'claim_invited', 'claim_verified', 'activated', 'published', 'suppressed'])
+})
+
+
+/**
+ * Alias of POST /claim/exchange. This route is registered before the existing /claim/{id} routes.
+ * @summary Exchange a one-use OSM claim invitation for a scoped owner session
+ */
+export const requestOsmClaimBodyClaimTokenMin = 32;
+export const requestOsmClaimBodyClaimTokenMax = 512;
+
+
+
+export const RequestOsmClaimBody = zod.object({
+  "claimToken": zod.string().min(requestOsmClaimBodyClaimTokenMin).max(requestOsmClaimBodyClaimTokenMax)
+})
+
+export const RequestOsmClaimResponse = zod.object({
+  "ownerSession": zod.string().describe('Returned once; server stores only a hash.'),
+  "expiresAt": zod.coerce.date(),
+  "dashboardMode": zod.enum(['pre_activation', 'activated']),
+  "state": zod.enum(['unverified', 'reviewed', 'claim_invited', 'claim_verified', 'activated', 'published', 'suppressed'])
+})
+
+
+/**
+ * Alias of POST /claim/verification-code/submit. Email possession is not ownership or source-rights proof.
+ * @summary Submit a one-time code to verify the invited email channel
+ */
+export const verifyOsmClaimContactBodyCodeMin = 6;
+export const verifyOsmClaimContactBodyCodeMax = 10;
+
+
+export const verifyOsmClaimContactBodyCodeRegExp = new RegExp('^[0-9]+$');
+
+
+export const VerifyOsmClaimContactBody = zod.object({
+  "code": zod.string().min(verifyOsmClaimContactBodyCodeMin).max(verifyOsmClaimContactBodyCodeMax).regex(verifyOsmClaimContactBodyCodeRegExp)
+})
+
+export const VerifyOsmClaimContactResponse = zod.object({
+  "identityVerified": zod.boolean().describe('Confirms control of the invitation email only.'),
+  "state": zod.enum(['unverified', 'reviewed', 'claim_invited', 'claim_verified', 'activated', 'published', 'suppressed'])
+})
+
+
+/**
+ * Alias of PUT /claim/evidence. Submission alone does not approve source rights.
+ * @summary Submit OSM source reuse-rights evidence for admin review
+ */
+export const submitOsmRightsEvidenceBodyOwnershipDescriptionMin = 10;
+export const submitOsmRightsEvidenceBodyOwnershipDescriptionMax = 4000;
+
+export const submitOsmRightsEvidenceBodyOwnershipEvidenceUrlMax = 2048;
+
+export const submitOsmRightsEvidenceBodyRightsDescriptionMin = 10;
+export const submitOsmRightsEvidenceBodyRightsDescriptionMax = 4000;
+
+export const submitOsmRightsEvidenceBodyRightsEvidenceUrlMax = 2048;
+
+export const submitOsmRightsEvidenceBodySourceAttributionMax = 1000;
+
+
+
+export const SubmitOsmRightsEvidenceBody = zod.object({
+  "ownershipDescription": zod.string().min(submitOsmRightsEvidenceBodyOwnershipDescriptionMin).max(submitOsmRightsEvidenceBodyOwnershipDescriptionMax),
+  "ownershipEvidenceUrl": zod.string().url().max(submitOsmRightsEvidenceBodyOwnershipEvidenceUrlMax).nullish(),
+  "rightsDescription": zod.string().min(submitOsmRightsEvidenceBodyRightsDescriptionMin).max(submitOsmRightsEvidenceBodyRightsDescriptionMax),
+  "rightsEvidenceUrl": zod.string().url().max(submitOsmRightsEvidenceBodyRightsEvidenceUrlMax).nullish(),
+  "sourceAttribution": zod.string().min(1).max(submitOsmRightsEvidenceBodySourceAttributionMax)
+})
+
+export const SubmitOsmRightsEvidenceResponse = zod.object({
+  "ownershipStatus": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "rightsStatus": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "submittedAt": zod.coerce.date()
+})
+
+
+/**
+ * Alias of PUT /claim/evidence and idempotent for an unchanged evidence submission; it does not set rightsConfirmed.
+ * @summary Confirm the submitted source-rights evidence for admin review
+ */
+export const confirmOsmRightsEvidenceBodyOwnershipDescriptionMin = 10;
+export const confirmOsmRightsEvidenceBodyOwnershipDescriptionMax = 4000;
+
+export const confirmOsmRightsEvidenceBodyOwnershipEvidenceUrlMax = 2048;
+
+export const confirmOsmRightsEvidenceBodyRightsDescriptionMin = 10;
+export const confirmOsmRightsEvidenceBodyRightsDescriptionMax = 4000;
+
+export const confirmOsmRightsEvidenceBodyRightsEvidenceUrlMax = 2048;
+
+export const confirmOsmRightsEvidenceBodySourceAttributionMax = 1000;
+
+
+
+export const ConfirmOsmRightsEvidenceBody = zod.object({
+  "ownershipDescription": zod.string().min(confirmOsmRightsEvidenceBodyOwnershipDescriptionMin).max(confirmOsmRightsEvidenceBodyOwnershipDescriptionMax),
+  "ownershipEvidenceUrl": zod.string().url().max(confirmOsmRightsEvidenceBodyOwnershipEvidenceUrlMax).nullish(),
+  "rightsDescription": zod.string().min(confirmOsmRightsEvidenceBodyRightsDescriptionMin).max(confirmOsmRightsEvidenceBodyRightsDescriptionMax),
+  "rightsEvidenceUrl": zod.string().url().max(confirmOsmRightsEvidenceBodyRightsEvidenceUrlMax).nullish(),
+  "sourceAttribution": zod.string().min(1).max(confirmOsmRightsEvidenceBodySourceAttributionMax)
+})
+
+export const ConfirmOsmRightsEvidenceResponse = zod.object({
+  "ownershipStatus": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "rightsStatus": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "submittedAt": zod.coerce.date()
+})
+
+
+/**
+ * Alias of POST /claim/verification-code/request. SMS is not sent unless a configured sender is available.
+ * @summary Send a short-lived verification code to the invited email
+ */
+export const RequestOsmClaimVerificationCodeAliasResponse = zod.void()
+
+
+/**
+ * Alias of POST /claim/verification-code/submit.
+ * @summary Submit the one-time email verification code
+ */
+export const submitOsmClaimVerificationBodyCodeMin = 6;
+export const submitOsmClaimVerificationBodyCodeMax = 10;
+
+
+export const submitOsmClaimVerificationBodyCodeRegExp = new RegExp('^[0-9]+$');
+
+
+export const SubmitOsmClaimVerificationBody = zod.object({
+  "code": zod.string().min(submitOsmClaimVerificationBodyCodeMin).max(submitOsmClaimVerificationBodyCodeMax).regex(submitOsmClaimVerificationBodyCodeRegExp)
+})
+
+export const SubmitOsmClaimVerificationResponse = zod.object({
+  "identityVerified": zod.boolean().describe('Confirms control of the invitation email only.'),
+  "state": zod.enum(['unverified', 'reviewed', 'claim_invited', 'claim_verified', 'activated', 'published', 'suppressed'])
+})
+
+
+/**
+ * Alias of POST /owner/claim/activate; all server-side proof, completeness, suppression, and idempotency gates are identical.
+ * @summary Activate and publish the fully approved OSM candidate
+ */
+export const activateOsmClaimListingResponseErrorsItemErrorCodeMax = 100;
+
+
+
+export const ActivateOsmClaimListingResponse = zod.object({
+  "promoted": zod.boolean(),
+  "enriched": zod.boolean(),
+  "scored": zod.boolean(),
+  "published": zod.boolean(),
+  "currentStep": zod.enum(['promotion', 'enrichment', 'scoring', 'publication', 'finalization']).nullable(),
+  "errors": zod.array(zod.object({
+  "step": zod.enum(['promotion', 'enrichment', 'scoring', 'publication', 'finalization']),
+  "errorCode": zod.string().max(activateOsmClaimListingResponseErrorsItemErrorCodeMax),
+  "timestamp": zod.coerce.date()
+})),
+  "activatedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * Verifies control of the invitation email only; it does not establish business ownership or source rights. Codes are hashed, rate limited, and never returned or logged.
+ * @summary Send a short-lived email verification code to the invited address
+ */
+export const RequestOsmClaimVerificationCodeResponse = zod.void()
+
+
+/**
+ * @summary Verify the invited email address using a one-time code
+ */
+export const submitOsmClaimVerificationCodeBodyCodeMin = 6;
+export const submitOsmClaimVerificationCodeBodyCodeMax = 10;
+
+
+export const submitOsmClaimVerificationCodeBodyCodeRegExp = new RegExp('^[0-9]+$');
+
+
+export const SubmitOsmClaimVerificationCodeBody = zod.object({
+  "code": zod.string().min(submitOsmClaimVerificationCodeBodyCodeMin).max(submitOsmClaimVerificationCodeBodyCodeMax).regex(submitOsmClaimVerificationCodeBodyCodeRegExp)
+})
+
+export const SubmitOsmClaimVerificationCodeResponse = zod.object({
+  "identityVerified": zod.boolean().describe('Confirms control of the invitation email only.'),
+  "state": zod.enum(['unverified', 'reviewed', 'claim_invited', 'claim_verified', 'activated', 'published', 'suppressed'])
+})
+
+
+/**
+ * Evidence is recorded separately for ownership and source reuse rights. Submission does not set either approval flag.
+ * @summary Submit ownership and OSM source-rights evidence for admin review
+ */
+export const submitOsmClaimEvidenceBodyOwnershipDescriptionMin = 10;
+export const submitOsmClaimEvidenceBodyOwnershipDescriptionMax = 4000;
+
+export const submitOsmClaimEvidenceBodyOwnershipEvidenceUrlMax = 2048;
+
+export const submitOsmClaimEvidenceBodyRightsDescriptionMin = 10;
+export const submitOsmClaimEvidenceBodyRightsDescriptionMax = 4000;
+
+export const submitOsmClaimEvidenceBodyRightsEvidenceUrlMax = 2048;
+
+export const submitOsmClaimEvidenceBodySourceAttributionMax = 1000;
+
+
+
+export const SubmitOsmClaimEvidenceBody = zod.object({
+  "ownershipDescription": zod.string().min(submitOsmClaimEvidenceBodyOwnershipDescriptionMin).max(submitOsmClaimEvidenceBodyOwnershipDescriptionMax),
+  "ownershipEvidenceUrl": zod.string().url().max(submitOsmClaimEvidenceBodyOwnershipEvidenceUrlMax).nullish(),
+  "rightsDescription": zod.string().min(submitOsmClaimEvidenceBodyRightsDescriptionMin).max(submitOsmClaimEvidenceBodyRightsDescriptionMax),
+  "rightsEvidenceUrl": zod.string().url().max(submitOsmClaimEvidenceBodyRightsEvidenceUrlMax).nullish(),
+  "sourceAttribution": zod.string().min(1).max(submitOsmClaimEvidenceBodySourceAttributionMax)
+})
+
+export const SubmitOsmClaimEvidenceResponse = zod.object({
+  "ownershipStatus": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "rightsStatus": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "submittedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Read the scoped pre-activation or activated owner dashboard
+ */
+export const getOsmOwnerDashboardResponseCandidateLatitudeMin = -90;
+export const getOsmOwnerDashboardResponseCandidateLatitudeMax = 90;
+
+export const getOsmOwnerDashboardResponseCandidateLongitudeMin = -180;
+export const getOsmOwnerDashboardResponseCandidateLongitudeMax = 180;
+
+export const getOsmOwnerDashboardResponseCandidateInviteCountMin = 0;
+export const getOsmOwnerDashboardResponseCandidateInviteCountMax = 3;
+
+export const getOsmOwnerDashboardResponseDraftOpeningHoursItemMax = 200;
+
+export const getOsmOwnerDashboardResponseDraftOpeningHoursMax = 14;
+
+export const getOsmOwnerDashboardResponseDraftLatitudeMin = -90;
+export const getOsmOwnerDashboardResponseDraftLatitudeMax = 90;
+
+export const getOsmOwnerDashboardResponseDraftLongitudeMin = -180;
+export const getOsmOwnerDashboardResponseDraftLongitudeMax = 180;
+
+export const getOsmOwnerDashboardResponseActivationErrorsItemErrorCodeMax = 100;
+
+
+
+export const GetOsmOwnerDashboardResponse = zod.object({
+  "dashboardMode": zod.enum(['pre_activation', 'activated']),
+  "candidate": zod.object({
+  "sourceName": zod.string(),
+  "sourceId": zod.string(),
+  "name": zod.string(),
+  "address": zod.string().nullable(),
+  "phone": zod.string().nullable(),
+  "website": zod.string().nullable(),
+  "latitude": zod.number().min(getOsmOwnerDashboardResponseCandidateLatitudeMin).max(getOsmOwnerDashboardResponseCandidateLatitudeMax).nullable(),
+  "longitude": zod.number().min(getOsmOwnerDashboardResponseCandidateLongitudeMin).max(getOsmOwnerDashboardResponseCandidateLongitudeMax).nullable(),
+  "importedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullish(),
+  "state": zod.enum(['unverified', 'reviewed', 'claim_invited', 'claim_verified', 'activated', 'published', 'suppressed']),
+  "reviewed": zod.boolean(),
+  "claimed": zod.boolean(),
+  "identityVerified": zod.boolean().describe('Email channel ownership only; not business ownership proof.'),
+  "rightsConfirmed": zod.boolean().describe('True only after explicit admin approval of source reuse rights evidence.'),
+  "published": zod.boolean(),
+  "suppressed": zod.boolean(),
+  "outreachBlocked": zod.boolean(),
+  "highConfidence": zod.boolean(),
+  "inviteCount": zod.number().int().min(getOsmOwnerDashboardResponseCandidateInviteCountMin).max(getOsmOwnerDashboardResponseCandidateInviteCountMax),
+  "requiredFieldsComplete": zod.boolean()
+}),
+  "draft": zod.object({
+  "name": zod.string(),
+  "address": zod.string().nullable(),
+  "city": zod.string().nullable(),
+  "phone": zod.string().nullable(),
+  "website": zod.string().url().nullable(),
+  "description": zod.string().nullable(),
+  "openingHours": zod.array(zod.string().max(getOsmOwnerDashboardResponseDraftOpeningHoursItemMax)).max(getOsmOwnerDashboardResponseDraftOpeningHoursMax),
+  "latitude": zod.number().min(getOsmOwnerDashboardResponseDraftLatitudeMin).max(getOsmOwnerDashboardResponseDraftLatitudeMax).nullable(),
+  "longitude": zod.number().min(getOsmOwnerDashboardResponseDraftLongitudeMin).max(getOsmOwnerDashboardResponseDraftLongitudeMax).nullable(),
+  "requiredFieldsComplete": zod.boolean()
+}),
+  "evidence": zod.object({
+  "ownershipStatus": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "rightsStatus": zod.enum(['not_submitted', 'pending', 'approved', 'rejected'])
+}),
+  "activation": zod.object({
+  "promoted": zod.boolean(),
+  "enriched": zod.boolean(),
+  "scored": zod.boolean(),
+  "published": zod.boolean(),
+  "currentStep": zod.enum(['promotion', 'enrichment', 'scoring', 'publication', 'finalization']).nullable(),
+  "errors": zod.array(zod.object({
+  "step": zod.enum(['promotion', 'enrichment', 'scoring', 'publication', 'finalization']),
+  "errorCode": zod.string().max(getOsmOwnerDashboardResponseActivationErrorsItemErrorCodeMax),
+  "timestamp": zod.coerce.date()
+})),
+  "activatedAt": zod.coerce.date().nullable()
+})
+})
+
+
+/**
+ * @summary Edit owner-controlled candidate details without publishing them
+ */
+export const updateOsmOwnerDraftBodyNameMax = 300;
+
+export const updateOsmOwnerDraftBodyAddressMax = 1000;
+
+export const updateOsmOwnerDraftBodyCityMax = 200;
+
+export const updateOsmOwnerDraftBodyPhoneMax = 100;
+
+export const updateOsmOwnerDraftBodyWebsiteMax = 2048;
+
+export const updateOsmOwnerDraftBodyDescriptionMax = 4000;
+
+export const updateOsmOwnerDraftBodyOpeningHoursItemMax = 200;
+
+export const updateOsmOwnerDraftBodyOpeningHoursMax = 14;
+
+export const updateOsmOwnerDraftBodyLatitudeMin = -90;
+export const updateOsmOwnerDraftBodyLatitudeMax = 90;
+
+export const updateOsmOwnerDraftBodyLongitudeMin = -180;
+export const updateOsmOwnerDraftBodyLongitudeMax = 180;
+
+
+
+export const UpdateOsmOwnerDraftBody = zod.object({
+  "name": zod.string().min(1).max(updateOsmOwnerDraftBodyNameMax).optional(),
+  "address": zod.string().max(updateOsmOwnerDraftBodyAddressMax).nullish(),
+  "city": zod.string().max(updateOsmOwnerDraftBodyCityMax).nullish(),
+  "phone": zod.string().max(updateOsmOwnerDraftBodyPhoneMax).nullish(),
+  "website": zod.string().url().max(updateOsmOwnerDraftBodyWebsiteMax).nullish(),
+  "description": zod.string().max(updateOsmOwnerDraftBodyDescriptionMax).nullish(),
+  "openingHours": zod.array(zod.string().max(updateOsmOwnerDraftBodyOpeningHoursItemMax)).max(updateOsmOwnerDraftBodyOpeningHoursMax).optional(),
+  "latitude": zod.number().min(updateOsmOwnerDraftBodyLatitudeMin).max(updateOsmOwnerDraftBodyLatitudeMax).nullish(),
+  "longitude": zod.number().min(updateOsmOwnerDraftBodyLongitudeMin).max(updateOsmOwnerDraftBodyLongitudeMax).nullish()
+})
+
+export const updateOsmOwnerDraftResponseOpeningHoursItemMax = 200;
+
+export const updateOsmOwnerDraftResponseOpeningHoursMax = 14;
+
+export const updateOsmOwnerDraftResponseLatitudeMin = -90;
+export const updateOsmOwnerDraftResponseLatitudeMax = 90;
+
+export const updateOsmOwnerDraftResponseLongitudeMin = -180;
+export const updateOsmOwnerDraftResponseLongitudeMax = 180;
+
+
+
+export const UpdateOsmOwnerDraftResponse = zod.object({
+  "name": zod.string(),
+  "address": zod.string().nullable(),
+  "city": zod.string().nullable(),
+  "phone": zod.string().nullable(),
+  "website": zod.string().url().nullable(),
+  "description": zod.string().nullable(),
+  "openingHours": zod.array(zod.string().max(updateOsmOwnerDraftResponseOpeningHoursItemMax)).max(updateOsmOwnerDraftResponseOpeningHoursMax),
+  "latitude": zod.number().min(updateOsmOwnerDraftResponseLatitudeMin).max(updateOsmOwnerDraftResponseLatitudeMax).nullable(),
+  "longitude": zod.number().min(updateOsmOwnerDraftResponseLongitudeMin).max(updateOsmOwnerDraftResponseLongitudeMax).nullable(),
+  "requiredFieldsComplete": zod.boolean()
+})
+
+
+/**
+ * Server-side checks require review, claimed status, email-channel verification, admin-approved ownership and source-rights evidence, complete required fields, and no suppression. Duplicate requests resume the same activation; publication and candidate state commit atomically.
+ * @summary Run the resumable promotion, enrichment, scoring, and publication pipeline
+ */
+export const activateOsmOwnerListingResponseErrorsItemErrorCodeMax = 100;
+
+
+
+export const ActivateOsmOwnerListingResponse = zod.object({
+  "promoted": zod.boolean(),
+  "enriched": zod.boolean(),
+  "scored": zod.boolean(),
+  "published": zod.boolean(),
+  "currentStep": zod.enum(['promotion', 'enrichment', 'scoring', 'publication', 'finalization']).nullable(),
+  "errors": zod.array(zod.object({
+  "step": zod.enum(['promotion', 'enrichment', 'scoring', 'publication', 'finalization']),
+  "errorCode": zod.string().max(activateOsmOwnerListingResponseErrorsItemErrorCodeMax),
+  "timestamp": zod.coerce.date()
+})),
+  "activatedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * Available only after publication. Views and searches count events explicitly recorded by server-side profile and search handlers; client-submitted analytics events are excluded. Clicks remain zero until a trusted server-side click signal is implemented.
+ * @summary Read activated listing views, searches, and clicks
+ */
+export const getOsmOwnerAnalyticsResponseViewsMin = 0;
+
+export const getOsmOwnerAnalyticsResponseSearchesMin = 0;
+
+export const getOsmOwnerAnalyticsResponseClicksMin = 0;
+
+export const getOsmOwnerAnalyticsResponseLast30DaysViewsMin = 0;
+
+export const getOsmOwnerAnalyticsResponseLast30DaysSearchesMin = 0;
+
+export const getOsmOwnerAnalyticsResponseLast30DaysClicksMin = 0;
+
+
+
+export const GetOsmOwnerAnalyticsResponse = zod.object({
+  "views": zod.number().int().min(getOsmOwnerAnalyticsResponseViewsMin),
+  "searches": zod.number().int().min(getOsmOwnerAnalyticsResponseSearchesMin),
+  "clicks": zod.number().int().min(getOsmOwnerAnalyticsResponseClicksMin),
+  "last30Days": zod.object({
+  "views": zod.number().int().min(getOsmOwnerAnalyticsResponseLast30DaysViewsMin),
+  "searches": zod.number().int().min(getOsmOwnerAnalyticsResponseLast30DaysSearchesMin),
+  "clicks": zod.number().int().min(getOsmOwnerAnalyticsResponseLast30DaysClicksMin)
+})
+})
+
+
+/**
+ * @summary Disable or enable future claim outreach for the scoped listing
+ */
+export const SetOsmOwnerOutreachPreferenceBody = zod.object({
+  "disabled": zod.boolean()
+})
+
+export const SetOsmOwnerOutreachPreferenceResponse = zod.object({
+  "disabled": zod.boolean(),
+  "updatedAt": zod.coerce.date()
 })
 
 

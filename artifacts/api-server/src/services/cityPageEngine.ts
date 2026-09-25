@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { db, restaurantsTable, type RestaurantRecord } from "@workspace/db";
-import { desc, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { calculateRanking } from "./rankingEngine";
 
 export interface CityPageRestaurant {
@@ -53,9 +53,10 @@ export async function getCityPage(city: string): Promise<CityPageData> {
   const candidates = await db
     .select()
     .from(restaurantsTable)
-    .where(
+    .where(and(
       sql`lower(${restaurantsTable.city}) = lower(${normalizedCity})`,
-    )
+      eq(restaurantsTable.published, true),
+    ))
     .orderBy(
       desc(restaurantsTable.rankingScore),
       desc(restaurantsTable.rating),

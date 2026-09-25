@@ -23,6 +23,9 @@ async function reviewCandidate(sourceId: string, action: ReviewAction) {
   if (matches.length > 1) return { kind: "ambiguous" } as const;
 
   const { sourceName, verificationStatus } = matches[0];
+  // OSM candidates use the gated workflow routes; never let a legacy review
+  // action bypass evidence approval or alter publication/suppression state.
+  if (sourceName === "OSM") return { kind: "conflict" } as const;
   const desired = action === "verify" ? "verified" : "rejected";
   if (verificationStatus === desired) {
     return { kind: "success", sourceName, changed: false } as const;

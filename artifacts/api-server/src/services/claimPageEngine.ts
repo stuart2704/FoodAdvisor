@@ -1,6 +1,5 @@
 import { db, restaurantsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
-import { and, isNull } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import {
   ClaimLinkConfigurationError,
   verifyClaimLink,
@@ -76,7 +75,10 @@ export async function getClaimPage(
       claimStatus: restaurantsTable.claimStatus,
     })
     .from(restaurantsTable)
-    .where(eq(restaurantsTable.placeId, placeId))
+    .where(and(
+      eq(restaurantsTable.placeId, placeId),
+      eq(restaurantsTable.published, true),
+    ))
     .limit(1);
   if (!restaurant) return { kind: "not_found" };
   const claimed = restaurant.claimStatus !== null;
@@ -124,7 +126,10 @@ export async function submitClaim(
           claimStatus: restaurantsTable.claimStatus,
         })
         .from(restaurantsTable)
-        .where(eq(restaurantsTable.placeId, placeId))
+        .where(and(
+          eq(restaurantsTable.placeId, placeId),
+          eq(restaurantsTable.published, true),
+        ))
         .limit(1);
       if (!existing) return "not_found" as const;
       if (existing.claimStatus !== null) return "claimed" as const;

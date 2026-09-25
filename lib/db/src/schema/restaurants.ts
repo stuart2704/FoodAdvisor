@@ -17,8 +17,14 @@ import { createInsertSchema } from "drizzle-zod";
 export const restaurantsTable = pgTable(
   "restaurants",
   {
-    // Google Place ID remains the canonical primary key.
+    // Provider-scoped stable identifier. Google records keep their existing
+    // Place IDs; OSM records use an `osm:<type>:<id>` namespace.
     placeId: text("place_id").primaryKey(),
+    sourceName: text("source_name").notNull().default("google"),
+    sourceId: text("source_id"),
+    sourceAttribution: text("source_attribution"),
+    published: boolean("published").notNull().default(true),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
     name: text("name").notNull(),
     brand: text("brand"),
     address: text("address").notNull(),
@@ -36,6 +42,7 @@ export const restaurantsTable = pgTable(
     priceLevel: text("price_level"),
     currency: text("currency").notNull().default("GBP"),
     website: text("website"),
+    phone: text("phone"),
     deliveryUrl: text("delivery_url"),
     bookingUrl: text("booking_url"),
     bookingProvider: text("booking_provider"),
@@ -43,7 +50,8 @@ export const restaurantsTable = pgTable(
     bookingVerifiedAt: timestamp("booking_verified_at", { withTimezone: true }),
     websiteTitle: text("website_title"),
     websiteDescription: text("website_description"),
-    googleMapsUrl: text("google_maps_url").notNull(),
+    ownerDescription: text("owner_description"),
+    googleMapsUrl: text("google_maps_url"),
     types: text("types").array().notNull().default([]),
     cuisineTags: text("cuisine_tags").array().notNull().default([]),
     cuisines: text("cuisines").array(),
@@ -106,6 +114,10 @@ export const restaurantsTable = pgTable(
     premiumCancelledAt: timestamp("premium_cancelled_at", { withTimezone: true }),
   },
   (table) => [
+    uniqueIndex("restaurants_source_identity_unique").on(
+      table.sourceName,
+      table.sourceId,
+    ),
     uniqueIndex("restaurants_slug_unique").on(table.slug),
     index("restaurants_brand_idx").on(table.brand),
     uniqueIndex("restaurants_unsubscribe_token_hash_unique").on(

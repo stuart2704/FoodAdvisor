@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { GeoLocation } from './geoLocation';
+import type { RestaurantSourceName } from './restaurantSourceName';
 
 export interface Restaurant {
   id: string;
@@ -17,7 +18,12 @@ export interface Restaurant {
   rating: number | null;
   /** @nullable */
   website: string | null;
-  googleMapsUrl: string;
+  /** @nullable */
+  googleMapsUrl: string | null;
+  sourceName: RestaurantSourceName;
+  /** @nullable */
+  sourceAttribution: string | null;
+  published: boolean;
   types: string[];
   outreachStatus: string;
   claimed: boolean;

@@ -25,7 +25,8 @@ router.get(["/heatmap", "/cuisine-locations"], async (req, res) => {
              ${restaurantsTable.longitude} as lng
       from ${restaurantsTable}
       cross join lateral unnest(${restaurantsTable.cuisineTags}) as cuisine_tag
-      where ${restaurantsTable.latitude} is not null
+      where ${restaurantsTable.published} = true
+        and ${restaurantsTable.latitude} is not null
         and ${restaurantsTable.longitude} is not null
         and ${restaurantsTable.latitude} between -90 and 90
         and ${restaurantsTable.longitude} between -180 and 180

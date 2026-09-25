@@ -1,5 +1,5 @@
 import { db, restaurantsTable } from "@workspace/db";
-import { desc, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 
@@ -31,9 +31,10 @@ router.get(
         premium: restaurantsTable.premium,
       })
       .from(restaurantsTable)
-      .where(
+      .where(and(
+        eq(restaurantsTable.published, true),
         sql`lower(${restaurantsTable.brand}) = lower(${parsed.data.brand})`,
-      )
+      ))
       .orderBy(
         desc(restaurantsTable.premium),
         desc(restaurantsTable.rankingScore),
