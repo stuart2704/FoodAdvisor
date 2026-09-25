@@ -20,3 +20,9 @@ Process-local suppression sets are only temporary operational filters, not durab
 **Why:** Scheduled ingestion may restart or run on multiple servers, and a failed batch must remain recoverable without silently advancing success state.
 
 **How to apply:** Use persisted source state for automatic circuit breaking and the existing restaurant database suppression fields for outreach. If adding a worker, choose a durable queue with leases or equivalent retry semantics.
+
+Do not connect cross-region candidate routing until regional health has a real source. Process-local adapter suppression is not a health check, and choosing an alternate label is not failover.
+
+**Why:** A degraded region could otherwise be selected again or data could be sent to an unverified destination while the system reports a successful fallback.
+
+**How to apply:** Keep region-selection helpers advisory. Before any live routing, verify per-region service availability and define how unknown/offline destinations fail closed.
