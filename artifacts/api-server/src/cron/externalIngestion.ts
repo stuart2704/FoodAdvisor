@@ -8,7 +8,7 @@ import { associationAdapter } from "../external/associationAdapter";
 import { storeExternalCandidates } from "../external/candidateStore";
 import { promoteCandidates } from "../external/candidatePromotion";
 
-// Not scheduled or wired into runIfDue(); adapters are currently empty skeletons.
+// Scheduled independently of the Google grid crawl; adapters are currently empty skeletons.
 const adapters: ExternalAdapter[] = [
   osmAdapter,
   cityOpenDataAdapter,
@@ -48,8 +48,8 @@ export async function runExternalCandidateIngestion(now: Date): Promise<void> {
       candidatesFetched: allCandidates.length,
       candidatesUnique: dedupedCandidates.length,
     },
-    "External candidate ingestion completed (storage placeholder; no database writes)",
+    "External candidate ingestion completed (candidates stored as unverified; promotion is a placeholder)",
   );
 
-  // TODO: persist dedupedCandidates as UNVERIFIED in a candidate table.
+  // Promotion remains a no-op until validation and rights checks are implemented.
 }

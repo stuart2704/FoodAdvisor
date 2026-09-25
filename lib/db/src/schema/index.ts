@@ -35,3 +35,5 @@ export * from "./socialPosts";
 export * from "./socialSchedules";
 export * from "./socialLogs";
 export * from "./socialSettings";
+export * from "./externalIngestionSchedule";
+export * from "./externalCandidates";
