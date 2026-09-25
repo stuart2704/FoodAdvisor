@@ -2,15 +2,19 @@ import { logger } from "../lib/logger";
 import type { ExternalAdapter, ExternalCandidate } from "../external/candidateTypes";
 import { osmAdapter } from "../external/osmAdapter";
 import { cityOpenDataAdapter } from "../external/cityOpenDataAdapter";
+import { govRegistryAdapter } from "../external/govRegistryAdapter";
+import { tourismBoardAdapter } from "../external/tourismBoardAdapter";
+import { associationAdapter } from "../external/associationAdapter";
 import { storeExternalCandidates } from "../external/candidateStore";
+import { promoteCandidates } from "../external/candidatePromotion";
 
 // Not scheduled or wired into runIfDue(); adapters are currently empty skeletons.
 const adapters: ExternalAdapter[] = [
   osmAdapter,
   cityOpenDataAdapter,
-  // govRegistryAdapter,
-  // tourismBoardAdapter,
-  // associationAdapter,
+  govRegistryAdapter,
+  tourismBoardAdapter,
+  associationAdapter,
 ];
 
 export async function runExternalCandidateIngestion(now: Date): Promise<void> {
@@ -35,6 +39,7 @@ export async function runExternalCandidateIngestion(now: Date): Promise<void> {
 
   const dedupedCandidates = Array.from(unique.values());
   await storeExternalCandidates(dedupedCandidates, now);
+  await promoteCandidates(dedupedCandidates, now);
 
   logger.info(
     {
