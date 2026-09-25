@@ -22,3 +22,4 @@
 - [Google Maps billing limits](google-maps-billing-limits.md) — app-side request reservations are not a guaranteed £30 Google invoice cap; budgets alert, and Maps lacks spend caps.
 - [Social publishing safety](social-publishing-safety.md) — keep scheduled publishing opt-in and treat ambiguous provider outcomes as non-retriable until reviewed.
 - [Instagram connection boundary](instagram-connection-boundary.md) — workspace connector authorization does not connect Instagram inside The Food Advisor.
+- [Offline PostgreSQL tests](offline-postgresql-tests.md) — point temporary clusters at their own socket directory; this environment lacks the default lock directory.
