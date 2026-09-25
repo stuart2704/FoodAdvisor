@@ -1,8 +1,20 @@
 import { logger } from "../lib/logger";
 
 /**
- * Candidate-only placeholder. This is deliberately not registered with a
- * scheduler: no approved providers or candidate store are configured yet.
+ * External candidate ingestion run.
+ *
+ * This module is intentionally dormant.
+ * It is not scheduled, not triggered by Google budget status,
+ * and not wired into runIfDue(). It performs no ingestion work
+ * and only logs a skipped/no-op outcome.
+ *
+ * Real ingestion will be enabled only after:
+ * - permitted external sources are confirmed
+ * - candidate schema is finalised
+ * - deduplication rules exist
+ * - stable external IDs are defined
+ * - rate limits and retry policies are designed
+ * - scheduler wiring is approved
  */
 export async function runExternalCandidateIngestion(now: Date): Promise<void> {
   const at = now.toISOString();
