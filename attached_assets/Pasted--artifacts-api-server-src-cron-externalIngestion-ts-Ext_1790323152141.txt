@@ -1,0 +1,90 @@
+// artifacts/api-server/src/cron/externalIngestion.ts
+
+/**
+ * External candidate ingestion run.
+ *
+ * This is a safe, isolated pipeline:
+ * - It does NOT touch restaurant records.
+ * - It does NOT touch outreach records.
+ * - It does NOT fabricate Google fields.
+ * - It does NOT assume any provider modules.
+ * - It does NOT assume any candidate schema.
+ * - It does NOT assume any rights to external data.
+ *
+ * You fill in the TODOs once you define:
+ * - provider legality
+ * - candidate schema
+ * - deduplication rules
+ * - stable external IDs
+ * - retry / rate limits
+ * - run guards
+ */
+export async function runExternalCandidateIngestion(now: Date): Promise<void> {
+  // Use the same logger instance your grid crawl uses.
+  logger.info(
+    { at: now.toISOString() },
+    "External candidate ingestion started (free-source pipeline placeholder)"
+  );
+
+  try {
+    /**
+     * TODO: Determine which external sources are legally permitted.
+     *       Do NOT call Zomato, Michelin, or any other provider
+     *       until you confirm terms of service and allowed usage.
+     */
+
+    /**
+     * TODO: Fetch external data.
+     *       This must produce objects with:
+     *       - stable external source ID (for deduplication)
+     *       - raw fields only (name, address, coords, etc.)
+     *       - provenance flags
+     *
+     *       Example shape (conceptual only):
+     *
+     *       const externalResults = await fetchFromPermittedSources({
+     *         cities: configuredCities,
+     *         runDate: now,
+     *       });
+     */
+
+    /**
+     * TODO: Deduplicate by stable external source ID.
+     *       crypto.randomUUID() must NOT be used for identity.
+     */
+
+    /**
+     * TODO: Store results in your candidate table.
+     *       Candidates must remain UNVERIFIED.
+     *
+     *       Example (conceptual only):
+     *
+     *       for (const c of externalResults) {
+     *         await saveCandidate({
+     *           sourceId: c.sourceId,          // stable per provider
+     *           rawName: c.name,
+     *           rawAddress: c.address,
+     *           rawCoords: c.coords,
+     *           rawEmail: c.email,
+     *           rawPhone: c.phone,
+     *           rawWebsite: c.website,
+     *           sourceFlags: c.sourceFlags,
+     *           importedAt: now.toISOString(),
+     *           verificationStatus: "unverified",
+     *         });
+     *       }
+     */
+
+    logger.info(
+      { at: now.toISOString() },
+      "External candidate ingestion completed (placeholder; no providers wired yet)"
+    );
+  } catch (err) {
+    // IMPORTANT: surface the failure to the scheduler
+    logger.error(
+      { err, at: now.toISOString() },
+      "External candidate ingestion failed"
+    );
+    throw err; // do NOT swallow errors
+  }
+}
