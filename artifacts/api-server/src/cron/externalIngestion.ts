@@ -1,34 +1,50 @@
 import { logger } from "../lib/logger";
+import type { ExternalAdapter, ExternalCandidate } from "../external/candidateTypes";
+import { osmAdapter } from "../external/osmAdapter";
+import { cityOpenDataAdapter } from "../external/cityOpenDataAdapter";
+import { storeExternalCandidates } from "../external/candidateStore";
 
-/**
- * External candidate ingestion run.
- *
- * This module is intentionally dormant.
- * It is not scheduled, not triggered by Google budget status,
- * and not wired into runIfDue(). It performs no ingestion work
- * and only logs a skipped/no-op outcome.
- *
- * Real ingestion will be enabled only after:
- * - permitted external sources are confirmed
- * - candidate schema is finalised
- * - deduplication rules exist
- * - stable external IDs are defined
- * - rate limits and retry policies are designed
- * - scheduler wiring is approved
- */
+// Not scheduled or wired into runIfDue(); adapters are currently empty skeletons.
+const adapters: ExternalAdapter[] = [
+  osmAdapter,
+  cityOpenDataAdapter,
+  // govRegistryAdapter,
+  // tourismBoardAdapter,
+  // associationAdapter,
+];
+
 export async function runExternalCandidateIngestion(now: Date): Promise<void> {
-  const at = now.toISOString();
   logger.info(
-    { at },
-    "Starting external candidate ingestion (placeholder; no providers wired)",
+    { at: now.toISOString() },
+    "External candidate ingestion started (open-data adapters)",
   );
 
-  // TODO: Only after approving sources and adding a candidate store, implement
-  // stable source IDs, bounded requests, retries, and a persistent run guard.
-  // Never insert candidates into restaurant or outreach records here.
+  const allCandidates: ExternalCandidate[] = [];
+
+  for (const adapter of adapters) {
+    const candidates = await adapter.fetch({ now });
+    allCandidates.push(...candidates);
+  }
+
+  const unique = new Map<string, ExternalCandidate>();
+
+  for (const c of allCandidates) {
+    const key = `${c.sourceName}:${c.sourceId}`;
+    if (!unique.has(key)) unique.set(key, c);
+  }
+
+  const dedupedCandidates = Array.from(unique.values());
+  await storeExternalCandidates(dedupedCandidates, now);
 
   logger.info(
-    { at, status: "skipped", candidatesFetched: 0, candidatesStored: 0 },
-    "External candidate ingestion completed (placeholder; no candidates fetched or stored)",
+    {
+      at: now.toISOString(),
+      adapters: adapters.length,
+      candidatesFetched: allCandidates.length,
+      candidatesUnique: dedupedCandidates.length,
+    },
+    "External candidate ingestion completed (storage placeholder; no database writes)",
   );
+
+  // TODO: persist dedupedCandidates as UNVERIFIED in a candidate table.
 }
