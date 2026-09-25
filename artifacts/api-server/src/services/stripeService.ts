@@ -10,6 +10,8 @@ import { assertPublicHttpsUrl } from "../lib/public-url";
 import { validateToken } from "./portalTokenService";
 import {
   closeStripeSync,
+  getPremiumPriceId,
+  getPremiumStripeClient,
   getStripeSync,
   getUncachableStripeClient,
   verifyStripeEvent,
@@ -20,9 +22,9 @@ export async function createCheckoutSession(
 ): Promise<string> {
   const placeId = await validateToken(portalToken);
   if (!placeId) throw new Error("Invalid or expired portal login.");
-  const stripe = await getUncachableStripeClient();
-  const configuredPrice = await stripe.prices.retrieve(premiumPriceId());
-  assertPremiumPrice(configuredPrice);
+  const { stripe, livemode } = await getPremiumStripeClient();
+  const configuredPrice = await stripe.prices.retrieve(getPremiumPriceId(livemode));
+  assertPremiumPrice(configuredPrice, livemode);
   const publicUrl = await assertPublicHttpsUrl(process.env.PUBLIC_APP_URL, {
     canonical: true,
   });
@@ -297,14 +299,6 @@ export default {
 
 const PREMIUM_AMOUNT = 9_900;
 
-function premiumPriceId(): string {
-  const value = process.env.STRIPE_PREMIUM_PRICE_ID;
-  if (!value || !/^price_[A-Za-z0-9]+$/.test(value)) {
-    throw new Error("STRIPE_PREMIUM_PRICE_ID is not configured.");
-  }
-  return value;
-}
-
 async function lockRestaurant(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   placeId: string,
@@ -385,11 +379,11 @@ export function assertPremiumSubscription(
     subscription.status !== "active" ||
     items.length !== 1 ||
     item.quantity !== 1 ||
-    price.id !== premiumPriceId()
+    price.id !== getPremiumPriceId(session.livemode)
   ) {
     throw new Error("Stripe subscription did not match the Premium plan.");
   }
-  assertPremiumPrice(price);
+  assertPremiumPrice(price, session.livemode);
   if (session.livemode !== subscription.livemode) {
     throw new Error("Stripe checkout and subscription modes did not match.");
   }
@@ -420,16 +414,20 @@ function isExpectedOpenCheckout(
     return false;
   }
   try {
-    assertPremiumPrice(price);
+    assertPremiumPrice(price, session.livemode);
     return true;
   } catch {
     return false;
   }
 }
 
-export function assertPremiumPrice(price: Stripe.Price): void {
+export function assertPremiumPrice(
+  price: Stripe.Price,
+  expectedLivemode = price.livemode,
+): void {
   if (
-    price.id !== premiumPriceId() ||
+    price.livemode !== expectedLivemode ||
+    price.id !== getPremiumPriceId(expectedLivemode) ||
     price.active !== true ||
     price.type !== "recurring" ||
     price.currency.toLowerCase() !== PREMIUM_CURRENCY ||

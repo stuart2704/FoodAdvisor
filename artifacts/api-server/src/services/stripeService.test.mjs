@@ -27,6 +27,11 @@ export const sql = (strings, ...values) => ({ kind: "sql", strings, values });
   writeFile(files.portal, `export const validateToken = async () => "rest_1";`),
   writeFile(files.publicUrl, `export const assertPublicHttpsUrl = async () => "https://example.test";`),
   writeFile(files.client, `
+export const getPremiumPriceId = () => process.env.STRIPE_PREMIUM_PRICE_ID;
+export const getPremiumStripeClient = async () => ({
+  stripe: await getUncachableStripeClient(),
+  livemode: false,
+});
 export const verifyStripeEvent = async () => {
   if (globalThis.__stripe.signatureError) throw { type: "StripeSignatureVerificationError" };
   if (globalThis.__stripe.verifyError) throw new Error("secret unavailable");
@@ -218,6 +223,7 @@ function baseState() {
         quantity: 1,
         price: {
           id: "price_premium99",
+          livemode: false,
           active: true,
           type: "recurring",
           currency: "gbp",
@@ -258,6 +264,7 @@ function baseState() {
     checkoutExpires: 0,
     existingCheckoutSession: {
       id: "cs_test_existing",
+      livemode: false,
       status: "open",
       url: "https://checkout.stripe.com/c/pay/existing",
       mode: "subscription",

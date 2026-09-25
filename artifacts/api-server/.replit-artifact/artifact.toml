@@ -26,6 +26,7 @@ args = ["node", "--enable-source-maps", "artifacts/api-server/dist/index.mjs"]
 [services.production.run.env]
 PORT = "8080"
 NODE_ENV = "production"
+STRIPE_PREMIUM_PRICE_ID = "price_1UE8sKGeEn25QPrrBWsjoZSy"
 
 [services.production.health.startup]
 path = "/api/healthz"

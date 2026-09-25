@@ -7,7 +7,10 @@ import {
   StripeSync,
   type Logger,
 } from "stripe-replit-sync";
-import { getPremiumPriceId } from "../lib/stripe-checkout";
+import {
+  getPremiumPriceId,
+  stripeKeyLivemode,
+} from "../lib/premium-price";
 
 export { getPremiumPriceId };
 
@@ -107,7 +110,11 @@ async function getStripeCredentials(): Promise<StripeCredentials> {
   }
   const body = (await response.json()) as ConnectorResponse;
   const expectedEnvironment =
-    process.env.NODE_ENV === "production" ? "production" : "development";
+    process.env.REPLIT_DEPLOYMENT === "1" ||
+    !!process.env.WEB_REPL_RENEWAL ||
+    process.env.NODE_ENV === "production"
+      ? "production"
+      : "development";
   const connection = body.items?.find(
     (item) =>
       item.environment === expectedEnvironment &&
@@ -174,6 +181,17 @@ export async function stripeRequest<T>(
 export async function getUncachableStripeClient(): Promise<Stripe> {
   const { secretKey } = await getStripeCredentials();
   return new Stripe(secretKey, { maxNetworkRetries: 2 });
+}
+
+export async function getPremiumStripeClient(): Promise<{
+  stripe: Stripe;
+  livemode: boolean;
+}> {
+  const { secretKey } = await getStripeCredentials();
+  return {
+    stripe: new Stripe(secretKey, { maxNetworkRetries: 2 }),
+    livemode: stripeKeyLivemode(secretKey),
+  };
 }
 
 export async function getStripeSync(): Promise<StripeSync> {
@@ -257,7 +275,12 @@ export async function verifyStripeEvent(
 
 function webhookBaseUrl(): string {
   const hostname =
-    process.env.NODE_ENV === "production"
+    process.env.REPLIT_DEPLOYMENT === "1" ||
+    !!process.env.WEB_REPL_RENEWAL ||
+    process.env.NODE_ENV === "production" ||
+    (process.env.STRIPE_SECRET_KEY
+      ? stripeKeyLivemode(process.env.STRIPE_SECRET_KEY)
+      : false)
       ? process.env.REPLIT_DOMAINS?.split(",")[0]
       : process.env.REPLIT_DEV_DOMAIN ??
         process.env.REPLIT_DOMAINS?.split(",")[0];
@@ -272,11 +295,15 @@ function managedWebhookUrl(): string {
 }
 
 async function validatePremiumPrice(): Promise<void> {
-  const stripe = await getUncachableStripeClient();
-  const price = await stripe.prices.retrieve(getPremiumPriceId());
-  const expectedLiveMode = process.env.NODE_ENV === "production";
+  const { stripe, livemode } = await getPremiumStripeClient();
+  const priceId = getPremiumPriceId(livemode);
+  console.info("Validating Stripe Premium price", {
+    priceId,
+    livemode,
+  });
+  const price = await stripe.prices.retrieve(priceId);
   if (
-    price.livemode !== expectedLiveMode ||
+    price.livemode !== livemode ||
     !price.active ||
     price.currency.toLowerCase() !== PREMIUM_CURRENCY ||
     price.unit_amount !== PREMIUM_AMOUNT ||
