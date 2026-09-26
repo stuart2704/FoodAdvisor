@@ -3,6 +3,7 @@ import { logger } from "../lib/logger";
 import {
   persistOperationalEvent,
   sanitizeOperationalEvent,
+  boundedDurationMs,
   type SanitizedOperationalEvent,
 } from "../services/operationalLog";
 
@@ -14,6 +15,7 @@ export interface LogEvent {
   category?: string;
   bookmarked: boolean;
   tags: string[];
+  durationMs?: number;
 }
 
 // Process-local diagnostics only: do not include credentials or message bodies.
@@ -24,8 +26,10 @@ export function logEvent(
   message: string,
   category?: string,
   tags: string[] = [],
+  durationMs?: number,
 ): void {
   const sanitized = sanitizeOperationalEvent(type, message, category);
+  const boundedDuration = durationMs === undefined ? undefined : boundedDurationMs(durationMs);
   const sanitizedTags = [
     ...new Set(
       tags
@@ -45,6 +49,7 @@ export function logEvent(
     ...sanitized,
     bookmarked: false,
     tags: sanitizedTags,
+    ...(boundedDuration === undefined ? {} : { durationMs: boundedDuration }),
   };
   events.push(event);
 

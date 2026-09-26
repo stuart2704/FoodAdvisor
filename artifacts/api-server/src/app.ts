@@ -55,6 +55,7 @@ import dashboardClaimPageMetrics from "./routes/dashboardClaimPageMetrics";
 import dashboardAnalytics from "./routes/dashboardAnalytics";
 import devEngineRunner from "./routes/devEngineRunner";
 import { logger } from "./lib/logger";
+import { recordSampledHttpLatency } from "./middlewares/httpLatency";
 import socialRouter from "./modules/social";
 import { instantlyWebhookRouter } from "./outreach/instantlyWebhook";
 import {
@@ -94,6 +95,7 @@ app.use(
     },
   }),
 );
+app.use(recordSampledHttpLatency);
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 app.use(cors({
   credentials: true,

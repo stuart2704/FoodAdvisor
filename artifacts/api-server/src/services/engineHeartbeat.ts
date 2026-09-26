@@ -1,4 +1,5 @@
 import { db, engineHeartbeatsTable } from "@workspace/db";
+import { logEvent } from "../utils/eventLog";
 
 export type EngineStatus = "online" | "offline";
 
@@ -23,6 +24,7 @@ export async function recordHeartbeat(engine: string): Promise<void> {
   const normalized = normalizeEngine(engine);
   if (!normalized) throw new Error("Engine is required.");
   const now = new Date();
+  const started = normalized === "database" ? performance.now() : null;
   await db
     .insert(engineHeartbeatsTable)
     .values({ engine: normalized, lastHeartbeat: now })
@@ -30,6 +32,9 @@ export async function recordHeartbeat(engine: string): Promise<void> {
       target: engineHeartbeatsTable.engine,
       set: { lastHeartbeat: now },
     });
+  if (started !== null) {
+    logEvent("database", "Database heartbeat write completed", "success", [], performance.now() - started);
+  }
 }
 
 export async function getEngineStatuses(): Promise<

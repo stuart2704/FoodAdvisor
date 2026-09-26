@@ -14,7 +14,7 @@ const titles: Record<ViewKind, { title: string; description: string }> = {
   },
   engines: {
     title: "Engines",
-    description: "Service availability and recent aggregate outcomes. Prompts and provider responses are excluded.",
+    description: "Service availability, outcomes, and measured operation latency. Prompts and provider responses are excluded.",
   },
   health: {
     title: "Health",
@@ -42,17 +42,20 @@ function QueueView({ data }: { data: any }) {
 }
 
 function EnginesView({ data }: { data: any }) {
+  const latencyLabel = (value: number | null) => value == null ? "—" : `${value.toLocaleString()} ms`;
   return <>
-    {data.partial && <div className="ops-notice">Availability is current, but recent outcome metrics are temporarily unavailable.</div>}
+    {data.partial && <div className="ops-notice">Availability is current, but recent outcome and latency metrics are temporarily unavailable.</div>}
     <div className="ops-card-grid">{data.services.map((service: any) =>
       <article className="ops-card" key={service.id}>
         <div className="ops-card-heading"><h2>{service.id}</h2><Status value={service.availability} /></div>
         <dl><div><dt>Supported</dt><dd>{service.supported ? "Yes" : "No"}</dd></div>
           <div><dt>Recent outcomes</dt><dd>{service.outcomes.total}</dd></div>
           <div><dt>Succeeded / failed</dt><dd>{service.outcomes.succeeded} / {service.outcomes.failed}</dd></div>
-          <div><dt>Average latency</dt><dd>{service.latency.available ? `${service.latency.averageMs} ms` : "Not instrumented"}</dd></div></dl>
+          <div><dt>Latency samples</dt><dd>{data.partial ? "Unavailable" : service.latency.samples}</dd></div>
+          <div><dt>Average latency</dt><dd>{service.latency.available ? latencyLabel(service.latency.averageMs) : data.partial ? "Unavailable" : service.latency.instrumented ? "No samples in window" : "Not instrumented"}</dd></div>
+          <div><dt>95th percentile</dt><dd>{service.latency.available ? latencyLabel(service.latency.p95Ms) : data.partial ? "Unavailable" : "—"}</dd></div></dl>
       </article>)}</div>
-    <div className="ops-scope">Availability: durable database heartbeats · outcomes: last 5 minutes</div>
+    <div className="ops-scope">Availability: durable database heartbeats · outcomes and measured operation latency: last 5 minutes (rolling). API and AI requests are sampled at 10%; automation and queue jobs are measured when completed. Database latency measures completed heartbeat writes, not all queries.</div>
   </>;
 }
 

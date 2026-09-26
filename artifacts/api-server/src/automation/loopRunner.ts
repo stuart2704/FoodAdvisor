@@ -1,5 +1,6 @@
 import { logger } from "../lib/logger";
 import { recordHeartbeat } from "../services/engineHeartbeat";
+import { logEvent } from "../utils/eventLog";
 import updateGlobalMetrics from "./globalMetricsEngine";
 import outreachEngine from "./outreachEngine";
 
@@ -12,19 +13,25 @@ function sleep(milliseconds: number): Promise<void> {
 export async function runEngineCycle(): Promise<void> {
   logger.info("Engine cycle starting");
 
-  const outreach = await outreachEngine();
-  if (!outreach.success) {
-    throw new Error("The outreach and automation cycle reported failures.");
+  const started = performance.now();
+  let outreach;
+  try {
+    outreach = await outreachEngine();
+    if (!outreach.success) {
+      throw new Error("The outreach and automation cycle reported failures.");
+    }
+    logEvent("automation", "Outreach cycle completed", "success", [], performance.now() - started);
+  } catch (error) {
+    logEvent("automation", "Outreach cycle failed", "error", [], performance.now() - started);
+    throw error;
   }
 
   await Promise.all([
     recordHeartbeat("ai"),
     recordHeartbeat("automation"),
   ]);
-
   const metrics = await updateGlobalMetrics();
   await recordHeartbeat("queue");
-
   logger.info(
     {
       outreachStatus: outreach.status,

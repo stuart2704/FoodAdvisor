@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   index,
+  integer,
   pgTable,
   text,
   timestamp,
@@ -17,6 +18,7 @@ export const operationalLogEventsTable = pgTable(
     type: text("type").notNull(),
     message: text("message").notNull(),
     category: text("category"),
+    durationMs: integer("duration_ms"),
     bookmarked: boolean("bookmarked").notNull().default(false),
     tags: text("tags")
       .array()

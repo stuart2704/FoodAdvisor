@@ -22,11 +22,18 @@ export interface SanitizedOperationalEvent {
   category?: string;
   bookmarked: boolean;
   tags: string[];
+  durationMs?: number;
 }
 
 const MAX_MESSAGE_LENGTH = 1_000;
 const MAX_CATEGORY_LENGTH = 64;
 const MAX_TYPE_LENGTH = 32;
+export const MAX_OPERATION_DURATION_MS = 600_000;
+
+export function boundedDurationMs(durationMs: number): number | undefined {
+  if (!Number.isFinite(durationMs) || durationMs < 0) return undefined;
+  return Math.min(MAX_OPERATION_DURATION_MS, Math.round(durationMs));
+}
 
 function redactSensitiveText(value: string): string {
   return value
@@ -80,6 +87,7 @@ export async function persistOperationalEvent(
       category: event.category,
       bookmarked: event.bookmarked,
       tags: event.tags,
+      durationMs: event.durationMs,
     })
     .onConflictDoNothing();
 }
@@ -234,7 +242,9 @@ export interface EnginePerformanceMetric {
   successes: number;
   error_rate: number;
   success_rate: number;
-  avg_latency_ms: null;
+  latency_samples: number;
+  avg_latency_ms: number | null;
+  p95_latency_ms: number | null;
 }
 
 export type EnginePerformanceMetrics = Record<
@@ -260,6 +270,9 @@ export async function getEnginePerformanceMetrics(): Promise<
           where ${operationalLogEventsTable.category} in ('info', 'success')
         )::int
       `,
+      latencySamples: sql<number>`count(${operationalLogEventsTable.durationMs})::int`,
+      avgLatency: sql<number | null>`round(avg(${operationalLogEventsTable.durationMs}))::int`,
+      p95Latency: sql<number | null>`round((percentile_cont(0.95) within group (order by ${operationalLogEventsTable.durationMs}))::numeric)::int`,
     })
     .from(operationalLogEventsTable)
     .where(gte(operationalLogEventsTable.createdAt, since))
@@ -278,7 +291,9 @@ export async function getEnginePerformanceMetrics(): Promise<
           successes,
           error_rate: total > 0 ? errors / total : 0,
           success_rate: total > 0 ? successes / total : 0,
-          avg_latency_ms: null,
+          latency_samples: Number(row.latencySamples),
+          avg_latency_ms: row.avgLatency == null ? null : Number(row.avgLatency),
+          p95_latency_ms: row.p95Latency == null ? null : Number(row.p95Latency),
         },
       ];
     }),

@@ -69,8 +69,10 @@ export async function insertQueuedRestaurants(): Promise<InsertedRestaurant[]> {
   if (draining) throw new Error("An insertion batch is already running.");
   draining = true;
   logEvent("info", "Insertion batch started");
+  const started = performance.now();
   const results: InsertedRestaurant[] = [];
   let failedCount = 0;
+  let completed = false;
   try {
     // Records added during this batch belong to the next batch.
     const batch = Array.from(insertionQueue.entries());
@@ -93,8 +95,10 @@ export async function insertQueuedRestaurants(): Promise<InsertedRestaurant[]> {
       throw new InsertionBatchError(results, failedCount);
     }
     logEvent("success", `Insertion batch finished (${results.length} inserted)`);
+    completed = true;
     return results;
   } finally {
     draining = false;
+    logEvent("queue", "Insertion batch completed", completed ? "success" : "error", [], performance.now() - started);
   }
 }

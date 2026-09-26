@@ -62,8 +62,11 @@ router.get("/operations/engines", async (req, res) => {
             failed: outcome?.errors ?? 0,
           },
           latency: {
+            instrumented: true,
             averageMs: outcome?.avg_latency_ms ?? null,
-            available: outcome?.avg_latency_ms != null,
+            p95Ms: outcome?.p95_latency_ms ?? null,
+            samples: outcome?.latency_samples ?? 0,
+            available: !partial && (outcome?.latency_samples ?? 0) > 0,
           },
         };
       }),
