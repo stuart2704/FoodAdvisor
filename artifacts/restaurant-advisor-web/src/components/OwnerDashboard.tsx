@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { trackEvent } from "../lib/analytics";
 
 interface OwnerDashboardProps {
   token: string;
@@ -241,6 +242,7 @@ export default function OwnerDashboard({
         provider: data.booking.provider ?? "",
       });
       setBookingMessage("Booking link approved and published.");
+       trackEvent("booking_link_published", { has_provider_label: Boolean(data.booking.provider) }, "/booking");
     } catch (error) {
       setBookingError(error instanceof Error ? error.message : "Booking link could not be saved.");
     } finally {
@@ -262,6 +264,7 @@ export default function OwnerDashboard({
       if (!response.ok) throw new Error(data.error || "Booking link could not be removed.");
       setBooking({ url: "", provider: "" });
       setBookingMessage("Booking link removed from your public profile.");
+       trackEvent("booking_link_withdrawn", undefined, "/booking");
     } catch (error) {
       setBookingError(error instanceof Error ? error.message : "Booking link could not be removed.");
     } finally {

@@ -2,6 +2,9 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { BookingLinkManager, type Booking } from "./BookingLinkManager";
+import { trackEvent } from "../../lib/analytics";
+
+vi.mock("../../lib/analytics", () => ({ trackEvent: vi.fn() }));
 
 const existing: Booking = { url: "https://old.example/table", provider: "Old provider", status: "approved" };
 const empty: Booking = { url: null, provider: null, status: null };
@@ -15,6 +18,7 @@ function setup(booking = existing) {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.mocked(trackEvent).mockClear();
 });
 
 it("shows the current booking and publishes a verified replacement through the admin endpoint", async () => {
@@ -32,6 +36,7 @@ it("shows the current booking and publishes a verified replacement through the a
     method: "PUT", credentials: "include", body: JSON.stringify({ url: "https://new.example/table", provider: "New provider" }),
   }));
   expect(screen.getByRole("status").textContent).toMatch(/published/);
+  expect(trackEvent).toHaveBeenCalledExactlyOnceWith("booking_link_published", { has_provider_label: true }, "/booking");
 });
 
 it("rejects invalid input without calling the server and reports server validation errors", async () => {
@@ -45,6 +50,7 @@ it("rejects invalid input without calling the server and reports server validati
   fireEvent.change(screen.getByLabelText("Booking URL"), { target: { value: "https://example.com" } });
   fireEvent.click(screen.getByRole("button", { name: "Check and publish" }));
   expect((await screen.findByRole("alert")).textContent).toBe("Booking page unavailable.");
+  expect(trackEvent).not.toHaveBeenCalled();
 });
 
 it("requires confirmation before withdrawing and reports success", async () => {
@@ -61,4 +67,14 @@ it("requires confirmation before withdrawing and reports success", async () => {
     method: "DELETE", credentials: "include",
   });
   expect(screen.getByRole("status").textContent).toMatch(/withdrawn/);
+  expect(trackEvent).toHaveBeenCalledExactlyOnceWith("booking_link_withdrawn", undefined, "/booking");
+});
+
+it("does not count failed withdrawals", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, json: async () => ({ error: "Could not withdraw." }) }));
+  vi.stubGlobal("confirm", vi.fn().mockReturnValue(true));
+  setup();
+  fireEvent.click(screen.getByRole("button", { name: "Withdraw link" }));
+  expect((await screen.findByRole("alert")).textContent).toBe("Could not withdraw.");
+  expect(trackEvent).not.toHaveBeenCalled();
 });

@@ -2,6 +2,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import RestaurantPhoto from "./RestaurantPhoto";
 import OsmAttribution from "./OsmAttribution";
+import { trackEvent } from "../lib/analytics";
 
 function formatPrice(level: string | null) {
   if (level === null) return "Not available";
@@ -375,6 +376,7 @@ export default function RestaurantDetail() {
           href={restaurant.bookingUrl}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={() => trackEvent("booking_now_clicked", { has_provider_label: Boolean(restaurant.bookingProvider?.trim()) }, "/booking")}
           style={{
             display: "inline-block",
             marginTop: "20px",
@@ -753,6 +755,7 @@ interface RestaurantData {
   address: string;
   website: string | null;
   bookingUrl: string | null;
+  bookingProvider: string | null;
   googleMapsUrl: string | null;
   rating: number | null;
   claimed: boolean;

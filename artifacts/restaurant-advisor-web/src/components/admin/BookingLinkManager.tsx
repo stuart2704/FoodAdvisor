@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { trackEvent } from "../../lib/analytics";
 
 export interface Booking {
   url: string | null;
@@ -58,6 +59,7 @@ export function BookingLinkManager({ restaurantId, restaurantName, booking, onCh
       }
       onChange(payload.booking);
       setMessage("Booking link checked and published.");
+      trackEvent("booking_link_published", { has_provider_label: Boolean(payload.booking.provider?.trim()) }, "/booking");
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Booking link could not be published.");
     } finally {
@@ -81,6 +83,7 @@ export function BookingLinkManager({ restaurantId, restaurantName, booking, onCh
       }
       onChange({ url: null, provider: null, status: null });
       setMessage("Booking link withdrawn.");
+      trackEvent("booking_link_withdrawn", undefined, "/booking");
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Booking link could not be withdrawn.");
     } finally {
