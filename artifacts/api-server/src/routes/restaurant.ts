@@ -6,6 +6,7 @@ import {
 } from "express";
 import { z } from "zod";
 import { getRestaurantProfile } from "../services/restaurantProfileEngine";
+import { eventCalendar } from "../services/eventCalendar";
 import { db, restaurantProfileViewEventsTable, restaurantsTable } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
@@ -204,6 +205,36 @@ router.get("/restaurant/:id", async (req, res) => {
     return;
   }
   await serveRestaurantProfile(req, res, parsed.data.id);
+});
+
+router.get("/restaurant/:id/events/:eventId/calendar", async (req, res) => {
+  const parsed = RestaurantParams.extend({
+    eventId: z.coerce.number().int().positive().safe(),
+  }).safeParse(req.params);
+  if (!parsed.success) {
+    res.status(400).json({ success: false, error: "Invalid event link." });
+    return;
+  }
+  try {
+    // The profile applies the same published, claimed and upcoming-event gates
+    // used to display events to diners; never accept event details from the URL.
+    const profile = await getRestaurantProfile(parsed.data.id);
+    const event = profile?.events.find((item) => item.id === parsed.data.eventId);
+    if (!profile || !event) {
+      res.status(404).json({ success: false, error: "Event not found." });
+      return;
+    }
+    const origin = `${req.protocol}://${req.get("host")}`;
+    const profileUrl = new URL(`/restaurant/${encodeURIComponent(profile.id)}`, origin).href;
+    const calendar = eventCalendar(profile, event, profileUrl);
+    res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="restaurant-event-${event.id}.ics"`);
+    res.setHeader("Cache-Control", "no-store");
+    res.send(calendar);
+  } catch (error) {
+    req.log.error({ err: error }, "Event calendar download failed");
+    res.status(503).json({ success: false, error: "The event calendar is temporarily unavailable." });
+  }
 });
 
 router.get("/restaurants/:slug", async (req, res) => {

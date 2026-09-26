@@ -456,14 +456,15 @@ export default function RestaurantDetail() {
           <h2>Events & Live Music</h2>
 
           {restaurant.events.map((event: {
+            id: number;
             title: string;
             description: string;
             date: string;
             time: string;
             price: string;
-          }, i: number) => (
+          }) => (
             <div
-              key={i}
+              key={event.id}
               style={{
                 marginBottom: "20px",
                 paddingBottom: "16px",
@@ -485,6 +486,14 @@ export default function RestaurantDetail() {
               <div style={{ fontSize: "0.9rem", opacity: 0.7 }}>
                 {event.price}
               </div>
+              <a
+                href={`/api/restaurant/${encodeURIComponent(restaurant.id)}/events/${event.id}/calendar`}
+                download
+                style={{ display: "inline-block", marginTop: "12px", color: "#6b4a28", fontWeight: 600 }}
+                aria-label={`Add ${event.title} to calendar`}
+              >
+                Add to calendar
+              </a>
             </div>
           ))}
         </div>
@@ -749,7 +758,7 @@ interface RestaurantData {
   claimed: boolean;
   badges?: string[];
   offers?: Array<{ title: string; description: string; startDate: string; endDate: string }>;
-  events?: Array<{ title: string; description: string; date: string; time: string; price: string }>;
+  events?: Array<{ id: number; title: string; description: string; date: string; time: string; price: string }>;
   bestDishes?: Array<{ name: string; description: string; reason: string }>;
   chef?: ChefProfile | null;
   [key: string]: unknown;

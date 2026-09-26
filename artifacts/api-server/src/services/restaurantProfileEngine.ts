@@ -84,6 +84,7 @@ export interface RestaurantProfile {
     endDate: string;
   }>;
   events: Array<{
+    id: number;
     title: string;
     description: string;
     date: string;
@@ -197,6 +198,7 @@ export async function getRestaurantProfile(
     restaurant.claimedAt
       ? db
           .select({
+            id: restaurantEventsTable.id,
             title: restaurantEventsTable.title,
             description: restaurantEventsTable.description,
             date: restaurantEventsTable.eventDate,
@@ -213,6 +215,7 @@ export async function getRestaurantProfile(
           .orderBy(
             asc(restaurantEventsTable.eventDate),
             asc(restaurantEventsTable.eventTime),
+            asc(restaurantEventsTable.id),
           )
       : Promise.resolve([]),
     db

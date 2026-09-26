@@ -226,6 +226,7 @@ test("verified public profile includes today's and future events in date/time or
     "Future morning", "Future evening",
   ]);
   assert.deepEqual(profile.events[1], {
+    id: 4,
     title: "Today morning", description: "Today morning description",
     date: today, time: "09:00", price: "Free",
   });
