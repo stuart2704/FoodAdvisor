@@ -36,6 +36,7 @@ import OwnerPage from "./pages/OwnerPage";
 import RestaurantsPage from "./pages/RestaurantsPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import CityHighlights from "./components/CityHighlights";
+import CollectionManagement from "./pages/collection-management";
 import AdminCandidatesPage from "./pages/admin/candidates";
 import { RequireAdmin } from "./components/admin/RequireAdmin";
 import OsmClaimPage from "./pages/osm-claim";
@@ -75,6 +76,7 @@ function AppRoutes() {
         <Route path="/trending" element={<Trending />} />
         <Route path="/city-guide" element={<CityGuide />} />
         <Route path="/highlights" element={<CityHighlights />} />
+        <Route path="/highlights/manage" element={<CollectionManagement />} />
         <Route path="/rewards" element={<RewardsPage />} />
         <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
         <Route path="/admin/login" element={<AdminLogin />} />

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import RestaurantCard from "./RestaurantCard";
 
 interface HighlightRestaurant {
@@ -65,6 +66,7 @@ export default function CityHighlights() {
         <p className="public-page__eyebrow">Curator picks</p>
         <h1>City highlights</h1>
         <p>Trusted local collections of restaurants worth planning a meal around.</p>
+        <Link to="/highlights/manage" style={{ color: "#fff", textDecoration: "underline" }}>Manage highlights (curators)</Link>
       </header>
 
       <div className="public-page__content">

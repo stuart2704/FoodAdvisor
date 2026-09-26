@@ -7,6 +7,7 @@ const sections = [
   { to: "/admin/outreach", label: "Outreach" },
   { to: "/admin/owner-contacts", label: "Owner contacts" },
   { to: "/admin/restaurants", label: "Restaurants" },
+  { to: "/highlights/manage", label: "City highlights" },
   { to: "/admin/candidates", label: "Candidate claims" },
   { to: "/admin/ingestion", label: "External ingestion" },
   { to: "/admin/chef-review", label: "Chef review" },

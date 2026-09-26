@@ -108,13 +108,14 @@ async function findEditableCollection(
   return collection ?? null;
 }
 
-async function readCollections(city?: string) {
+async function readCollections(city?: string, identity?: CuratorIdentity) {
   const rows = await db
     .select({
       id: restaurantCollectionsTable.id,
       title: restaurantCollectionsTable.title,
       description: restaurantCollectionsTable.description,
       city: restaurantCollectionsTable.city,
+      curatorUserId: restaurantCollectionsTable.curatorUserId,
       updatedAt: restaurantCollectionsTable.updatedAt,
       memberId: restaurantCollectionMembersTable.id,
       position: restaurantCollectionMembersTable.position,
@@ -139,8 +140,11 @@ async function readCollections(city?: string) {
       eq(restaurantCollectionMembersTable.restaurantId, restaurantsTable.placeId),
     )
     .where(and(
-      eq(restaurantsTable.published, true),
+      identity ? undefined : eq(restaurantsTable.published, true),
       city ? eq(restaurantCollectionsTable.city, city) : undefined,
+      identity && !identity.isAdmin
+        ? eq(restaurantCollectionsTable.curatorUserId, identity.userId)
+        : undefined,
     ))
     .orderBy(
       asc(restaurantCollectionsTable.city),
@@ -155,6 +159,7 @@ async function readCollections(city?: string) {
       title: string;
       description: string;
       city: string;
+      curatorUserId?: string;
       updatedAt: Date;
       restaurants: Array<{
         membershipId: string;
@@ -176,6 +181,7 @@ async function readCollections(city?: string) {
         title: row.title,
         description: row.description,
         city: row.city,
+        ...(identity ? { curatorUserId: row.curatorUserId } : {}),
         updatedAt: row.updatedAt,
         restaurants: [],
       };
@@ -208,6 +214,38 @@ router.get("/collections", async (req, res): Promise<void> => {
   } catch (error) {
     req.log.error({ err: error }, "Collection query failed");
     res.status(503).json({ success: false, error: "Collections are unavailable." });
+  }
+});
+
+router.get("/collections/manage", curatorOnly, async (req, res): Promise<void> => {
+  try {
+    const identity = res.locals.curator as CuratorIdentity;
+    res.json({ success: true, data: await readCollections(undefined, identity) });
+  } catch (error) {
+    req.log.error({ err: error }, "Managed collection query failed");
+    res.status(503).json({ success: false, error: "Collections are unavailable." });
+  }
+});
+
+router.get("/collections/manage/restaurants", curatorOnly, async (req, res): Promise<void> => {
+  const parsed = z.object({ city: z.string().trim().min(1).max(100) }).safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ success: false, error: "Choose a city." });
+    return;
+  }
+  try {
+    const rows = await db.select({
+      id: restaurantsTable.placeId,
+      name: restaurantsTable.name,
+      city: restaurantsTable.city,
+    }).from(restaurantsTable).where(and(
+      eq(restaurantsTable.city, parsed.data.city),
+      eq(restaurantsTable.published, true),
+    )).orderBy(asc(restaurantsTable.name), asc(restaurantsTable.placeId));
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    req.log.error({ err: error }, "City restaurant selection failed");
+    res.status(503).json({ success: false, error: "Restaurants are unavailable." });
   }
 });
 
@@ -246,7 +284,7 @@ router.post(
         });
         await replaceMembers(tx, id, parsed.data.restaurantIds);
       });
-      const [data] = (await readCollections()).filter((item) => item.id === id);
+      const [data] = (await readCollections(undefined, identity)).filter((item) => item.id === id);
       res.status(201).json({ success: true, data });
     } catch (error) {
       req.log.error({ err: error }, "Collection creation failed");
@@ -310,7 +348,7 @@ router.patch(
           await replaceMembers(tx, existing.id, body.data.restaurantIds);
         }
       });
-      const [data] = (await readCollections()).filter((item) => item.id === existing.id);
+      const [data] = (await readCollections(undefined, identity)).filter((item) => item.id === existing.id);
       res.json({ success: true, data });
     } catch (error) {
       req.log.error({ err: error }, "Collection update failed");
@@ -356,7 +394,7 @@ router.put(
           .set({ updatedAt: new Date() })
           .where(eq(restaurantCollectionsTable.id, existing.id));
       });
-      const [data] = (await readCollections()).filter((item) => item.id === existing.id);
+      const [data] = (await readCollections(undefined, identity)).filter((item) => item.id === existing.id);
       res.json({ success: true, data });
     } catch (error) {
       req.log.error({ err: error }, "Collection reorder failed");
