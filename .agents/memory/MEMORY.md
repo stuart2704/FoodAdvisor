@@ -27,6 +27,7 @@
 - [External source activation](external-source-activation.md) — placeholder provider URLs stay dormant; scheduled ingestion must report real fetch failures rather than mark them successful.
 - [Manual OSM ingestion policy](manual-osm-ingestion-policy.md) — keep manual city runs local and separate from the existing all-city schedule; do not imply regional dispatch.
 - [Candidate publication gates](candidate-publication-gates.md) — keep new OSM candidates unpublished until a verified owner claim and recorded source-rights evidence can be linked.
+- [Government-source rollout](government-source-rollout.md) — licensed official records may be unclaimed listings after source checks; OSM gates stay intact, and spending needs a measured baseline.
 - [Pooled PostgreSQL ingestion locks](pooled-postgres-ingestion-locks.md) — session advisory locks can remain held by idle pooler backends; use transaction-scoped locking.
 - [Catalogue export integrity](catalogue-export-integrity.md) — historic CSV row counts can reflect repeated snapshots, not distinct restaurants; profile Place IDs before import.
 - [Managed preview port reloads](managed-preview-port-reloads.md) — automatic environment reloads can strand old dev listeners while managed workflows report port collisions.

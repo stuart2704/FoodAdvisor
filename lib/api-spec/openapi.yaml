@@ -93,6 +93,41 @@ paths:
           description: Admin session required
         "503":
           description: Diagnostic database query failed
+  /dashboard/operations/government-sources:
+    get:
+      operationId: getGovernmentSourceReadiness
+      tags: [restaurants]
+      security: [{ adminSession: [] }]
+      summary: Read the paused, budgeted government-data pilot plan
+      responses:
+        "200":
+          description: Pilot schedule and sources; billing is not measured by this API
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GovernmentSourceReadiness" }
+        "401": { description: Admin session required }
+  /dashboard/operations/government-sources/preview:
+    post:
+      operationId: previewGovernmentSource
+      tags: [restaurants]
+      security: [{ adminSession: [] }]
+      summary: Fetch one bounded read-only page from a selected official source
+      description: Does not write to the database, publish listings, or contact Google or AI services.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GovernmentSourcePreviewInput" }
+      responses:
+        "200":
+          description: Normalized sample and validation totals
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GovernmentSourcePreview" }
+        "400": { description: Invalid source or page size }
+        "401": { description: Admin session required }
+        "429": { description: Preview rate limit reached }
+        "503": { description: Official source unavailable or returned invalid data }
   /dashboard/status:
     servers: [{ url: / }]
     get:
@@ -1778,6 +1813,60 @@ components:
             type: string
             description: Workflow label, or sending/out_of_office/unmapped where no workflow label exists
           count: { type: integer, minimum: 0 }
+    GovernmentSourcePreviewInput:
+      type: object
+      required: [source]
+      properties:
+        source: { type: string, enum: [FSA_UK, ALIM_FR, NYC_DOHMH] }
+        limit: { type: integer, minimum: 1, maximum: 50, default: 25 }
+      additionalProperties: false
+    GovernmentSourceReadiness:
+      type: object
+      required: [success, phase, publishingEnabled, plannedDailyRunUtc, initialDailyLimitPerSource, additionalMonthlyBudgetGbp, pauseAtAdditionalGbp, costMeterConnected, sources]
+      properties:
+        success: { type: boolean }
+        phase: { type: string, enum: [baseline] }
+        publishingEnabled: { type: boolean, enum: [false] }
+        plannedDailyRunUtc: { type: string }
+        initialDailyLimitPerSource: { type: integer }
+        additionalMonthlyBudgetGbp: { type: number }
+        pauseAtAdditionalGbp: { type: number }
+        costMeterConnected: { type: boolean, enum: [false] }
+        sources:
+          type: array
+          items:
+            type: object
+            required: [code, label, region, licenceUrl, datasetUrl]
+            properties:
+              code: { type: string, enum: [FSA_UK, ALIM_FR, NYC_DOHMH] }
+              label: { type: string }
+              region: { type: string }
+              licenceUrl: { type: string, format: uri }
+              datasetUrl: { type: string, format: uri }
+    GovernmentSourcePreview:
+      type: object
+      required: [success, source, checkedAt, scanned, eligible, skipped, nextCursor, listings]
+      properties:
+        success: { type: boolean }
+        source: { type: string, enum: [FSA_UK, ALIM_FR, NYC_DOHMH] }
+        checkedAt: { type: string, format: date-time }
+        scanned: { type: integer, minimum: 0 }
+        eligible: { type: integer, minimum: 0 }
+        skipped: { type: integer, minimum: 0 }
+        nextCursor: { type: [string, "null"] }
+        listings:
+          type: array
+          maxItems: 50
+          items:
+            type: object
+            required: [sourceId, name, address, city, country, coordinatesAvailable]
+            properties:
+              sourceId: { type: string }
+              name: { type: string }
+              address: { type: string }
+              city: { type: string }
+              country: { type: string }
+              coordinatesAvailable: { type: boolean }
     IngestionOutreachDiagnostic:
       type: object
       required: [success, checkedAt, dayStartUtc, grid, external, cities, restaurants, outreach]

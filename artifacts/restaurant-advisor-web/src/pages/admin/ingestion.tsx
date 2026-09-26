@@ -2,6 +2,7 @@ import { useState } from "react";
 import { AdminLayout } from "../../components/admin/AdminLayout";
 import IngestionDashboard from "../../components/admin/IngestionDashboard";
 import IngestionDiagnostic from "../../components/admin/IngestionDiagnostic";
+import GovernmentSourcePilot from "../../components/admin/GovernmentSourcePilot";
 import { RequireAdmin } from "../../components/admin/RequireAdmin";
 import OrchestrationPanel from "../../admin/OrchestrationPanel";
 import ManualIngestionControls from "../../admin/ManualIngestionControls";
@@ -13,6 +14,7 @@ export default function AdminIngestion() {
       <AdminLayout>
         <IngestionDashboard refreshKey={refreshKey} />
         <IngestionDiagnostic refreshKey={refreshKey} />
+        <GovernmentSourcePilot />
         <OrchestrationPanel />
         <ManualIngestionControls onSuccess={() => setRefreshKey((value) => value + 1)} />
       </AdminLayout>

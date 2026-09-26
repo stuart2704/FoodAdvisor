@@ -488,6 +488,94 @@ export type DashboardStatusCountsItem = {
 
 export type DashboardStatusCounts = DashboardStatusCountsItem[];
 
+export type GovernmentSourcePreviewInputSource = typeof GovernmentSourcePreviewInputSource[keyof typeof GovernmentSourcePreviewInputSource];
+
+
+export const GovernmentSourcePreviewInputSource = {
+  FSA_UK: 'FSA_UK',
+  ALIM_FR: 'ALIM_FR',
+  NYC_DOHMH: 'NYC_DOHMH',
+} as const;
+
+export interface GovernmentSourcePreviewInput {
+  source: GovernmentSourcePreviewInputSource;
+  /**
+     * @minimum 1
+     * @maximum 50
+     */
+  limit?: number;
+}
+
+export type GovernmentSourceReadinessPhase = typeof GovernmentSourceReadinessPhase[keyof typeof GovernmentSourceReadinessPhase];
+
+
+export const GovernmentSourceReadinessPhase = {
+  baseline: 'baseline',
+} as const;
+
+export type GovernmentSourceReadinessSourcesItemCode = typeof GovernmentSourceReadinessSourcesItemCode[keyof typeof GovernmentSourceReadinessSourcesItemCode];
+
+
+export const GovernmentSourceReadinessSourcesItemCode = {
+  FSA_UK: 'FSA_UK',
+  ALIM_FR: 'ALIM_FR',
+  NYC_DOHMH: 'NYC_DOHMH',
+} as const;
+
+export type GovernmentSourceReadinessSourcesItem = {
+  code: GovernmentSourceReadinessSourcesItemCode;
+  label: string;
+  region: string;
+  licenceUrl: string;
+  datasetUrl: string;
+};
+
+export interface GovernmentSourceReadiness {
+  success: boolean;
+  phase: GovernmentSourceReadinessPhase;
+  publishingEnabled: false;
+  plannedDailyRunUtc: string;
+  initialDailyLimitPerSource: number;
+  additionalMonthlyBudgetGbp: number;
+  pauseAtAdditionalGbp: number;
+  costMeterConnected: false;
+  sources: GovernmentSourceReadinessSourcesItem[];
+}
+
+export type GovernmentSourcePreviewSource = typeof GovernmentSourcePreviewSource[keyof typeof GovernmentSourcePreviewSource];
+
+
+export const GovernmentSourcePreviewSource = {
+  FSA_UK: 'FSA_UK',
+  ALIM_FR: 'ALIM_FR',
+  NYC_DOHMH: 'NYC_DOHMH',
+} as const;
+
+export type GovernmentSourcePreviewListingsItem = {
+  sourceId: string;
+  name: string;
+  address: string;
+  city: string;
+  country: string;
+  coordinatesAvailable: boolean;
+};
+
+export interface GovernmentSourcePreview {
+  success: boolean;
+  source: GovernmentSourcePreviewSource;
+  checkedAt: string;
+  /** @minimum 0 */
+  scanned: number;
+  /** @minimum 0 */
+  eligible: number;
+  /** @minimum 0 */
+  skipped: number;
+  /** @nullable */
+  nextCursor: string | null;
+  /** @maxItems 50 */
+  listings: GovernmentSourcePreviewListingsItem[];
+}
+
 export type IngestionOutreachDiagnosticGridMonth = {
   /** @minimum 0 */
   calls: number;

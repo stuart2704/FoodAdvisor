@@ -198,6 +198,71 @@ export const GetIngestionOutreachDiagnosticResponse = zod.object({
 
 
 /**
+ * @summary Read the paused, budgeted government-data pilot plan
+ */
+export const GetGovernmentSourceReadinessResponse = zod.object({
+  "success": zod.boolean(),
+  "phase": zod.enum(['baseline']),
+  "publishingEnabled": zod.literal(false),
+  "plannedDailyRunUtc": zod.string(),
+  "initialDailyLimitPerSource": zod.number().int(),
+  "additionalMonthlyBudgetGbp": zod.number(),
+  "pauseAtAdditionalGbp": zod.number(),
+  "costMeterConnected": zod.literal(false),
+  "sources": zod.array(zod.object({
+  "code": zod.enum(['FSA_UK', 'ALIM_FR', 'NYC_DOHMH']),
+  "label": zod.string(),
+  "region": zod.string(),
+  "licenceUrl": zod.string().url(),
+  "datasetUrl": zod.string().url()
+}))
+})
+
+
+/**
+ * Does not write to the database, publish listings, or contact Google or AI services.
+ * @summary Fetch one bounded read-only page from a selected official source
+ */
+export const previewGovernmentSourceBodyLimitDefault = 25;
+export const previewGovernmentSourceBodyLimitMax = 50;
+
+
+
+export const PreviewGovernmentSourceBody = zod.object({
+  "source": zod.enum(['FSA_UK', 'ALIM_FR', 'NYC_DOHMH']),
+  "limit": zod.number().int().min(1).max(previewGovernmentSourceBodyLimitMax).default(previewGovernmentSourceBodyLimitDefault)
+})
+
+export const previewGovernmentSourceResponseScannedMin = 0;
+
+export const previewGovernmentSourceResponseEligibleMin = 0;
+
+export const previewGovernmentSourceResponseSkippedMin = 0;
+
+export const previewGovernmentSourceResponseListingsMax = 50;
+
+
+
+export const PreviewGovernmentSourceResponse = zod.object({
+  "success": zod.boolean(),
+  "source": zod.enum(['FSA_UK', 'ALIM_FR', 'NYC_DOHMH']),
+  "checkedAt": zod.coerce.date(),
+  "scanned": zod.number().int().min(previewGovernmentSourceResponseScannedMin),
+  "eligible": zod.number().int().min(previewGovernmentSourceResponseEligibleMin),
+  "skipped": zod.number().int().min(previewGovernmentSourceResponseSkippedMin),
+  "nextCursor": zod.string().nullable(),
+  "listings": zod.array(zod.object({
+  "sourceId": zod.string(),
+  "name": zod.string(),
+  "address": zod.string(),
+  "city": zod.string(),
+  "country": zod.string(),
+  "coordinatesAvailable": zod.boolean()
+})).max(previewGovernmentSourceResponseListingsMax)
+})
+
+
+/**
  * @summary Aggregate current workflow counts from stored outreach states
  */
 export const getDashboardStatusResponseCountMin = 0;

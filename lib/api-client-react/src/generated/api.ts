@@ -32,6 +32,9 @@ import type {
   GetGmailWatchStatus200,
   GmailReplyPollResult,
   GmailWatch,
+  GovernmentSourcePreview,
+  GovernmentSourcePreviewInput,
+  GovernmentSourceReadiness,
   HealthStatus,
   IncomingReplyInput,
   IngestionOutreachDiagnostic,
@@ -413,6 +416,155 @@ export function useGetIngestionOutreachDiagnostic<TData = Awaited<ReturnType<typ
 
 
 
+
+export const getGetGovernmentSourceReadinessUrl = () => {
+
+
+
+
+  return `/api/dashboard/operations/government-sources`
+}
+
+/**
+ * @summary Read the paused, budgeted government-data pilot plan
+ */
+export const getGovernmentSourceReadiness = async ( options?: Parameters<typeof customFetch>[1]): Promise<GovernmentSourceReadiness> => {
+
+  return customFetch<GovernmentSourceReadiness>(getGetGovernmentSourceReadinessUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetGovernmentSourceReadinessQueryKey = () => {
+    return [
+    `/api/dashboard/operations/government-sources`
+    ] as const;
+    }
+
+
+export const getGetGovernmentSourceReadinessQueryOptions = <TData = Awaited<ReturnType<typeof getGovernmentSourceReadiness>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGovernmentSourceReadiness>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetGovernmentSourceReadinessQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGovernmentSourceReadiness>>> = ({ signal }) => getGovernmentSourceReadiness({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getGovernmentSourceReadiness>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetGovernmentSourceReadinessQueryResult = NonNullable<Awaited<ReturnType<typeof getGovernmentSourceReadiness>>>
+export type GetGovernmentSourceReadinessQueryError = ErrorType<void>
+
+
+/**
+ * @summary Read the paused, budgeted government-data pilot plan
+ */
+
+export function useGetGovernmentSourceReadiness<TData = Awaited<ReturnType<typeof getGovernmentSourceReadiness>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGovernmentSourceReadiness>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetGovernmentSourceReadinessQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getPreviewGovernmentSourceUrl = () => {
+
+
+
+
+  return `/api/dashboard/operations/government-sources/preview`
+}
+
+/**
+ * Does not write to the database, publish listings, or contact Google or AI services.
+ * @summary Fetch one bounded read-only page from a selected official source
+ */
+export const previewGovernmentSource = async (governmentSourcePreviewInput: GovernmentSourcePreviewInput, options?: Parameters<typeof customFetch>[1]): Promise<GovernmentSourcePreview> => {
+
+  return customFetch<GovernmentSourcePreview>(getPreviewGovernmentSourceUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(governmentSourcePreviewInput)
+  }
+);}
+
+
+
+
+
+export const getPreviewGovernmentSourceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewGovernmentSource>>, TError,{data: BodyType<GovernmentSourcePreviewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof previewGovernmentSource>>, TError,{data: BodyType<GovernmentSourcePreviewInput>}, TContext> => {
+
+const mutationKey = ['previewGovernmentSource'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewGovernmentSource>>, {data: BodyType<GovernmentSourcePreviewInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  previewGovernmentSource(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PreviewGovernmentSourceMutationResult = NonNullable<Awaited<ReturnType<typeof previewGovernmentSource>>>
+    export type PreviewGovernmentSourceMutationBody = BodyType<GovernmentSourcePreviewInput>
+    export type PreviewGovernmentSourceMutationError = ErrorType<void>
+
+    /**
+ * @summary Fetch one bounded read-only page from a selected official source
+ */
+export const usePreviewGovernmentSource = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewGovernmentSource>>, TError,{data: BodyType<GovernmentSourcePreviewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof previewGovernmentSource>>,
+        TError,
+        {data: BodyType<GovernmentSourcePreviewInput>},
+        TContext
+      > => {
+      return useMutation(getPreviewGovernmentSourceMutationOptions(options));
+    }
 
 export const getGetDashboardStatusUrl = () => {
 
