@@ -488,6 +488,98 @@ export type DashboardStatusCountsItem = {
 
 export type DashboardStatusCounts = DashboardStatusCountsItem[];
 
+export type IngestionOutreachDiagnosticGridMonth = {
+  /** @minimum 0 */
+  calls: number;
+  /** @minimum 0 */
+  maxCalls: number;
+  /** @minimum 0 */
+  estimatedCostCents: number;
+  /** @minimum 0 */
+  budgetCents: number;
+};
+
+export type IngestionOutreachDiagnosticGrid = {
+  automationEnabled: boolean;
+  initialized: boolean;
+  /** @nullable */
+  lastRunAt: string | null;
+  /** @minimum 0 */
+  pointsAttemptedToday: number;
+  month: IngestionOutreachDiagnosticGridMonth;
+};
+
+export interface IngestionSourceCount {
+  source: string;
+  /** @minimum 0 */
+  today: number;
+  /** @minimum 0 */
+  total: number;
+}
+
+export type IngestionOutreachDiagnosticExternalCandidates = {
+  /** @minimum 0 */
+  today: number;
+  /** @minimum 0 */
+  total: number;
+  bySource: IngestionSourceCount[];
+};
+
+export type IngestionOutreachDiagnosticExternal = {
+  /** @nullable */
+  lastSuccessfulScheduledRunAt: string | null;
+  candidates: IngestionOutreachDiagnosticExternalCandidates;
+};
+
+export type IngestionOutreachDiagnosticCitiesItem = {
+  city: string;
+  source: string;
+  lastRunAt: string;
+};
+
+export type IngestionOutreachDiagnosticRestaurantsBySourceItem = {
+  source: string;
+  /** @minimum 0 */
+  total: number;
+};
+
+export type IngestionOutreachDiagnosticRestaurants = {
+  /** @minimum 0 */
+  today: number;
+  /** @minimum 0 */
+  total: number;
+  bySource: IngestionOutreachDiagnosticRestaurantsBySourceItem[];
+};
+
+export interface IngestionActivityCount {
+  /** @minimum 0 */
+  today: number;
+  /** @minimum 0 */
+  total: number;
+  /** @nullable */
+  latest: string | null;
+}
+
+export type IngestionOutreachDiagnosticOutreach = {
+  schedulerEnabled: boolean;
+  attempts: IngestionActivityCount;
+  confirmedSends: IngestionActivityCount;
+  failures: IngestionActivityCount;
+  classifiedReplies: IngestionActivityCount;
+};
+
+export interface IngestionOutreachDiagnostic {
+  success: boolean;
+  checkedAt: string;
+  dayStartUtc: string;
+  grid: IngestionOutreachDiagnosticGrid;
+  external: IngestionOutreachDiagnosticExternal;
+  /** @maxItems 20 */
+  cities: IngestionOutreachDiagnosticCitiesItem[];
+  restaurants: IngestionOutreachDiagnosticRestaurants;
+  outreach: IngestionOutreachDiagnosticOutreach;
+}
+
 export type DashboardHealthScope = typeof DashboardHealthScope[keyof typeof DashboardHealthScope];
 
 

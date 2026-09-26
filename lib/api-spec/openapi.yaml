@@ -76,6 +76,23 @@ paths:
               schema: { $ref: "#/components/schemas/DashboardHealth" }
         "401":
           description: Invalid automation credential
+  /dashboard/operations/ingestion-diagnostic:
+    get:
+      operationId: getIngestionOutreachDiagnostic
+      tags: [health]
+      security: [{ adminSession: [] }]
+      summary: Read stored city import, restaurant, candidate, and outreach outcomes
+      description: Today means since 00:00 UTC. Excludes contact details and message content.
+      responses:
+        "200":
+          description: Admin-only, database-backed diagnostic
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IngestionOutreachDiagnostic" }
+        "401":
+          description: Admin session required
+        "503":
+          description: Diagnostic database query failed
   /dashboard/status:
     servers: [{ url: / }]
     get:
@@ -1761,6 +1778,90 @@ components:
             type: string
             description: Workflow label, or sending/out_of_office/unmapped where no workflow label exists
           count: { type: integer, minimum: 0 }
+    IngestionOutreachDiagnostic:
+      type: object
+      required: [success, checkedAt, dayStartUtc, grid, external, cities, restaurants, outreach]
+      properties:
+        success: { type: boolean }
+        checkedAt: { type: string, format: date-time }
+        dayStartUtc: { type: string, format: date-time }
+        grid:
+          type: object
+          required: [automationEnabled, initialized, lastRunAt, pointsAttemptedToday, month]
+          properties:
+            automationEnabled: { type: boolean }
+            initialized: { type: boolean }
+            lastRunAt: { type: [string, "null"], format: date-time }
+            pointsAttemptedToday: { type: integer, minimum: 0 }
+            month:
+              type: object
+              required: [calls, maxCalls, estimatedCostCents, budgetCents]
+              properties:
+                calls: { type: integer, minimum: 0 }
+                maxCalls: { type: integer, minimum: 0 }
+                estimatedCostCents: { type: integer, minimum: 0 }
+                budgetCents: { type: integer, minimum: 0 }
+        external:
+          type: object
+          required: [lastSuccessfulScheduledRunAt, candidates]
+          properties:
+            lastSuccessfulScheduledRunAt: { type: [string, "null"], format: date-time }
+            candidates:
+              type: object
+              required: [today, total, bySource]
+              properties:
+                today: { type: integer, minimum: 0 }
+                total: { type: integer, minimum: 0 }
+                bySource:
+                  type: array
+                  items: { $ref: "#/components/schemas/IngestionSourceCount" }
+        cities:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            required: [city, source, lastRunAt]
+            properties:
+              city: { type: string }
+              source: { type: string }
+              lastRunAt: { type: string, format: date-time }
+        restaurants:
+          type: object
+          required: [today, total, bySource]
+          properties:
+            today: { type: integer, minimum: 0 }
+            total: { type: integer, minimum: 0 }
+            bySource:
+              type: array
+              items:
+                type: object
+                required: [source, total]
+                properties:
+                  source: { type: string }
+                  total: { type: integer, minimum: 0 }
+        outreach:
+          type: object
+          required: [schedulerEnabled, attempts, confirmedSends, failures, classifiedReplies]
+          properties:
+            schedulerEnabled: { type: boolean }
+            attempts: { $ref: "#/components/schemas/IngestionActivityCount" }
+            confirmedSends: { $ref: "#/components/schemas/IngestionActivityCount" }
+            failures: { $ref: "#/components/schemas/IngestionActivityCount" }
+            classifiedReplies: { $ref: "#/components/schemas/IngestionActivityCount" }
+    IngestionSourceCount:
+      type: object
+      required: [source, today, total]
+      properties:
+        source: { type: string }
+        today: { type: integer, minimum: 0 }
+        total: { type: integer, minimum: 0 }
+    IngestionActivityCount:
+      type: object
+      required: [today, total, latest]
+      properties:
+        today: { type: integer, minimum: 0 }
+        total: { type: integer, minimum: 0 }
+        latest: { type: [string, "null"], format: date-time }
     DashboardHealth:
       type: object
       required: [recent, score, scope, scoringWindow]

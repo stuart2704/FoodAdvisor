@@ -34,6 +34,7 @@ import type {
   GmailWatch,
   HealthStatus,
   IncomingReplyInput,
+  IngestionOutreachDiagnostic,
   InstantlyReplyPollResult,
   ListNearbyRestaurantsParams,
   ListOsmCandidatesParams,
@@ -323,6 +324,84 @@ export function useGetDashboardHealth<TData = Awaited<ReturnType<typeof getDashb
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetDashboardHealthQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetIngestionOutreachDiagnosticUrl = () => {
+
+
+
+
+  return `/api/dashboard/operations/ingestion-diagnostic`
+}
+
+/**
+ * Today means since 00:00 UTC. Excludes contact details and message content.
+ * @summary Read stored city import, restaurant, candidate, and outreach outcomes
+ */
+export const getIngestionOutreachDiagnostic = async ( options?: Parameters<typeof customFetch>[1]): Promise<IngestionOutreachDiagnostic> => {
+
+  return customFetch<IngestionOutreachDiagnostic>(getGetIngestionOutreachDiagnosticUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetIngestionOutreachDiagnosticQueryKey = () => {
+    return [
+    `/api/dashboard/operations/ingestion-diagnostic`
+    ] as const;
+    }
+
+
+export const getGetIngestionOutreachDiagnosticQueryOptions = <TData = Awaited<ReturnType<typeof getIngestionOutreachDiagnostic>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getIngestionOutreachDiagnostic>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetIngestionOutreachDiagnosticQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getIngestionOutreachDiagnostic>>> = ({ signal }) => getIngestionOutreachDiagnostic({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getIngestionOutreachDiagnostic>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetIngestionOutreachDiagnosticQueryResult = NonNullable<Awaited<ReturnType<typeof getIngestionOutreachDiagnostic>>>
+export type GetIngestionOutreachDiagnosticQueryError = ErrorType<void>
+
+
+/**
+ * @summary Read stored city import, restaurant, candidate, and outreach outcomes
+ */
+
+export function useGetIngestionOutreachDiagnostic<TData = Awaited<ReturnType<typeof getIngestionOutreachDiagnostic>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getIngestionOutreachDiagnostic>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetIngestionOutreachDiagnosticQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

@@ -83,6 +83,121 @@ export const GetDashboardHealthResponse = zod.object({
 
 
 /**
+ * Today means since 00:00 UTC. Excludes contact details and message content.
+ * @summary Read stored city import, restaurant, candidate, and outreach outcomes
+ */
+export const getIngestionOutreachDiagnosticResponseGridPointsAttemptedTodayMin = 0;
+
+export const getIngestionOutreachDiagnosticResponseGridMonthCallsMin = 0;
+
+export const getIngestionOutreachDiagnosticResponseGridMonthMaxCallsMin = 0;
+
+export const getIngestionOutreachDiagnosticResponseGridMonthEstimatedCostCentsMin = 0;
+
+export const getIngestionOutreachDiagnosticResponseGridMonthBudgetCentsMin = 0;
+
+export const getIngestionOutreachDiagnosticResponseExternalCandidatesTodayMin = 0;
+
+export const getIngestionOutreachDiagnosticResponseExternalCandidatesTotalMin = 0;
+
+export const getIngestionOutreachDiagnosticResponseExternalCandidatesBySourceItemTodayMin = 0;
+
+export const getIngestionOutreachDiagnosticResponseExternalCandidatesBySourceItemTotalMin = 0;
+
+export const getIngestionOutreachDiagnosticResponseCitiesMax = 20;
+
+export const getIngestionOutreachDiagnosticResponseRestaurantsTodayMin = 0;
+
+export const getIngestionOutreachDiagnosticResponseRestaurantsTotalMin = 0;
+
+export const getIngestionOutreachDiagnosticResponseRestaurantsBySourceItemTotalMin = 0;
+
+export const getIngestionOutreachDiagnosticResponseOutreachAttemptsTodayMin = 0;
+
+export const getIngestionOutreachDiagnosticResponseOutreachAttemptsTotalMin = 0;
+
+export const getIngestionOutreachDiagnosticResponseOutreachConfirmedSendsTodayMin = 0;
+
+export const getIngestionOutreachDiagnosticResponseOutreachConfirmedSendsTotalMin = 0;
+
+export const getIngestionOutreachDiagnosticResponseOutreachFailuresTodayMin = 0;
+
+export const getIngestionOutreachDiagnosticResponseOutreachFailuresTotalMin = 0;
+
+export const getIngestionOutreachDiagnosticResponseOutreachClassifiedRepliesTodayMin = 0;
+
+export const getIngestionOutreachDiagnosticResponseOutreachClassifiedRepliesTotalMin = 0;
+
+
+
+export const GetIngestionOutreachDiagnosticResponse = zod.object({
+  "success": zod.boolean(),
+  "checkedAt": zod.coerce.date(),
+  "dayStartUtc": zod.coerce.date(),
+  "grid": zod.object({
+  "automationEnabled": zod.boolean(),
+  "initialized": zod.boolean(),
+  "lastRunAt": zod.coerce.date().nullable(),
+  "pointsAttemptedToday": zod.number().int().min(getIngestionOutreachDiagnosticResponseGridPointsAttemptedTodayMin),
+  "month": zod.object({
+  "calls": zod.number().int().min(getIngestionOutreachDiagnosticResponseGridMonthCallsMin),
+  "maxCalls": zod.number().int().min(getIngestionOutreachDiagnosticResponseGridMonthMaxCallsMin),
+  "estimatedCostCents": zod.number().int().min(getIngestionOutreachDiagnosticResponseGridMonthEstimatedCostCentsMin),
+  "budgetCents": zod.number().int().min(getIngestionOutreachDiagnosticResponseGridMonthBudgetCentsMin)
+})
+}),
+  "external": zod.object({
+  "lastSuccessfulScheduledRunAt": zod.coerce.date().nullable(),
+  "candidates": zod.object({
+  "today": zod.number().int().min(getIngestionOutreachDiagnosticResponseExternalCandidatesTodayMin),
+  "total": zod.number().int().min(getIngestionOutreachDiagnosticResponseExternalCandidatesTotalMin),
+  "bySource": zod.array(zod.object({
+  "source": zod.string(),
+  "today": zod.number().int().min(getIngestionOutreachDiagnosticResponseExternalCandidatesBySourceItemTodayMin),
+  "total": zod.number().int().min(getIngestionOutreachDiagnosticResponseExternalCandidatesBySourceItemTotalMin)
+}))
+})
+}),
+  "cities": zod.array(zod.object({
+  "city": zod.string(),
+  "source": zod.string(),
+  "lastRunAt": zod.coerce.date()
+})).max(getIngestionOutreachDiagnosticResponseCitiesMax),
+  "restaurants": zod.object({
+  "today": zod.number().int().min(getIngestionOutreachDiagnosticResponseRestaurantsTodayMin),
+  "total": zod.number().int().min(getIngestionOutreachDiagnosticResponseRestaurantsTotalMin),
+  "bySource": zod.array(zod.object({
+  "source": zod.string(),
+  "total": zod.number().int().min(getIngestionOutreachDiagnosticResponseRestaurantsBySourceItemTotalMin)
+}))
+}),
+  "outreach": zod.object({
+  "schedulerEnabled": zod.boolean(),
+  "attempts": zod.object({
+  "today": zod.number().int().min(getIngestionOutreachDiagnosticResponseOutreachAttemptsTodayMin),
+  "total": zod.number().int().min(getIngestionOutreachDiagnosticResponseOutreachAttemptsTotalMin),
+  "latest": zod.coerce.date().nullable()
+}),
+  "confirmedSends": zod.object({
+  "today": zod.number().int().min(getIngestionOutreachDiagnosticResponseOutreachConfirmedSendsTodayMin),
+  "total": zod.number().int().min(getIngestionOutreachDiagnosticResponseOutreachConfirmedSendsTotalMin),
+  "latest": zod.coerce.date().nullable()
+}),
+  "failures": zod.object({
+  "today": zod.number().int().min(getIngestionOutreachDiagnosticResponseOutreachFailuresTodayMin),
+  "total": zod.number().int().min(getIngestionOutreachDiagnosticResponseOutreachFailuresTotalMin),
+  "latest": zod.coerce.date().nullable()
+}),
+  "classifiedReplies": zod.object({
+  "today": zod.number().int().min(getIngestionOutreachDiagnosticResponseOutreachClassifiedRepliesTodayMin),
+  "total": zod.number().int().min(getIngestionOutreachDiagnosticResponseOutreachClassifiedRepliesTotalMin),
+  "latest": zod.coerce.date().nullable()
+})
+})
+})
+
+
+/**
  * @summary Aggregate current workflow counts from stored outreach states
  */
 export const getDashboardStatusResponseCountMin = 0;
