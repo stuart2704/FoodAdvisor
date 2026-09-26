@@ -31,3 +31,4 @@
 - [Catalogue export integrity](catalogue-export-integrity.md) — historic CSV row counts can reflect repeated snapshots, not distinct restaurants; profile Place IDs before import.
 - [Managed preview port reloads](managed-preview-port-reloads.md) — automatic environment reloads can strand old dev listeners while managed workflows report port collisions.
 - [Restaurant event time semantics](restaurant-event-time-semantics.md) — calendar entries preserve owner-entered wall-clock time without inventing an event timezone or end.
+- [Temporary ESM test bundles](temporary-esm-test-bundles.md) — external dependencies in bundles under /tmp must resolve from the project, not from the temporary directory.

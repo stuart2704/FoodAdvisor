@@ -636,11 +636,19 @@ test("chef owner submission enforces strict limits and is pending and token-scop
 
 test("verified owner can delete the token-scoped chef profile", async () => {
   resetState();
-  const created = await request("put", "/portal/:token/chef", { body: validChef });
-  assert.equal(created.statusCode, 200);
+  globalThis.__portalRouteState.chef.push({
+    restaurantId: "place-1",
+    ...validChef,
+    photoObjectPath: "/objects/chef/00000000-0000-0000-0000-000000000000",
+    moderationStatus: "approved",
+    verifiedAt: new Date("2026-09-25T10:00:00Z"),
+  });
+  assert.equal((await request("get", "/portal/:token/chef/photo")).statusCode, 200);
   const deleted = await request("delete", "/portal/:token/chef");
   assert.equal(deleted.statusCode, 200);
   assert.equal(globalThis.__portalRouteState.chef.length, 0);
+  assert.equal((await request("get", "/portal/:token/chef/photo")).statusCode, 404);
+  assert.equal((await request("get", "/portal/:token/chef")).payload.chef.photoObjectPath, null);
 });
 
 test("owner can explicitly remove the current chef photo", async () => {

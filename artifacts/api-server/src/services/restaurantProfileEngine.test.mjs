@@ -254,6 +254,49 @@ test("unverified and unpublished listings never expose stored future events", as
   }
 });
 
+test("chef moderation exposes only approved public fields and immediately hides later changes or deletion", async () => {
+  reset();
+  const state = globalThis.__profileTestState;
+  const photoObjectPath = "/objects/chef/00000000-0000-0000-0000-000000000001";
+  const chef = {
+    restaurantId: restaurant.placeId, moderationStatus: "pending",
+    name: "Private chef", bio: "Private biography", philosophy: "Private philosophy",
+    awards: ["Private award"], signatureDishes: ["Private dish"],
+    awardEvidenceUrls: ["https://evidence.test/award"],
+    dishEvidenceUrls: ["https://evidence.test/dish"],
+    photoObjectPath, photoMimeType: "image/png", photoSizeBytes: 42,
+    rejectionReason: "Internal notes", reviewedBy: "admin", verifiedAt: null,
+  };
+  state.chef.push(chef);
+  const hidden = {
+    name: null, bio: null, signatureDishes: [], awards: [],
+    philosophy: null, photo: null, verifiedAt: null,
+  };
+  assert.deepEqual((await profileAtFixedDay(restaurant.placeId)).chef, hidden);
+  chef.moderationStatus = "rejected";
+  assert.deepEqual((await profileAtFixedDay(restaurant.placeId)).chef, hidden);
+
+  chef.moderationStatus = "approved";
+  chef.verifiedAt = new Date("2026-09-25T10:00:00Z");
+  const visible = (await profileAtFixedDay(restaurant.placeId)).chef;
+  assert.deepEqual(visible, {
+    name: chef.name, bio: chef.bio, philosophy: chef.philosophy,
+    awards: chef.awards, signatureDishes: chef.signatureDishes,
+    photo: "/api/storage/objects/chef/00000000-0000-0000-0000-000000000001",
+    verifiedAt: chef.verifiedAt,
+  });
+  assert.equal(JSON.stringify(visible).includes("evidence.test"), false);
+  assert.equal(JSON.stringify(visible).includes("Internal notes"), false);
+  assert.equal(JSON.stringify(visible).includes("reviewedBy"), false);
+
+  // An owner edit returns the profile to review; removal must hide it without a cache delay.
+  chef.moderationStatus = "pending";
+  chef.verifiedAt = null;
+  assert.deepEqual((await profileAtFixedDay(restaurant.placeId)).chef, hidden);
+  state.chef.splice(0);
+  assert.deepEqual((await profileAtFixedDay(restaurant.placeId)).chef, hidden);
+});
+
 test.after(async () => {
   await rm(directory, { recursive: true, force: true });
 });
