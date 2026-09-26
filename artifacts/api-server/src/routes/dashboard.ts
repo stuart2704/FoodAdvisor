@@ -114,6 +114,9 @@ router.get("/restaurants", adminOnly, async (req, res) => {
           outreachStatus: restaurantsTable.outreachStatus,
           outreachCount: restaurantsTable.outreachCount,
           claimStatus: restaurantsTable.claimStatus,
+          bookingUrl: restaurantsTable.bookingUrl,
+          bookingProvider: restaurantsTable.bookingProvider,
+          bookingStatus: restaurantsTable.bookingStatus,
           importedAt: restaurantsTable.importedAt,
         })
         .from(restaurantsTable)

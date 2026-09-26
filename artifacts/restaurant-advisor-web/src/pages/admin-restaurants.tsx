@@ -2,21 +2,29 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { AdminLayout } from "../components/admin/AdminLayout";
 import { RequireAdmin } from "../components/admin/RequireAdmin";
+import { BookingLinkManager, type Booking } from "../components/admin/BookingLinkManager";
 
 interface AdminRestaurant {
   placeId: string;
   name: string;
   city: string;
   region: string | null;
+  bookingUrl: string | null;
+  bookingProvider: string | null;
+  bookingStatus: string | null;
 }
 
 export default function ManageRestaurantsPage() {
   const [restaurants, setRestaurants] = useState<AdminRestaurant[] | null>(null);
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetch("/dashboard/restaurants?page=1&limit=100", {
+    setRestaurants(null);
+    setError("");
+    void fetch(`/dashboard/restaurants?page=${page}&limit=100`, {
       credentials: "include",
       cache: "no-store",
       signal: controller.signal,
@@ -25,12 +33,14 @@ export default function ManageRestaurantsPage() {
         const payload = (await response.json()) as {
           success?: boolean;
           restaurants?: AdminRestaurant[];
+          total?: number;
           error?: string;
         };
         if (!response.ok || !payload.success) {
           throw new Error(payload.error ?? "Restaurants could not be loaded.");
         }
         setRestaurants(payload.restaurants ?? []);
+        setTotal(payload.total ?? 0);
       })
       .catch((failure: unknown) => {
         if (!(failure instanceof DOMException && failure.name === "AbortError")) {
@@ -42,7 +52,13 @@ export default function ManageRestaurantsPage() {
         }
       });
     return () => controller.abort();
-  }, []);
+  }, [page]);
+
+  function updateBooking(placeId: string, booking: Booking) {
+    setRestaurants((current) => current?.map((restaurant) => restaurant.placeId === placeId
+      ? { ...restaurant, bookingUrl: booking.url, bookingProvider: booking.provider, bookingStatus: booking.status }
+      : restaurant) ?? null);
+  }
 
   return (
     <RequireAdmin>
@@ -51,7 +67,7 @@ export default function ManageRestaurantsPage() {
           <p style={{ color: "#ff8b47", fontWeight: 700, margin: 0 }}>
             The Food Advisor Admin
           </p>
-          <h1 style={{ margin: "6px 0 0" }}>Restaurant Ingestion</h1>
+          <h1 style={{ margin: "6px 0 0" }}>Restaurants</h1>
         </header>
 
         {error ? (
@@ -60,6 +76,7 @@ export default function ManageRestaurantsPage() {
           </p>
         ) : null}
         {!restaurants && !error ? <p>Loading restaurants…</p> : null}
+        {restaurants?.length === 0 ? <p>No restaurants on this page.</p> : null}
         <ul
           style={{
             display: "grid",
@@ -103,9 +120,22 @@ export default function ManageRestaurantsPage() {
               >
                 Request private contact
               </Link>
+              <BookingLinkManager
+                restaurantId={restaurant.placeId}
+                restaurantName={restaurant.name}
+                booking={{ url: restaurant.bookingUrl, provider: restaurant.bookingProvider, status: restaurant.bookingStatus }}
+                onChange={(booking) => updateBooking(restaurant.placeId, booking)}
+              />
             </li>
           ))}
         </ul>
+        {restaurants && (
+          <nav aria-label="Restaurant pages" style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 18 }}>
+            <button type="button" onClick={() => setPage((current) => current - 1)} disabled={page === 1}>Previous</button>
+            <span>Page {page} of {Math.max(1, Math.ceil(total / 100))} ({total} restaurants)</span>
+            <button type="button" onClick={() => setPage((current) => current + 1)} disabled={page * 100 >= total}>Next</button>
+          </nav>
+        )}
       </AdminLayout>
     </RequireAdmin>
   );
