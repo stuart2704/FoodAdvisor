@@ -14,6 +14,7 @@ import { startGridCrawlScheduler } from "./cron/gridCrawl";
 import { startSocialAutomationScheduler } from "./cron/socialAutomation";
 import { startExternalIngestionScheduler } from "./cron/scheduler";
 import { startDailyOrchestrationScheduler } from "./scheduler/dailyOrchestration";
+import { startChefPhotoCleanup } from "./cron/chefPhotoCleanup";
 
 const rawPort = process.env["PORT"];
 
@@ -53,6 +54,7 @@ async function initializeAfterListen(): Promise<void> {
   startExternalIngestionScheduler();
   startDailyOrchestrationScheduler();
   startSocialAutomationScheduler();
+  startChefPhotoCleanup();
 
   try {
     await initializeStripe();

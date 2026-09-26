@@ -13,10 +13,12 @@ export const chefPhotoUploadIntentsTable = pgTable(
     sizeBytes: integer("size_bytes").notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    cleanupAfter: timestamp("cleanup_after", { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index("chef_photo_upload_intents_owner_active_idx").on(table.restaurantId, table.expiresAt, table.consumedAt),
     index("chef_photo_upload_intents_expires_idx").on(table.expiresAt),
+    index("chef_photo_upload_intents_cleanup_idx").on(table.cleanupAfter),
   ],
 );

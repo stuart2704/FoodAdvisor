@@ -3,8 +3,8 @@ import { and, asc, eq } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { adminOnly } from "../middleware/adminOnly";
-import { deleteChefObject } from "../lib/chefObjectStorage";
 import { streamChefObject } from "../lib/chefObjectStorage";
+import { removeChefProfile, saveChefProfile } from "../services/chefPhotoLifecycle";
 
 const router: IRouter = Router();
 const placeIdParams = z.object({ placeId: z.string().trim().min(1).max(512) });
@@ -70,8 +70,7 @@ router.put("/chef-profiles/:placeId", adminOnly, async (req, res): Promise<void>
     res.status(404).json({ success: false, error: "Restaurant not found." });
     return;
   }
-  const [existing] = await db.select().from(restaurantChefProfilesTable).where(eq(restaurantChefProfilesTable.restaurantId, params.data.placeId)).limit(1);
-  const values = {
+  const profile = await saveChefProfile(params.data.placeId, (existing) => ({
     restaurantId: params.data.placeId,
     ...body.data,
     photoObjectPath: body.data.photoObjectPath ?? existing?.photoObjectPath ?? null,
@@ -81,15 +80,7 @@ router.put("/chef-profiles/:placeId", adminOnly, async (req, res): Promise<void>
     verifiedAt: null,
     reviewedBy: null,
     rejectionReason: null,
-  } as const;
-  const [profile] = existing
-    ? await db.update(restaurantChefProfilesTable).set(values).where(eq(restaurantChefProfilesTable.restaurantId, params.data.placeId)).returning()
-    : await db.insert(restaurantChefProfilesTable).values(values).returning();
-  if (existing?.photoObjectPath && existing.photoObjectPath !== profile?.photoObjectPath) {
-    try { await deleteChefObject(existing.photoObjectPath); } catch (error) {
-      req.log.warn({ err: error }, "Previous chef photo cleanup failed");
-    }
-  }
+  }));
   res.json({ success: true, profile });
 });
 
@@ -139,15 +130,7 @@ router.delete("/chef-profiles/:placeId", adminOnly, async (req, res): Promise<vo
     res.status(400).json({ success: false, error: "Invalid restaurant." });
     return;
   }
-  const [existing] = await db.select({ photoObjectPath: restaurantChefProfilesTable.photoObjectPath })
-    .from(restaurantChefProfilesTable)
-    .where(eq(restaurantChefProfilesTable.restaurantId, params.data.placeId)).limit(1);
-  await db.delete(restaurantChefProfilesTable).where(eq(restaurantChefProfilesTable.restaurantId, params.data.placeId));
-  if (existing?.photoObjectPath) {
-    try { await deleteChefObject(existing.photoObjectPath); } catch (error) {
-      req.log.warn({ err: error }, "Chef photo cleanup failed");
-    }
-  }
+  await removeChefProfile(params.data.placeId);
   res.json({ success: true });
 });
 

@@ -173,7 +173,7 @@ async function loadRouter() {
       name: "portal-route-mocks",
       setup(pluginBuild) {
         pluginBuild.onResolve(
-          { filter: /^@workspace\/db$|^drizzle-orm$|^express$|\.\/ai$|chefObjectStorage$/ },
+          { filter: /^@workspace\/db$|^drizzle-orm$|^express$|\.\/ai$|chefObjectStorage$|chefPhotoLifecycle$/ },
           (args) => ({ path: args.path, namespace: "portal-mock" }),
         );
         pluginBuild.onResolve(
@@ -210,6 +210,20 @@ async function loadRouter() {
                   ? expressMock
                   : args.path === "./ai"
                     ? aiMock
+                     : args.path.endsWith("chefPhotoLifecycle")
+                       ? `export async function saveChefProfile(id, build) {
+                           const state=globalThis.__portalRouteState;
+                           const existing=state.chef.find(row=>row.restaurantId===id);
+                           const values=build(existing);
+                           const row={...existing,...values};
+                           if(existing) Object.assign(existing,row); else state.chef.push(row);
+                           return row;
+                         }
+                         export async function removeChefProfile(id) {
+                           const rows=globalThis.__portalRouteState.chef;
+                           const index=rows.findIndex(row=>row.restaurantId===id);
+                           if(index>=0) rows.splice(index,1);
+                         }`
                     : args.path.endsWith("chefObjectStorage")
                       ? "export const CHEF_IMAGE_MAX_BYTES=5242880; export const CHEF_IMAGE_TYPES=['image/jpeg','image/png','image/webp']; export const createChefObjectPath=()=>'/objects/chef/00000000-0000-0000-0000-000000000000'; export async function createChefUploadUrl(){if(globalThis.__portalRouteState.signingFailure) throw new Error('signing failed'); return 'https://upload.test';} export async function finalizeChefObject(){} export async function deleteChefObject(){} export async function streamChefObject(){}"
                     : simpleMocks.get(args.path),

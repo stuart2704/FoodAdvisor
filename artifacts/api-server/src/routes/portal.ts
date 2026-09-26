@@ -6,7 +6,7 @@ import {
   chefPhotoUploadIntentsTable,
   restaurantsTable,
 } from "@workspace/db";
-import { and, asc, eq, gte, gt, isNull, lt } from "drizzle-orm";
+import { and, asc, eq, gte, gt, isNull } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { validateToken } from "../services/portalTokenService";
@@ -31,10 +31,10 @@ import {
   CHEF_IMAGE_TYPES,
   createChefObjectPath,
   createChefUploadUrl,
-  deleteChefObject,
   finalizeChefObject,
   streamChefObject,
 } from "../lib/chefObjectStorage";
+import { removeChefProfile, saveChefProfile } from "../services/chefPhotoLifecycle";
 
 const router: IRouter = Router();
 async function countOwnerOfferOutcome(
@@ -456,13 +456,8 @@ router.put("/portal/:token/chef", async (req, res): Promise<void> => {
     invalidPortalLink(res);
     return;
   }
-  const [existing] = await db
-    .select({ photoObjectPath: restaurantChefProfilesTable.photoObjectPath, photoMimeType: restaurantChefProfilesTable.photoMimeType, photoSizeBytes: restaurantChefProfilesTable.photoSizeBytes })
-    .from(restaurantChefProfilesTable)
-    .where(eq(restaurantChefProfilesTable.restaurantId, placeId))
-    .limit(1);
   const { removePhoto, ...chefData } = body.data;
-  const values = {
+  const chef = await saveChefProfile(placeId, (existing) => ({
     restaurantId: placeId,
     ...chefData,
     photoObjectPath: removePhoto ? null : existing?.photoObjectPath ?? null,
@@ -472,15 +467,7 @@ router.put("/portal/:token/chef", async (req, res): Promise<void> => {
     verifiedAt: null,
     reviewedBy: null,
     rejectionReason: null,
-  } as const;
-  const [chef] = existing
-    ? await db.update(restaurantChefProfilesTable).set(values).where(eq(restaurantChefProfilesTable.restaurantId, placeId)).returning()
-    : await db.insert(restaurantChefProfilesTable).values(values).returning();
-  if (removePhoto && existing?.photoObjectPath) {
-    try { await deleteChefObject(existing.photoObjectPath); } catch (error) {
-      req.log.warn({ err: error }, "Chef photo cleanup failed");
-    }
-  }
+  }));
   res.json({ success: true, chef });
 });
 
@@ -496,15 +483,7 @@ router.delete("/portal/:token/chef", async (req, res): Promise<void> => {
     invalidPortalLink(res);
     return;
   }
-  const [chef] = await db.select({ photoObjectPath: restaurantChefProfilesTable.photoObjectPath })
-    .from(restaurantChefProfilesTable)
-    .where(eq(restaurantChefProfilesTable.restaurantId, placeId)).limit(1);
-  await db.delete(restaurantChefProfilesTable).where(eq(restaurantChefProfilesTable.restaurantId, placeId));
-  if (chef?.photoObjectPath) {
-    try { await deleteChefObject(chef.photoObjectPath); } catch (error) {
-      req.log.warn({ err: error }, "Chef photo cleanup failed");
-    }
-  }
+  await removeChefProfile(placeId);
   res.json({ success: true });
 });
 
@@ -525,9 +504,6 @@ router.post("/portal/:token/chef/photo/upload-intent", async (req, res): Promise
     invalidPortalLink(res);
     return;
   }
-  await db.delete(chefPhotoUploadIntentsTable).where(
-    and(eq(chefPhotoUploadIntentsTable.restaurantId, placeId), lt(chefPhotoUploadIntentsTable.expiresAt, new Date())),
-  );
   const active = await db.select({ id: chefPhotoUploadIntentsTable.id })
     .from(chefPhotoUploadIntentsTable)
     .where(and(eq(chefPhotoUploadIntentsTable.restaurantId, placeId), gt(chefPhotoUploadIntentsTable.expiresAt, new Date()), isNull(chefPhotoUploadIntentsTable.consumedAt)))
@@ -544,6 +520,7 @@ router.post("/portal/:token/chef/photo/upload-intent", async (req, res): Promise
     await db.insert(chefPhotoUploadIntentsTable).values({
       objectPath, restaurantId: placeId, contentType: body.data.contentType,
       sizeBytes: body.data.sizeBytes, expiresAt,
+      cleanupAfter: new Date(expiresAt.getTime() + 15 * 60_000),
     }).returning({ id: chefPhotoUploadIntentsTable.id });
   } catch (error) {
     req.log.warn({ err: error }, "Chef photo upload intent creation failed");
@@ -596,8 +573,7 @@ router.post("/portal/:token/chef/photo/finalize", async (req, res): Promise<void
     res.status(400).json({ success: false, error: "The uploaded image could not be verified." });
     return;
   }
-  const [existing] = await db.select().from(restaurantChefProfilesTable).where(eq(restaurantChefProfilesTable.restaurantId, placeId)).limit(1);
-  const values = {
+  const chef = await saveChefProfile(placeId, (existing) => ({
     restaurantId: placeId,
     name: existing?.name ?? null,
     bio: existing?.bio ?? null,
@@ -613,15 +589,7 @@ router.post("/portal/:token/chef/photo/finalize", async (req, res): Promise<void
     verifiedAt: null,
     reviewedBy: null,
     rejectionReason: null,
-  } as const;
-  const [chef] = existing
-    ? await db.update(restaurantChefProfilesTable).set(values).where(eq(restaurantChefProfilesTable.restaurantId, placeId)).returning()
-    : await db.insert(restaurantChefProfilesTable).values(values).returning();
-  if (existing?.photoObjectPath && existing.photoObjectPath !== body.data.objectPath) {
-    try { await deleteChefObject(existing.photoObjectPath); } catch (error) {
-      req.log.warn({ err: error }, "Previous chef photo cleanup failed");
-    }
-  }
+  }));
   res.json({ success: true, chef });
 });
 

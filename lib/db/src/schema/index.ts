@@ -27,6 +27,7 @@ export * from "./scraperProxyBudget";
 export * from "./restaurantCollections";
 export * from "./restaurantChef";
 export * from "./chefPhotoUploadIntents";
+export * from "./chefPhotoDeletionQueue";
 export * from "./crawlerProgress";
 export * from "./cityProgress";
 export * from "./regionProgress";
