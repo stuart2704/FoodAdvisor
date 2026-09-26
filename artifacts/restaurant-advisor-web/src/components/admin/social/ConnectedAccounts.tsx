@@ -11,7 +11,7 @@ interface Account {
   tokenExpiresAt?: string | null;
 }
 
-interface InstagramConfig {
+interface OAuthConfig {
   configured: boolean;
   redirectUri: string | null;
 }
@@ -21,14 +21,16 @@ export function ConnectedAccounts() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   
-  const [restaurantId, setRestaurantId] = useState("");
-  const [accessToken, setAccessToken] = useState("");
-  const [connecting, setConnecting] = useState(false);
-  const [instagramConfig, setInstagramConfig] = useState<InstagramConfig | null>(null);
+  const [facebookRestaurantId, setFacebookRestaurantId] = useState("");
+  const [facebookConfig, setFacebookConfig] = useState<OAuthConfig | null>(null);
+  const [facebookPages, setFacebookPages] = useState<{ id: string; name: string }[]>([]);
+  const [facebookConnecting, setFacebookConnecting] = useState(false);
+  const [facebookSelecting, setFacebookSelecting] = useState(false);
+  const [instagramConfig, setInstagramConfig] = useState<OAuthConfig | null>(null);
   const [instagramRestaurantId, setInstagramRestaurantId] = useState("");
   const [instagramConnecting, setInstagramConnecting] = useState(false);
   const [instagramError, setInstagramError] = useState("");
-  const [connectError, setConnectError] = useState("");
+  const [facebookError, setFacebookError] = useState("");
   const [connectSuccess, setConnectSuccess] = useState("");
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
   const [disconnectMessage, setDisconnectMessage] = useState("");
@@ -36,12 +38,14 @@ export function ConnectedAccounts() {
   const loadAccounts = async () => {
     try {
       setLoading(true);
-      const [data, config] = await Promise.all([
+      const [data, config, fbConfig] = await Promise.all([
         fetchSocial<{ accounts: Account[] }>("/accounts"),
-        fetchSocial<InstagramConfig>("/instagram/config").catch(() => null),
+        fetchSocial<OAuthConfig>("/instagram/config").catch(() => null),
+        fetchSocial<OAuthConfig>("/facebook/config").catch(() => null),
       ]);
       setAccounts(data.accounts);
       setInstagramConfig(config);
+      setFacebookConfig(fbConfig);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -68,31 +72,57 @@ export function ConnectedAccounts() {
       params.delete("instagram");
       window.history.replaceState(window.history.state, "", `${window.location.pathname}?${params.toString()}`);
     }
+    const facebookResult = params.get("facebook");
+    if (facebookResult) {
+      const messages: Record<string, string> = {
+        denied: "Facebook authorization was cancelled or denied.",
+        state_error: "Facebook connection expired or could not be verified. Try connecting again.",
+        configuration_error: "Facebook app settings are missing or invalid.",
+        no_pages: "No Pages with permission to create posts were found. Check your Page role and Meta app permissions.",
+        authorization_error: "Facebook connection failed. Check the Meta app redirect URI, Page permissions, and app access.",
+      };
+      if (facebookResult === "select") {
+        void fetchSocial<{ pages: { id: string; name: string }[] }>("/facebook/pages")
+          .then(data => setFacebookPages(data.pages))
+          .catch(err => setFacebookError(err instanceof Error ? err.message : "Could not load Facebook Pages."));
+      } else setFacebookError(messages[facebookResult] ?? "Facebook connection failed.");
+      params.delete("facebook");
+      window.history.replaceState(window.history.state, "", `${window.location.pathname}${params.size ? `?${params}` : ""}`);
+    }
   }, []);
 
-  const handleConnect = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setConnecting(true);
-    setConnectError("");
+  const handleFacebookConnect = async () => {
+    setFacebookConnecting(true);
+    setFacebookError("");
     setConnectSuccess("");
     try {
-      const payload: { platform: string; accessToken: string; restaurantId?: string } = { platform: "facebook", accessToken };
-      if (restaurantId.trim()) {
-        payload.restaurantId = restaurantId.trim();
-      }
-
-      await fetchSocial("/accounts/connect", {
+      const result = await fetchSocial<{ authorizationUrl: string }>("/facebook/start", {
         method: "POST",
-        body: JSON.stringify(payload)
+        body: JSON.stringify(facebookRestaurantId.trim() ? { restaurantId: facebookRestaurantId.trim() } : {}),
       });
-      setConnectSuccess("Account connected successfully.");
-      setRestaurantId("");
-      setAccessToken("");
-      loadAccounts();
-    } catch (err: any) {
-      setConnectError(err.message);
+      window.location.assign(result.authorizationUrl);
+    } catch (err) {
+      setFacebookError(err instanceof Error ? err.message : "Could not start Facebook connection.");
+      setFacebookConnecting(false);
+    }
+  };
+
+  const handleFacebookPage = async (pageId: string) => {
+    setFacebookSelecting(true);
+    setFacebookError("");
+    try {
+      const result = await fetchSocial<{ pageName: string }>("/facebook/finish", {
+        method: "POST",
+        body: JSON.stringify({ pageId }),
+      });
+      setFacebookPages([]);
+      setFacebookRestaurantId("");
+      setConnectSuccess(`${result.pageName} connected to Facebook.`);
+      await loadAccounts();
+    } catch (err) {
+      setFacebookError(err instanceof Error ? err.message : "Could not connect Facebook Page.");
     } finally {
-      setConnecting(false);
+      setFacebookSelecting(false);
     }
   };
 
@@ -159,33 +189,40 @@ export function ConnectedAccounts() {
       </div>
       <div className="social-card">
         <h2>Connect Facebook Page</h2>
-        {connectError && <div className="social-alert">{connectError}</div>}
+        <p style={{ color: "#aaa", fontSize: "0.9rem" }}>
+          Sign in with Facebook and choose a Page you manage. No Page access token needs to be copied.
+        </p>
+        <p>Facebook: <strong>{loading ? "Loading..." : accounts.some(account => account.platform === "facebook" && account.status === "connected") ? "Connected" : "Not Connected"}</strong></p>
+        {facebookError && <div className="social-alert" role="alert">{facebookError}</div>}
         {connectSuccess && <div className="social-success">{connectSuccess}</div>}
-        <form onSubmit={handleConnect}>
-          <div className="social-form-group">
-            <label>Place ID / Restaurant ID</label>
-            <input 
-              type="text" 
-              value={restaurantId}
-              onChange={(e) => setRestaurantId(e.target.value)}
-              placeholder="Leave blank for Brand account"
-            />
+        {facebookConfig === null ? <p>Facebook configuration could not be loaded.</p>
+          : !facebookConfig.configured && <p>Facebook app credentials and an HTTPS redirect URI must be configured before connecting.</p>}
+        {facebookConfig?.redirectUri && <p style={{ color: "#aaa", fontSize: "0.8rem", overflowWrap: "anywhere" }}>
+          Add this exact OAuth redirect URI in Meta App Dashboard → Facebook Login for Business → Settings: {facebookConfig.redirectUri}
+        </p>}
+        {facebookPages.length > 0 ? (
+          <div>
+            <p>Choose the Page to connect:</p>
+            {facebookPages.map(page => (
+              <button key={page.id} type="button" className="social-btn" disabled={facebookSelecting}
+                onClick={() => void handleFacebookPage(page.id)}>
+                {facebookSelecting ? "Connecting..." : `Connect ${page.name}`}
+              </button>
+            ))}
           </div>
-          <div className="social-form-group">
-            <label>Page Access Token</label>
-            <input 
-              type="password" 
-              required 
-              value={accessToken}
-              onChange={(e) => setAccessToken(e.target.value)}
-              placeholder="Paste token here"
-              autoComplete="off"
-            />
-          </div>
-          <button type="submit" className="social-btn" disabled={connecting}>
-            {connecting ? "Connecting..." : "Connect Account"}
-          </button>
-        </form>
+        ) : (
+          <>
+            <div className="social-form-group">
+              <label htmlFor="facebook-restaurant">Restaurant Place ID (optional)</label>
+              <input id="facebook-restaurant" type="text" value={facebookRestaurantId}
+                onChange={e => setFacebookRestaurantId(e.target.value)} placeholder="Leave blank for The Food Advisor brand" />
+            </div>
+            <button type="button" className="social-btn" disabled={!facebookConfig?.configured || facebookConnecting}
+              onClick={() => void handleFacebookConnect()}>
+              {facebookConnecting ? "Opening Facebook..." : "Connect Facebook Page"}
+            </button>
+          </>
+        )}
       </div>
 
       <div className="social-card">

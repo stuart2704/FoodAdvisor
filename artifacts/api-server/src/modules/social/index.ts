@@ -10,10 +10,12 @@ import { generateRestaurantPost, generateBrandPost } from "./ai.service";
 import { publishPost } from "./services/publishing.service";
 import { getSocialSettings, SOCIAL_SETTINGS_ID } from "./settings";
 import { instagramRouter } from "./instagram.routes";
+import { facebookRouter } from "./facebook.routes";
 
 const router: IRouter = Router();
 router.use(adminOnly);
 router.use("/social/instagram", instagramRouter);
+router.use("/social/facebook", facebookRouter);
 const publicAccount = (a: any) => ({ id: a.id, restaurantId: a.restaurantId, platform: a.platform, displayName: a.displayName, createdAt: a.createdAt, status: a.status === "connected" && a.tokenExpiresAt && a.tokenExpiresAt <= new Date() ? "expired" : a.status, tokenExpiresAt: a.tokenExpiresAt });
 const validPlatform = (p: unknown) => p === "facebook";
 const isUuid = (value: string) => z.string().uuid().safeParse(value).success;

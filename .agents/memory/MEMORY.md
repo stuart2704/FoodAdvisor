@@ -21,7 +21,7 @@
 - [Grid crawl activation](grid-crawl-activation.md) — the first paid Places crawl is explicitly manual; automatic runs begin only after a confirmed point completes.
 - [Google Maps billing limits](google-maps-billing-limits.md) — app-side request reservations are not a guaranteed £30 Google invoice cap; budgets alert, and Maps lacks spend caps.
 - [Social publishing safety](social-publishing-safety.md) — keep scheduled publishing opt-in and treat ambiguous provider outcomes as non-retriable until reviewed.
-- [Instagram connection boundary](instagram-connection-boundary.md) — workspace connector authorization does not connect Instagram inside The Food Advisor.
+- [Meta social connection boundary](instagram-connection-boundary.md) — workspace or Meta dashboard setup does not connect Facebook/Instagram inside The Food Advisor.
 - [Offline PostgreSQL tests](offline-postgresql-tests.md) — point temporary clusters at their own socket directory; this environment lacks the default lock directory.
 - [Location slug continuity](location-slug-continuity.md) — a rename can change neighbors' computed slugs; preserve every changed URL and allow aliases to be retargeted repeatedly.
 - [External source activation](external-source-activation.md) — placeholder provider URLs stay dormant; scheduled ingestion must report real fetch failures rather than mark them successful.
