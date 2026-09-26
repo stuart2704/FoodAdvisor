@@ -17,6 +17,7 @@ export const restaurantMenuItemsTable = table("menu");
 export const restaurantChefProfilesTable = table("chef");
 export const restaurantCollectionMembersTable = table("members");
 export const restaurantCollectionsTable = table("collections");
+export const placeAmenityChecksTable = table("amenityChecks");
 
 function matches(condition, row) {
   if (condition.op === "and") return condition.conditions.every((part) => matches(part, row));
@@ -124,10 +125,19 @@ const restaurant = {
 
 function reset(restaurants = [restaurant], offers = [], events = []) {
   globalThis.__profileTestState = {
-    restaurants, offers, events, menu: [], chef: [], members: [], collections: [],
+    restaurants, offers, events, menu: [], chef: [], members: [], collections: [], amenityChecks: [],
     queries: [],
   };
 }
+
+test("only amenities confirmed by a completed venue-specific check reach diners", async () => {
+  reset([{ ...restaurant, amenities: ["delivery"] }]);
+  assert.equal((await profileAtFixedDay(restaurant.placeId)).amenities, null);
+  globalThis.__profileTestState.amenityChecks.push({ placeId: restaurant.placeId, status: "pending" });
+  assert.equal((await profileAtFixedDay(restaurant.placeId)).amenities, null);
+  globalThis.__profileTestState.amenityChecks[0].status = "completed";
+  assert.deepEqual((await profileAtFixedDay(restaurant.placeId)).amenities, ["delivery"]);
+});
 
 async function profileAtFixedDay(id) {
   const OriginalDate = globalThis.Date;

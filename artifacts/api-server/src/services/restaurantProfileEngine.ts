@@ -6,6 +6,7 @@ import {
   restaurantCollectionMembersTable,
   restaurantCollectionsTable,
   restaurantChefProfilesTable,
+  placeAmenityChecksTable,
   restaurantsTable,
 } from "@workspace/db";
 import { and, asc, eq, gte, inArray, lte } from "drizzle-orm";
@@ -92,6 +93,7 @@ export interface RestaurantProfile {
     price: string;
   }>;
   badges: string[];
+  amenities: string[] | null;
   collections: Array<{
     id: string;
     title: string;
@@ -147,6 +149,13 @@ export async function getRestaurantProfile(
     ))
     .limit(1);
   if (!restaurant) return null;
+  const [amenityCheck] = restaurant.amenities?.length
+    ? await db.select({ placeId: placeAmenityChecksTable.placeId })
+      .from(placeAmenityChecksTable)
+      .where(and(eq(placeAmenityChecksTable.placeId, restaurant.placeId),
+        eq(placeAmenityChecksTable.status, "completed")))
+      .limit(1)
+    : [];
   const today = new Date().toISOString().slice(0, 10);
   const [menu, chefRow, offers, events, collectionRows] = await Promise.all([
     db
@@ -313,6 +322,7 @@ export async function getRestaurantProfile(
     offers,
     events,
     badges: deriveBadges(restaurant),
+    amenities: amenityCheck ? restaurant.amenities : null,
     collections: Array.from(
       collectionRows.reduce((collections, row) => {
         const collection = collections.get(row.id) ?? {

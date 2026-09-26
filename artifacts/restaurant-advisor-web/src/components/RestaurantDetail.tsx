@@ -291,6 +291,19 @@ export default function RestaurantDetail() {
         </div>
       )}
 
+      {Array.isArray(restaurant.amenities) && restaurant.amenities.length > 0 && (
+        <div style={{ marginBottom: "20px" }}>
+          <strong>Amenities reported for this venue:</strong>{" "}
+          {restaurant.amenities.map((tag) => ({
+            delivery: "Delivery",
+            takeaway: "Takeaway",
+            outdoor_seating: "Outdoor seating",
+            wheelchair: "Wheelchair accessibility",
+            vegetarian: "Vegetarian food",
+          }[tag] ?? tag.replaceAll("_", " "))).join(" · ")}
+        </div>
+      )}
+
       <div style={{ fontSize: "1.1rem", opacity: 0.8, marginBottom: "20px" }}>
         {restaurant.address}, {restaurant.city}
       </div>
@@ -760,6 +773,7 @@ interface RestaurantData {
   rating: number | null;
   claimed: boolean;
   badges?: string[];
+  amenities?: string[] | null;
   offers?: Array<{ title: string; description: string; startDate: string; endDate: string }>;
   events?: Array<{ id: number; title: string; description: string; date: string; time: string; price: string }>;
   bestDishes?: Array<{ name: string; description: string; reason: string }>;
