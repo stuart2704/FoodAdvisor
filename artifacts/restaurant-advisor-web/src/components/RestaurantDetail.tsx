@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import RestaurantPhoto from "./RestaurantPhoto";
 import OsmAttribution from "./OsmAttribution";
 import { trackEvent } from "../lib/analytics";
+import PhotoAttribution, { type PlacePhoto } from "./PhotoAttribution";
 
 function formatPrice(level: string | null) {
   if (level === null) return "Not available";
@@ -36,7 +37,10 @@ export default function RestaurantDetail() {
   const [hours, setHours] = useState<string[]>([]);
   const [openNow, setOpenNow] = useState<boolean | null>(null);
   const [priceLevel, setPriceLevel] = useState<string | null>(null);
-  const [gallery, setGallery] = useState<string[]>([]);
+  const [primaryPhoto, setPrimaryPhoto] = useState<PlacePhoto | null>(null);
+  const [gallery, setGallery] = useState<PlacePhoto[]>([]);
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [galleryLoading, setGalleryLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [claimSubmitting, setClaimSubmitting] = useState(false);
   const claimToken =
@@ -116,20 +120,6 @@ export default function RestaurantDetail() {
       })
       .catch(() => setRestaurant(null));
 
-    if (!id.startsWith("osm:")) fetch(
-      `/api/photos/${encodeURIComponent(id)}`
-    )
-        .then(res => {
-          if (!res.ok) {
-            throw new Error("Restaurant photos are unavailable.");
-          }
-          return res.json();
-        })
-        .then(data => {
-          setGallery(Array.isArray(data.photos) ? data.photos : []);
-        })
-        .catch(() => setGallery([]));
-
       const reviewsRequest = id.startsWith("osm:")
         ? Promise.resolve({ reviews: [] })
         : fetch(`/api/reviews/google/${encodeURIComponent(id)}`).then((res) => {
@@ -176,6 +166,42 @@ export default function RestaurantDetail() {
   }, [id]);
 
   useEffect(() => {
+    setPrimaryPhoto(null);
+    setGallery([]);
+    setGalleryOpen(false);
+    if (!id || id.startsWith("osm:")) return;
+    const controller = new AbortController();
+    fetch(`/api/photo/${encodeURIComponent(id)}`, { signal: controller.signal })
+      .then(res => {
+        if (!res.ok) throw new Error("Restaurant photo unavailable.");
+        return res.json() as Promise<{ url?: unknown; attribution?: PlacePhoto["attribution"] }>;
+      })
+      .then(data => {
+        if (!controller.signal.aborted && typeof data.url === "string")
+          setPrimaryPhoto({ url: data.url, attribution: Array.isArray(data.attribution) ? data.attribution : [] });
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [id]);
+
+  useEffect(() => {
+    if (!galleryOpen || !id || id.startsWith("osm:")) return;
+    const controller = new AbortController();
+    setGalleryLoading(true);
+    fetch(`/api/photos/${encodeURIComponent(id)}`, { signal: controller.signal })
+      .then(res => {
+        if (!res.ok) throw new Error("Restaurant photos unavailable.");
+        return res.json() as Promise<{ photos?: PlacePhoto[] }>;
+      })
+      .then(data => {
+        if (!controller.signal.aborted) setGallery(Array.isArray(data.photos) ? data.photos : []);
+      })
+      .catch(() => { if (!controller.signal.aborted) setGallery([]); })
+      .finally(() => { if (!controller.signal.aborted) setGalleryLoading(false); });
+    return () => controller.abort();
+  }, [id, galleryOpen]);
+
+  useEffect(() => {
     if (!restaurant) return;
 
     try {
@@ -204,7 +230,8 @@ export default function RestaurantDetail() {
           id: String(restaurant.id),
           name: String(restaurant.name),
           city: String(restaurant.city),
-          image: gallery[0] || ""
+          // Do not persist temporary Google photo URIs in local storage.
+          image: ""
         },
         ...viewed.filter((item) => item.id !== restaurant.id)
       ];
@@ -216,7 +243,7 @@ export default function RestaurantDetail() {
     } catch {
       window.localStorage.removeItem("recentlyViewed");
     }
-  }, [restaurant, gallery]);
+  }, [restaurant]);
 
   if (!restaurant) {
     return <div className="section">Loading…</div>;
@@ -225,7 +252,7 @@ export default function RestaurantDetail() {
   return (
     <div className="section" style={{ maxWidth: "900px" }}>
       <RestaurantPhoto
-        src={gallery[0]}
+        src={primaryPhoto?.url}
         name={restaurant.name}
         style={{
           width: "100%",
@@ -234,8 +261,15 @@ export default function RestaurantDetail() {
           marginBottom: "24px"
         }}
       />
+      {primaryPhoto && <PhotoAttribution attribution={primaryPhoto.attribution} />}
 
-      {gallery.length > 0 && (
+      {primaryPhoto && !galleryOpen && (
+        <button type="button" onClick={() => setGalleryOpen(true)} style={{ marginTop: 12 }}>
+          View more photos
+        </button>
+      )}
+      {galleryLoading && <p>Loading photos…</p>}
+      {galleryOpen && gallery.length > 0 && (
         <div
           aria-label={`${restaurant.name} photo gallery`}
           style={{
@@ -247,10 +281,10 @@ export default function RestaurantDetail() {
             paddingBottom: "8px"
           }}
         >
-          {gallery.map((url, i) => (
-            <RestaurantPhoto
-              key={url}
-              src={url}
+          {gallery.slice(1).map((photo, i) => (
+            <div key={photo.url}>
+              <RestaurantPhoto
+              src={photo.url}
               name={`${restaurant.name} photo ${i + 1}`}
               style={{
                 width: "min(80vw, 640px)",
@@ -259,7 +293,9 @@ export default function RestaurantDetail() {
                 borderRadius: "16px",
                 scrollSnapAlign: "start"
               }}
-            />
+              />
+              <PhotoAttribution attribution={photo.attribution} />
+            </div>
           ))}
         </div>
       )}

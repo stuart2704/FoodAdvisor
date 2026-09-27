@@ -1,32 +1,23 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
-import { budgetedPlacesFetch, PlacesBudgetExceededError } from "../lib/budgetedPlacesFetch";
+import { PlacesBudgetExceededError } from "../lib/budgetedPlacesFetch";
+import { getPlacePhotos } from "../lib/placePhotoLookup";
 import { db, restaurantsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { checkGooglePhotoAccess } from "../lib/photo-provider";
 
 const router: IRouter = Router();
-const CACHE_TTL_MS = 60 * 60 * 1000;
-const photoCache = new Map<string, { url: string | null; expiresAt: number }>();
-const galleryCache = new Map<
-  string,
-  { photos: string[]; expiresAt: number }
->();
+const PlaceParams = z.object({ placeId: z.string().trim().min(1).max(300) });
 
-const PlaceParams = z.object({
-  placeId: z.string().trim().min(1).max(300),
-});
-
-type PlaceDetailsResponse = {
-  photos?: Array<{ name?: string }>;
-};
-
-type PhotoMediaResponse = {
-  photoUri?: string;
-};
-
-async function guardGooglePhotoProvider(placeId: string, res: import("express").Response) {
+async function servePhotos(req: import("express").Request, res: import("express").Response, gallery: boolean) {
+  const parsed = PlaceParams.safeParse(req.params);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid place ID." });
+    return;
+  }
+  const { placeId } = parsed.data;
   try {
+    // Authorize on every request, even when provider data is cached.
     const [restaurant] = await db.select({
       sourceName: restaurantsTable.sourceName,
       sourceAttribution: restaurantsTable.sourceAttribution,
@@ -35,195 +26,36 @@ async function guardGooglePhotoProvider(placeId: string, res: import("express").
     const access = checkGooglePhotoAccess(placeId, restaurant ?? null);
     if (!access.allowed) {
       res.status(access.status).json(access.body);
-      return false;
+      return;
     }
-    return true;
   } catch {
     res.status(503).json({ error: "Restaurant photo provider could not be determined." });
-    return false;
-  }
-}
-
-router.get("/photo/:placeId", async (req, res): Promise<void> => {
-  const parsed = PlaceParams.safeParse(req.params);
-  if (!parsed.success) {
-    res.status(400).json({ error: "Invalid place ID." });
     return;
   }
-
-  const { placeId } = parsed.data;
-  if (!(await guardGooglePhotoProvider(placeId, res))) return;
-  const cached = photoCache.get(placeId);
-  if (cached && cached.expiresAt > Date.now()) {
-    res.setHeader("Cache-Control", "public, max-age=3600");
-    res.json({ url: cached.url });
-    return;
-  }
-
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
   if (!apiKey) {
     res.status(503).json({ error: "Google Places photos are not configured." });
     return;
   }
-
   try {
-    const detailsResponse = await budgetedPlacesFetch(
-      `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`,
-      {
-        headers: {
-          "X-Goog-Api-Key": apiKey,
-          "X-Goog-FieldMask": "photos",
-        },
-      },
-      "Place photo details",
-    );
-
-    if (!detailsResponse.ok) {
-      const message = await detailsResponse.text();
-      req.log.warn(
-        { placeId, status: detailsResponse.status, message },
-        "Google Places photo details request failed",
-      );
-      res.status(502).json({ error: "Restaurant photo is temporarily unavailable." });
-      return;
-    }
-
-    const details = (await detailsResponse.json()) as PlaceDetailsResponse;
-    const photoName = details.photos?.[0]?.name;
-    if (!photoName) {
-      photoCache.set(placeId, {
-        url: null,
-        expiresAt: Date.now() + CACHE_TTL_MS,
-      });
-      res.setHeader("Cache-Control", "public, max-age=3600");
-      res.json({ url: null });
-      return;
-    }
-
-    const mediaResponse = await budgetedPlacesFetch(
-      `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=1200&skipHttpRedirect=true`,
-      {
-        headers: {
-          "X-Goog-Api-Key": apiKey,
-        },
-      },
-      "Place photo media",
-    );
-
-    if (!mediaResponse.ok) {
-      const message = await mediaResponse.text();
-      req.log.warn(
-        { placeId, status: mediaResponse.status, message },
-        "Google Places photo media request failed",
-      );
-      res.status(502).json({ error: "Restaurant photo is temporarily unavailable." });
-      return;
-    }
-
-    const media = (await mediaResponse.json()) as PhotoMediaResponse;
-    const url = typeof media.photoUri === "string" ? media.photoUri : null;
-    photoCache.set(placeId, {
-      url,
-      expiresAt: Date.now() + CACHE_TTL_MS,
-    });
-
-    res.setHeader("Cache-Control", "public, max-age=3600");
-    res.json({ url });
+    const photos = await getPlacePhotos(placeId, apiKey, gallery ? 6 : 1);
+    // Server cache is bounded by the provider TTL. Browser caches cannot know how
+    // much TTL remains on a cached URI, and must not bypass the publication check.
+    res.setHeader("Cache-Control", "no-store");
+    res.json(gallery ? { photos } : { url: photos[0]?.url ?? null, attribution: photos[0]?.attribution ?? [] });
   } catch (error) {
     if (error instanceof PlacesBudgetExceededError) {
+      res.setHeader("Cache-Control", "no-store");
       res.status(503).json({ error: error.message });
       return;
     }
     req.log.error({ err: error, placeId }, "Restaurant photo lookup failed");
-    res.status(502).json({ error: "Restaurant photo is temporarily unavailable." });
-  }
-});
-
-router.get("/photos/:placeId", async (req, res): Promise<void> => {
-  const parsed = PlaceParams.safeParse(req.params);
-  if (!parsed.success) {
-    res.status(400).json({ error: "Invalid place ID." });
-    return;
-  }
-
-  const { placeId } = parsed.data;
-  if (!(await guardGooglePhotoProvider(placeId, res))) return;
-  const cached = galleryCache.get(placeId);
-  if (cached && cached.expiresAt > Date.now()) {
-    res.setHeader("Cache-Control", "public, max-age=3600");
-    res.json({ photos: cached.photos });
-    return;
-  }
-
-  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
-  if (!apiKey) {
-    res.status(503).json({ error: "Google Places photos are not configured." });
-    return;
-  }
-
-  try {
-    const detailsResponse = await budgetedPlacesFetch(
-      `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`,
-      {
-        headers: {
-          "X-Goog-Api-Key": apiKey,
-          "X-Goog-FieldMask": "photos",
-        },
-      },
-      "Place gallery details",
-    );
-
-    if (!detailsResponse.ok) {
-      const message = await detailsResponse.text();
-      req.log.warn(
-        { placeId, status: detailsResponse.status, message },
-        "Google Places gallery details request failed",
-      );
-      res.status(502).json({ error: "Restaurant photos are temporarily unavailable." });
-      return;
-    }
-
-    const details = (await detailsResponse.json()) as PlaceDetailsResponse;
-    const photoNames = (details.photos ?? [])
-      .map((photo) => photo.name)
-      .filter(
-        (name): name is string =>
-          typeof name === "string" && name.startsWith("places/"),
-      )
-      .slice(0, 6);
-
-    const photos: string[] = [];
-    for (const photoName of photoNames) {
-      let mediaResponse: Response;
-      try {
-        mediaResponse = await budgetedPlacesFetch(
-          `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=1200&skipHttpRedirect=true`,
-          { headers: { "X-Goog-Api-Key": apiKey } },
-          "Place gallery photo media",
-        );
-      } catch (error) {
-        if (error instanceof PlacesBudgetExceededError) break;
-        throw error;
-      }
-      if (!mediaResponse.ok) continue;
-      const media = (await mediaResponse.json()) as PhotoMediaResponse;
-      if (typeof media.photoUri === "string") photos.push(media.photoUri);
-    }
-
-    galleryCache.set(placeId, {
-      photos,
-      expiresAt: Date.now() + CACHE_TTL_MS,
-    });
-    res.setHeader("Cache-Control", "public, max-age=3600");
-    res.json({ photos });
-  } catch (error) {
-    if (error instanceof PlacesBudgetExceededError) {
-      res.status(503).json({ error: error.message });
-      return;
-    }
-    req.log.error({ err: error, placeId }, "Restaurant gallery lookup failed");
+    res.setHeader("Cache-Control", "no-store");
     res.status(502).json({ error: "Restaurant photos are temporarily unavailable." });
   }
-});
+}
+
+router.get("/photo/:placeId", async (req, res): Promise<void> => { await servePhotos(req, res, false); });
+router.get("/photos/:placeId", async (req, res): Promise<void> => { await servePhotos(req, res, true); });
 
 export default router;

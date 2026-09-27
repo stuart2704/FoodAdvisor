@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import RestaurantPhoto from "./RestaurantPhoto";
 import OsmAttribution from "./OsmAttribution";
+import PhotoAttribution, { type PlacePhoto } from "./PhotoAttribution";
 
 type Coordinates = {
   lat: number;
@@ -33,34 +34,56 @@ export default function RestaurantCard({
   score,
   reason
 }: any) {
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<PlacePhoto | null>(null);
+  const [visible, setVisible] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const controller = new AbortController();
-    setPhotoUrl(null);
-    if (typeof id === "string" && id.startsWith("osm:")) {
-      return () => controller.abort();
+    setVisible(false);
+    const element = cardRef.current;
+    if (!element || typeof id !== "string" || id.startsWith("osm:")) return;
+    if (!("IntersectionObserver" in window)) {
+      setVisible(true);
+      return;
     }
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        setVisible(true);
+        observer.disconnect();
+      }
+    }, { rootMargin: "100px" });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [id]);
+
+  useEffect(() => {
+    setPhoto(null);
+    if (!visible || typeof id !== "string" || id.startsWith("osm:")) return;
+    const controller = new AbortController();
     fetch(`/api/photo/${encodeURIComponent(id)}`, { signal: controller.signal })
       .then(res => {
         if (!res.ok) throw new Error("Restaurant photo unavailable");
-        return res.json() as Promise<{ url?: unknown }>;
+        return res.json() as Promise<{ url?: unknown; attribution?: PlacePhoto["attribution"] }>;
       })
-      .then(data => setPhotoUrl(typeof data.url === "string" ? data.url : null))
+      .then(data => {
+        if (!controller.signal.aborted) setPhoto(typeof data.url === "string"
+          ? { url: data.url, attribution: Array.isArray(data.attribution) ? data.attribution : [] }
+          : null);
+      })
       .catch(() => {
-        if (!controller.signal.aborted) setPhotoUrl(null);
+        if (!controller.signal.aborted) setPhoto(null);
       });
     return () => controller.abort();
-  }, [id]);
+  }, [id, visible]);
 
   return (
-    <Link
-      to={`/restaurant/${encodeURIComponent(id)}`}
-      style={{ textDecoration: "none", color: "inherit" }}
-    >
-      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+    <div ref={cardRef} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+      <Link
+        to={`/restaurant/${encodeURIComponent(id)}`}
+        style={{ textDecoration: "none", color: "inherit", display: "flex", flexDirection: "column", gap: "12px" }}
+      >
         <RestaurantPhoto
-          src={photoUrl}
+          src={photo?.url}
           name={name}
           style={{
             width: "100%",
@@ -92,7 +115,8 @@ export default function RestaurantCard({
             {distanceInKilometres(userLocation, location).toFixed(1)} km away
           </div>
         )}
-      </div>
-    </Link>
+      </Link>
+      {photo && <PhotoAttribution attribution={photo.attribution} />}
+    </div>
   );
 }

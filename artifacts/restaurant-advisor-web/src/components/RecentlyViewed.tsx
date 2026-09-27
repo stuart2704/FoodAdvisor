@@ -77,7 +77,7 @@ export default function RecentlyViewed() {
               }}
             >
               <RestaurantPhoto
-                src={restaurant.image}
+                  src={null}
                 name={restaurant.name}
                 style={{ width: "100%", height: "150px" }}
               />
