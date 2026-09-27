@@ -32,7 +32,7 @@ export function BrandAutomation({ onQueueRefresh }: { onQueueRefresh?: () => voi
     if (!settings) return;
     const enable = !settings.automation;
     if (!window.confirm(enable
-      ? "Enable master automation? If the server worker is configured, enabled brand and restaurant schedules may generate and publish posts without review."
+      ? "Enable master automation? Only do this after verifying the external scheduled job in production. Enabled schedules may publish Facebook posts without review."
       : "Turn off master automation? All scheduled posts will return to drafts. A publishing request already in progress may still finish."
     )) return;
     setSaving(true);
@@ -44,7 +44,7 @@ export function BrandAutomation({ onQueueRefresh }: { onQueueRefresh?: () => voi
         body: JSON.stringify({ automation: enable }),
       });
       setSettingsMessage(enable
-        ? `Master automation enabled. ${result.returnedToDrafts} overdue post(s) returned to drafts for review. Automatic publishing still requires the server worker.`
+        ? `Master automation enabled. ${result.returnedToDrafts} overdue post(s) returned to drafts for review. Automatic publishing also requires the external scheduled job.`
         : `Master automation off. ${result.returnedToDrafts} post(s) returned to drafts.`);
       await loadSettings();
       if (onQueueRefresh) onQueueRefresh();
@@ -107,10 +107,10 @@ export function BrandAutomation({ onQueueRefresh }: { onQueueRefresh?: () => voi
         {settingsMessage && <div className="social-success" role="status">{settingsMessage}</div>}
         <p>
           Master automation: <strong>{settings ? (settings.automation ? "ON" : "OFF") : "Loading..."}</strong>
-          {" · "}Server worker: <strong>{settings ? (settings.workerConfigured ? "configured" : "OFF") : "Loading..."}</strong>
+          {" · "}External runner gate: <strong>{settings ? (settings.workerConfigured ? "operator-verified (live status not monitored)" : "OFF") : "Loading..."}</strong>
         </p>
         <p style={{ color: "#aaa", fontSize: "0.85rem" }}>
-          Both the master switch and server worker must be on for background publishing.
+          The master switch, server runner gate, and verified external scheduled job must all be on for background publishing.
           Turning the master switch off moves all scheduled posts back to drafts.
         </p>
         <button type="button" className="social-btn" disabled={!settings || saving}
@@ -122,7 +122,7 @@ export function BrandAutomation({ onQueueRefresh }: { onQueueRefresh?: () => voi
           Brand schedule: <strong>{settings ? (settings.brandSchedulesEnabled ? "ON" : "OFF") : "Loading..."}</strong>
         </p>
         <p style={{ color: "#aaa", fontSize: "0.85rem" }}>
-          Enabling a schedule does not start the server worker. When it is off, no posts publish automatically.
+          Enabling a schedule does not start the external job. When the runner gate is off, no posts publish automatically.
           Turning brand automation off moves scheduled brand posts back to drafts.
         </p>
         {!brandScheduleExists && settings && <p>Create a brand schedule in the Schedules tab before turning this on.</p>}

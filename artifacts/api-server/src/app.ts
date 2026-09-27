@@ -57,6 +57,7 @@ import devEngineRunner from "./routes/devEngineRunner";
 import { logger } from "./lib/logger";
 import { recordSampledHttpLatency } from "./middlewares/httpLatency";
 import socialRouter from "./modules/social";
+import { socialAutomationRouter } from "./cron/socialAutomation.routes";
 import { instantlyWebhookRouter } from "./outreach/instantlyWebhook";
 import {
   handleWebhook as handleStripeWebhook,
@@ -174,6 +175,7 @@ app.use("/api", router);
 app.use("/ai", aiRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/automation", aiAutomationRouter);
+app.use("/api/automation", socialAutomationRouter);
 app.use("/internal/logs", internalLogs);
 app.use("/metrics", metrics);
 app.use("/performance", performanceRoute);

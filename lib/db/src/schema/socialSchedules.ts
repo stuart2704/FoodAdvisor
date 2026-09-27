@@ -9,6 +9,7 @@ export const socialSchedulesTable = pgTable("social_schedules", {
   frequency: text("frequency").notNull(),
   timeOfDay: text("time_of_day").notNull(),
   enabled: boolean("enabled").default(true),
+  lastAssignedAt: timestamp("last_assigned_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({ assignmentUnique: uniqueIndex("social_schedule_assignment_unique").on(table.restaurantId, table.platform, table.frequency, table.timeOfDay) }));

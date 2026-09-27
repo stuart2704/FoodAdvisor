@@ -13,6 +13,8 @@ import { instagramRouter } from "./instagram.routes";
 import { facebookRouter } from "./facebook.routes";
 
 const router: IRouter = Router();
+const verifiedRunner = () => process.env.SOCIAL_AUTOMATION_ENABLED === "true"
+  && process.env.SOCIAL_EXTERNAL_SCHEDULER_VERIFIED === "true";
 router.use(adminOnly);
 router.use("/social/instagram", instagramRouter);
 router.use("/social/facebook", facebookRouter);
@@ -227,7 +229,7 @@ router.get("/social/settings", async (_req, res): Promise<void> => {
   res.json({
     settings: {
       automation: masterSettings.automation,
-      workerConfigured: process.env.SOCIAL_AUTOMATION_ENABLED === "true",
+      workerConfigured: verifiedRunner(),
       brandSchedulesEnabled: Boolean(brand),
       restaurantSchedulesEnabled: Boolean(restaurant),
       retryAttempts: 0,
@@ -245,6 +247,10 @@ router.post("/social/settings", async (req, res): Promise<void> => {
   }
   if (typeof body.automation === "boolean") {
     const enable = body.automation as boolean;
+    if (enable && !verifiedRunner()) {
+      res.status(409).json({ error: "Verify the external scheduled job in this environment and enable the server runner before turning on master automation." });
+      return;
+    }
     try {
       await getSocialSettings();
       const result = await db.transaction(async (tx) => {
@@ -263,7 +269,7 @@ router.post("/social/settings", async (req, res): Promise<void> => {
       });
       res.json({
         success: true, automation: enable, ...result,
-        workerConfigured: process.env.SOCIAL_AUTOMATION_ENABLED === "true",
+        workerConfigured: verifiedRunner(),
       });
     } catch {
       res.status(500).json({ error: "Could not update master automation." });
@@ -293,7 +299,7 @@ router.post("/social/settings", async (req, res): Promise<void> => {
     if ("error" in result) { res.status(409).json({ error: result.error }); return; }
     res.json({
       success: true, brandAutomation: enable, ...result,
-      workerConfigured: process.env.SOCIAL_AUTOMATION_ENABLED === "true",
+      workerConfigured: verifiedRunner(),
     });
   } catch {
     res.status(500).json({ error: "Could not update brand automation." });

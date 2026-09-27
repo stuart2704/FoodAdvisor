@@ -3,13 +3,15 @@ import { randomUUID } from "node:crypto";
 import { db, restaurantsTable, socialPostsTable, socialSchedulesTable, socialSettingsTable } from "@workspace/db";
 import { generateRestaurantPost, generateBrandPost } from "../ai.service";
 import { getSocialSettings, SOCIAL_SETTINGS_ID } from "../settings";
+import { assignedToday, dueSlotToday } from "./dueSlot";
 export async function generatePostsJob(now = new Date()): Promise<void> {
-  if (process.env.SOCIAL_AUTOMATION_ENABLED !== "true") return;
+  if (process.env.SOCIAL_AUTOMATION_ENABLED !== "true"
+    || process.env.SOCIAL_EXTERNAL_SCHEDULER_VERIFIED !== "true") return;
   if (!(await getSocialSettings()).automation) return;
   const schedules = await db.select().from(socialSchedulesTable).where(eq(socialSchedulesTable.enabled, true));
   for (const schedule of schedules) {
-    const [hour, minute] = schedule.timeOfDay.split(":").map(Number);
-    if (schedule.frequency !== "daily" || now.getUTCHours() !== hour || now.getUTCMinutes() !== minute) continue;
+    if (schedule.frequency !== "daily" || !dueSlotToday(schedule.timeOfDay, now)
+      || assignedToday(schedule.lastAssignedAt, now) || schedule.platform !== "facebook") continue;
     const existing = schedule.restaurantId === null
       ? await db.select().from(socialPostsTable).where(and(isNull(socialPostsTable.restaurantId), eq(socialPostsTable.platform, schedule.platform), eq(socialPostsTable.status, "draft")))
       : await db.select().from(socialPostsTable).where(and(eq(socialPostsTable.restaurantId, schedule.restaurantId), eq(socialPostsTable.platform, schedule.platform), eq(socialPostsTable.status, "draft")));
