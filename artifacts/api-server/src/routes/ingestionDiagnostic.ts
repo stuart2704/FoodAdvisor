@@ -1,11 +1,53 @@
 import { pool } from "@workspace/db";
 import { Router, type IRouter } from "express";
+import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { getDailyOutreachSchedulerStatus } from "../cron/dailyOutreach";
 import { ESTIMATED_GRID_REQUEST_COST_CENTS, MONTHLY_PAID_LIMIT } from "../lib/gridCrawlPlan";
+import { parseGrid } from "../lib/gridCrawlPlan";
 import { adminOnly } from "../middleware/adminOnly";
 
 const router: IRouter = Router();
 router.use(adminOnly);
+
+router.get("/operations/grid-readiness", async (req, res) => {
+  res.setHeader("Cache-Control", "private, no-store");
+  try {
+    // Match the scheduler's path resolution; do not expose filesystem paths or credentials.
+    const localGrid = resolve(process.cwd(), "coordinates.json");
+    const gridFile = existsSync(localGrid)
+      ? localGrid
+      : resolve(process.cwd(), "artifacts/api-server/coordinates.json");
+    const points = parseGrid(JSON.parse(await readFile(gridFile, "utf8")) as unknown);
+    const state = await pool.query<{
+      automation_enabled: boolean;
+      grid_initialized: boolean;
+      next_index: number;
+      pending_index: number | null;
+    }>(`SELECT automation_enabled, grid_hash IS NOT NULL AS grid_initialized,
+              next_index, pending_index FROM crawler_progress WHERE id = 1`);
+    if (state.rowCount !== 1) throw new Error("Crawler progress row is missing");
+    const ledger = await pool.query<{ reservations: string }>(
+      `SELECT count(*)::text AS reservations FROM restaurant_import_runs
+       WHERE stopped_because LIKE 'Grid request reserved at point %'`,
+    );
+    res.json({
+      success: true,
+      gridReadable: true,
+      gridPoints: points.length,
+      googleKeyConfigured: Boolean(process.env.GOOGLE_MAPS_API_KEY),
+      automationEnabled: state.rows[0].automation_enabled,
+      gridInitialized: state.rows[0].grid_initialized,
+      nextIndex: state.rows[0].next_index,
+      pendingIndex: state.rows[0].pending_index,
+      gridReservations: Number(ledger.rows[0]?.reservations ?? 0),
+    });
+  } catch (error) {
+    req.log.error({ err: error }, "Grid readiness check failed");
+    res.status(503).json({ success: false, error: "Grid readiness check failed." });
+  }
+});
 
 type CountRow = { total: string; today: string };
 type ActivityRow = {
