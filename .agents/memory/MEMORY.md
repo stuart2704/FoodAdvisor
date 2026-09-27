@@ -35,3 +35,4 @@
 - [Publishing from task work](publishing-navigation.md) — in-progress task code is isolated from Republish; use the editor tool, not a broken pane shortcut.
 - [Restaurant event time semantics](restaurant-event-time-semantics.md) — calendar entries preserve owner-entered wall-clock time without inventing an event timezone or end.
 - [Temporary ESM test bundles](temporary-esm-test-bundles.md) — external dependencies in bundles under /tmp must resolve from the project, not from the temporary directory.
+- [Stripe sandbox reruns](stripe-sandbox-reruns.md) — rapid full-journey reruns share the development preview's checkout rate limit even with fresh test identities.

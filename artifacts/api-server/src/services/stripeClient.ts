@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { setTimeout as sleep } from "node:timers/promises";
 import { promisify } from "node:util";
 import { ReplitConnectors } from "@replit/connectors-sdk";
 import Stripe from "stripe";
@@ -42,6 +43,13 @@ interface ConnectorResponse {
   }>;
 }
 
+// A webhook burst should not cause one connector request per event (or per
+// verification/sync step). Never retain a rejected lookup or an old key for
+// more than a minute, so rotations and disconnections are picked up promptly.
+const CREDENTIAL_TTL_MS = 60_000;
+let cachedCredentials: { value: StripeCredentials; expiresAt: number } | undefined;
+let credentialLookup: Promise<StripeCredentials> | undefined;
+
 function databaseUrl(): string {
   const value = process.env.NEON_DATABASE_URL ?? process.env.DATABASE_URL;
   if (!value) {
@@ -84,25 +92,28 @@ async function connectorAuthHeaders(): Promise<Record<string, string>> {
   return { "Replit-Authentication": `Bearer ${token}` };
 }
 
-async function getStripeCredentials(): Promise<StripeCredentials> {
-  const externalSecretKey = process.env.STRIPE_SECRET_KEY;
-  if (externalSecretKey) {
-    return {
-      secretKey: externalSecretKey,
-      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
-    };
-  }
-
-  const response = await fetch(
-    `${connectorBaseUrl()}/api/v2/connection?include_secrets=true&connector_names=stripe`,
-    {
-      headers: {
-        Accept: "application/json",
-        ...(await connectorAuthHeaders()),
+async function fetchConnectorCredentials(): Promise<StripeCredentials> {
+  let response: Response | undefined;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    response = await fetch(
+      `${connectorBaseUrl()}/api/v2/connection?include_secrets=true&connector_names=stripe`,
+      {
+        headers: {
+          Accept: "application/json",
+          ...(await connectorAuthHeaders()),
+        },
+        signal: AbortSignal.timeout(10_000),
       },
-      signal: AbortSignal.timeout(10_000),
-    },
-  );
+    );
+    if (response.status !== 429 || attempt === 2) break;
+    // Honor short Retry-After values, but never hold a webhook indefinitely.
+    const retryAfter = Number(response.headers.get("retry-after"));
+    const delay = Number.isFinite(retryAfter) && retryAfter > 0
+      ? Math.min(retryAfter * 1000, 3_000)
+      : (attempt + 1) * 1_000;
+    await sleep(delay);
+  }
+  if (!response) throw new Error("Stripe credential lookup did not return a response.");
   if (!response.ok) {
     throw new Error(
       `Failed to fetch Stripe credentials: ${response.status} ${response.statusText}`,
@@ -132,6 +143,31 @@ async function getStripeCredentials(): Promise<StripeCredentials> {
     secretKey,
     webhookSecret: settings?.webhook_secret,
   };
+}
+
+async function getStripeCredentials(): Promise<StripeCredentials> {
+  const externalSecretKey = process.env.STRIPE_SECRET_KEY;
+  if (externalSecretKey) {
+    return {
+      secretKey: externalSecretKey,
+      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+    };
+  }
+
+  if (cachedCredentials && Date.now() < cachedCredentials.expiresAt) {
+    return cachedCredentials.value;
+  }
+  if (!credentialLookup) {
+    credentialLookup = fetchConnectorCredentials()
+      .then((value) => {
+        cachedCredentials = { value, expiresAt: Date.now() + CREDENTIAL_TTL_MS };
+        return value;
+      })
+      .finally(() => {
+        credentialLookup = undefined;
+      });
+  }
+  return credentialLookup;
 }
 
 export async function stripeRequest<T>(

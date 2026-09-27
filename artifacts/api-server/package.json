@@ -16,7 +16,7 @@
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc --build ../../lib/db ../../lib/api-zod && tsc -p tsconfig.json --noEmit",
     "test:proxy": "node --test src/scraper/playwright/*.test.mjs",
-    "test:stripe-sandbox": "node --test src/services/stripeService.test.mjs && RUN_STRIPE_SANDBOX=1 NODE_ENV=development tsx src/services/stripeSandbox.test.ts"
+    "test:stripe-sandbox": "node --test src/services/stripeClient.test.mjs src/services/stripeService.test.mjs && RUN_STRIPE_SANDBOX=1 NODE_ENV=development tsx src/services/stripeSandbox.test.ts"
   },
   "dependencies": {
     "@clerk/express": "^2.1.69",

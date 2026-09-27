@@ -78,12 +78,18 @@ async function main() {
     assert.equal(session.metadata?.restaurantId, id);
     assert.equal(session.amount_total, 9900);
     assert.equal(session.livemode, false);
-    const forged = await fetch(`${url}/api/stripe/webhook`, {
-      method: "POST",
-      headers: { "content-type": "application/json", "stripe-signature": "forged" },
-      body: JSON.stringify({ type: "checkout.session.completed", data: { object: session } }),
-    });
-    assert.equal(forged.status, 400, "Forged webhook was accepted");
+    // Exercise simultaneous credential lookups before Stripe sends its own
+    // signed payment events. These invalid deliveries must all be rejected.
+    const forged = await Promise.all(Array.from({ length: 12 }, () =>
+      fetch(`${url}/api/stripe/webhook`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "stripe-signature": "forged" },
+        body: JSON.stringify({ type: "checkout.session.completed", data: { object: session } }),
+      }),
+    ));
+    for (const response of forged) {
+      assert.equal(response.status, 400, "Forged webhook was accepted during burst");
+    }
     const [beforePayment] = await db.select().from(restaurantsTable)
       .where(eq(restaurantsTable.placeId, id));
     assert.equal(beforePayment.premium, false);
