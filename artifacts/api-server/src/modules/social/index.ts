@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { randomUUID } from "node:crypto";
-import { and, count, desc, eq, isNotNull, isNull, lte } from "drizzle-orm";
+import { and, count, desc, eq, isNotNull, isNull, lte, ne } from "drizzle-orm";
 import { z } from "zod";
 import { db, restaurantsTable, socialAccountsTable, socialLogsTable, socialPostsTable, socialSchedulesTable, socialSettingsTable } from "@workspace/db";
 import { adminOnly } from "../../middleware/adminOnly";
@@ -10,6 +10,7 @@ import { generateRestaurantPost, generateBrandPost } from "./ai.service";
 import { publishPost } from "./services/publishing.service";
 import { getSocialSettings, SOCIAL_SETTINGS_ID } from "./settings";
 import { instagramRouter } from "./instagram.routes";
+import { approvedPhotoPath, photoUrl, validatePhotoObject } from "./media";
 import { facebookRouter } from "./facebook.routes";
 
 const router: IRouter = Router();
@@ -117,12 +118,43 @@ router.post("/social/posts/generate", async (req, res): Promise<void> => {
   const { restaurantId, platform, scope = "restaurant" } = req.body ?? {};
   if (!validPlatform(platform) || (scope !== "brand" && typeof restaurantId !== "string")) { res.status(400).json({ error: "restaurantId and platform facebook are required." }); return; }
   const r = typeof restaurantId === "string" ? await restaurant(restaurantId) : undefined;
-  if (scope !== "brand" && !r) { res.status(404).json({ error: "Restaurant not found." }); return; }
+  if (scope !== "brand" && (!r || !r.published)) { res.status(404).json({ error: "Published restaurant not found." }); return; }
   try {
-    const generated = scope === "brand" ? await generateBrandPost() : await generateRestaurantPost({ placeId: r!.placeId, name: r!.name, city: r!.city, cuisine: r!.cuisines?.join(", ") ?? r!.cuisineTags?.join(", "), rating: r!.rating });
-    const [post] = await db.insert(socialPostsTable).values({ id: randomUUID(), restaurantId: scope === "brand" ? null : restaurantId, platform, content: generated.caption, mediaUrl: generated.media, status: "draft", idempotencyKey: randomUUID() }).returning();
+    const [previous] = await db.select({ total: count() }).from(socialPostsTable)
+      .where(scope === "brand" ? isNull(socialPostsTable.restaurantId) : eq(socialPostsTable.restaurantId, restaurantId));
+    // Cuisine tags are not independently approved for social copy.
+    const generated = scope === "brand" ? await generateBrandPost() : await generateRestaurantPost({ placeId: r!.placeId, name: r!.name, city: r!.city }, previous?.total ?? 0);
+    const [post] = await db.insert(socialPostsTable).values({ id: randomUUID(), restaurantId: scope === "brand" ? null : restaurantId, platform, content: generated.caption, mediaObjectPath: generated.mediaObjectPath, status: "draft", idempotencyKey: randomUUID() }).returning();
     res.status(201).json({ post });
   } catch (error) { res.status(502).json({ error: error instanceof Error ? error.message : "Post generation failed." }); }
+});
+router.post("/social/posts/:postId/photo-approval", async (req, res): Promise<void> => {
+  const id = z.string().uuid().safeParse(req.params.postId);
+  const body = z.object({ approved: z.boolean() }).strict().safeParse(req.body);
+  if (!id.success || !body.success) { res.status(400).json({ error: "A valid post ID and approved boolean are required." }); return; }
+  const [post] = await db.select().from(socialPostsTable).where(eq(socialPostsTable.id, id.data)).limit(1);
+  if (!post) { res.status(404).json({ error: "Post not found." }); return; }
+  if (body.data.approved && post.status !== "draft") { res.status(409).json({ error: "Only draft photos can be approved." }); return; }
+  if (post.status === "publishing") { res.status(409).json({ error: "Cannot change photo approval while a post is publishing." }); return; }
+  try {
+    let url: string | null = null;
+    if (body.data.approved) {
+      // Check current moderation and bytes before exposing a public endpoint.
+      const path = await approvedPhotoPath({ ...post, mediaApprovedAt: new Date() });
+      if (!path) { res.status(409).json({ error: "An approved, unchanged chef photo is required." }); return; }
+      await validatePhotoObject(path);
+      url = await photoUrl(post.id);
+    }
+    const [updated] = await db.update(socialPostsTable).set({
+      mediaApprovedAt: body.data.approved ? new Date() : null,
+      mediaUrl: url,
+      updatedAt: new Date(),
+    }).where(and(eq(socialPostsTable.id, post.id),
+      body.data.approved ? eq(socialPostsTable.status, "draft") : ne(socialPostsTable.status, "publishing"),
+    )).returning();
+    if (!updated) { res.status(409).json({ error: "Post status changed. Refresh and try again." }); return; }
+    res.json({ post: updated });
+  } catch (error) { res.status(502).json({ error: error instanceof Error ? error.message : "Photo approval failed." }); }
 });
 router.post("/social/posts/schedule", async (req, res): Promise<void> => {
   const { postId, time } = req.body ?? {};

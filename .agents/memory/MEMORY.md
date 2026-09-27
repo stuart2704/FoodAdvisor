@@ -22,6 +22,7 @@
 - [Google Maps billing limits](google-maps-billing-limits.md) — app-side request reservations are not a guaranteed £30 Google invoice cap; budgets alert, and Maps lacks spend caps.
 - [Google photo cache boundaries](google-photo-cache-boundaries.md) — keep temporary photo metadata server-side and avoid browser TTLs that extend provider content lifetime.
 - [Social publishing safety](social-publishing-safety.md) — keep scheduled publishing opt-in and treat ambiguous provider outcomes as non-retriable until reviewed.
+- [Social photo fetch policy](social-photo-fetch-policy.md) — Facebook needs a stable unauthenticated fetch URL, but chef images stay private until explicit per-post approval.
 - [Meta social connection boundary](instagram-connection-boundary.md) — workspace or Meta dashboard setup does not connect Facebook/Instagram inside The Food Advisor.
 - [Offline PostgreSQL tests](offline-postgresql-tests.md) — point temporary clusters at their own socket directory; this environment lacks the default lock directory.
 - [Location slug continuity](location-slug-continuity.md) — a rename can change neighbors' computed slugs; preserve every changed URL and allow aliases to be retargeted repeatedly.

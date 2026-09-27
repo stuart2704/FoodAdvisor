@@ -7,6 +7,8 @@ interface Post {
   platform: string;
   content: string;
   mediaUrl?: string;
+  mediaObjectPath?: string | null;
+  mediaApprovedAt?: string | null;
   status: string;
   scheduledFor?: string;
   publishedAt?: string;
@@ -95,6 +97,22 @@ export function PostQueue() {
       loadPosts();
     } catch (err: any) {
       setActionMessage(`Failed: ${err.message}`);
+    }
+  };
+
+  const handlePhotoApproval = async (post: Post) => {
+    const approved = !post.mediaApprovedAt;
+    if (approved && !window.confirm("Make this approved chef photo publicly accessible for this Facebook post? Anyone with the image URL can view it while approval remains active.")) return;
+    if (!approved && post.status === "published" && !window.confirm("Revoke access to this image URL? This will not remove any photo Facebook has already copied. Remove the Facebook post separately if needed.")) return;
+    try {
+      setActionMessage("");
+      await fetchSocial(`/posts/${post.id}/photo-approval`, {
+        method: "POST", body: JSON.stringify({ approved }),
+      });
+      setActionMessage(approved ? "Photo approved for this post. Review the draft before publishing." : "Image URL access revoked. Any copy already on Facebook remains there.");
+      await loadPosts();
+    } catch (err) {
+      setActionMessage(`Failed: ${err instanceof Error ? err.message : "Could not update photo approval."}`);
     }
   };
 
@@ -221,6 +239,9 @@ export function PostQueue() {
                             <a href={p.mediaUrl} target="_blank" rel="noreferrer" style={{ color: "#ff8b47" }}>View Media</a>
                           </div>
                         )}
+                        {p.mediaObjectPath && <div style={{ marginTop: 8, fontSize: "0.8rem", color: "#aaa" }}>
+                          {p.mediaApprovedAt ? "Chef photo approved for publication" : "Chef photo available; publication not approved"}
+                        </div>}
                       </td>
                       <td>
                         <span className={`social-badge ${
@@ -234,6 +255,11 @@ export function PostQueue() {
                         {p.errorMessage && <div style={{ fontSize: "0.75rem", marginTop: "4px", color: "#ff9b8d" }}>{p.errorMessage}</div>}
                       </td>
                       <td>
+                        {p.mediaObjectPath && (p.status === "draft" || (p.mediaApprovedAt && p.status !== "publishing")) &&
+                          <button type="button" className="social-btn social-btn-secondary"
+                            onClick={() => void handlePhotoApproval(p)}>
+                            {p.mediaApprovedAt ? "Revoke photo approval" : "Approve chef photo for Facebook"}
+                          </button>}
                         {(p.status === 'draft' || p.status === 'pending' || p.status === 'scheduled') && (
                           <button 
                             className="social-btn social-btn-secondary" 

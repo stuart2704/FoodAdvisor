@@ -4,6 +4,7 @@ import { db, socialAccountsTable, socialLogsTable, socialPostsTable, socialSetti
 import { decryptToken } from "../crypto";
 import { facebookAdapter } from "../adapters/facebook.adapter";
 import { SOCIAL_SETTINGS_ID } from "../settings";
+import { approvedPhotoPath } from "../media";
 
 export async function publishPost(postId: string, options: { scheduledOnly?: boolean } = {}) {
   const [candidate] = await db.select().from(socialPostsTable)
@@ -20,6 +21,10 @@ export async function publishPost(postId: string, options: { scheduledOnly?: boo
     .orderBy(desc(socialAccountsTable.createdAt)).limit(1);
   if (!account) throw new Error("No connected social account for this post.");
   if (candidate.platform !== "facebook") throw new Error("Publishing to this platform is not supported yet.");
+  if (candidate.mediaUrl && candidate.mediaObjectPath
+    && !(await approvedPhotoPath(candidate))) {
+    throw new Error("Approved chef photo is no longer available. Review this draft before publishing.");
+  }
 
   // Resolve prerequisites before claiming: a configuration error must not strand a draft.
   const token = decryptToken(account.accessToken, account.accessTokenIv, account.accessTokenTag);

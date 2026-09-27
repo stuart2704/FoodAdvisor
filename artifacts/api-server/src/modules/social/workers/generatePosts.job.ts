@@ -17,8 +17,9 @@ export async function generatePostsJob(now = new Date()): Promise<void> {
       : await db.select().from(socialPostsTable).where(and(eq(socialPostsTable.restaurantId, schedule.restaurantId), eq(socialPostsTable.platform, schedule.platform), eq(socialPostsTable.status, "draft")));
     if (existing.length) continue;
     const [r] = schedule.restaurantId ? await db.select().from(restaurantsTable).where(eq(restaurantsTable.placeId, schedule.restaurantId)) : [];
-    if (schedule.restaurantId && !r) throw new Error(`Restaurant ${schedule.restaurantId} not found.`);
-    const generated = r ? await generateRestaurantPost({ placeId: r.placeId, name: r.name, city: r.city, cuisine: r.cuisines?.join(", ") ?? r.cuisineTags?.join(", "), rating: r.rating }) : await generateBrandPost();
+    if (schedule.restaurantId && (!r || !r.published)) throw new Error(`Published restaurant ${schedule.restaurantId} not found.`);
+    // Listing cuisine tags can be inferred; only use published name/city and approved chef facts.
+    const generated = r ? await generateRestaurantPost({ placeId: r.placeId, name: r.name, city: r.city }, Math.floor(now.getTime() / 86_400_000)) : await generateBrandPost();
     await db.transaction(async (tx) => {
       const [settings] = await tx.select({ automation: socialSettingsTable.automation })
         .from(socialSettingsTable).where(eq(socialSettingsTable.id, SOCIAL_SETTINGS_ID))
@@ -28,7 +29,7 @@ export async function generatePostsJob(now = new Date()): Promise<void> {
         .where(and(eq(socialSchedulesTable.id, schedule.id), eq(socialSchedulesTable.enabled, true)))
         .limit(1).for("update");
       if (!active) return;
-      await tx.insert(socialPostsTable).values({ id: randomUUID(), restaurantId: schedule.restaurantId, platform: schedule.platform, content: generated.caption, mediaUrl: generated.media, status: "draft", idempotencyKey: `${schedule.id}:${now.toISOString().slice(0, 10)}` }).onConflictDoNothing({ target: socialPostsTable.idempotencyKey });
+      await tx.insert(socialPostsTable).values({ id: randomUUID(), restaurantId: schedule.restaurantId, platform: schedule.platform, content: generated.caption, mediaObjectPath: generated.mediaObjectPath, status: "draft", idempotencyKey: `${schedule.id}:${now.toISOString().slice(0, 10)}` }).onConflictDoNothing({ target: socialPostsTable.idempotencyKey });
     });
   }
 }

@@ -8,6 +8,8 @@ export const socialPostsTable = pgTable("social_posts", {
   platform: text("platform").notNull(),
   content: text("content").notNull(),
   mediaUrl: text("media_url"),
+  mediaObjectPath: text("media_object_path"),
+  mediaApprovedAt: timestamp("media_approved_at", { withTimezone: true }),
   status: text("status").notNull(),
   scheduledFor: timestamp("scheduled_for"),
   publishedAt: timestamp("published_at"),

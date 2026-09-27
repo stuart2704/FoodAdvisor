@@ -39,6 +39,7 @@ export async function publishPostsJob(now = new Date()): Promise<void> {
       const message = error instanceof Error && (
         error.message === "No connected social account for this post."
         || error.message === "Publishing to this platform is not supported yet."
+        || error.message === "Approved chef photo is no longer available. Review this draft before publishing."
       ) ? error.message : null;
       if (!message) {
         // The publishing service records provider failures and leaves uncertain

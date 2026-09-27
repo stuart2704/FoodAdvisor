@@ -44,8 +44,10 @@ import chefStorageRouter from "./chefStorage";
 import adminIngestionRouter from "./adminIngestion";
 import orchestrationRouter from "./orchestration";
 import ingestRouter from "./ingest";
+import { socialMediaRouter } from "../modules/social/media";
 
 const router: IRouter = Router();
+router.use(socialMediaRouter);
 
 router.use(restaurantImportRouter);
 router.use(nearbyRouter);
