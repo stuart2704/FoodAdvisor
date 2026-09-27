@@ -1,6 +1,6 @@
 /**
- * A confirmed first run enables the UTC scheduler. Paid cursor and reservations
- * live in PostgreSQL; a failed/uncertain point cannot be retried automatically.
+ * Manual paid runs use PostgreSQL for cursor and reservations. No schedule is
+ * activated by completion; failed or uncertain points cannot be retried.
  */
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -29,15 +29,11 @@ function argumentsForRun(args: string[]) {
   const gridFile = args.includes("--grid") ? option("--grid") : undefined;
   const stateFile = args.includes("--state") ? option("--state") : undefined;
   if (!gridFile || gridFile.startsWith("--")) throw new Error("Pass --grid /path/to/coordinates.json.");
-  if (!stateFile || stateFile.startsWith("--")) throw new Error("Pass --state /path/to/progress.json on persistent storage.");
+  if (args.includes("--state") && (!stateFile || stateFile.startsWith("--"))) throw new Error("Pass a path after --state.");
   const budget = args.includes("--monthly-budget-cents") ? Number(option("--monthly-budget-cents")) : NaN;
-  if (!Number.isSafeInteger(budget) || budget < ESTIMATED_GRID_REQUEST_COST_CENTS ||
-      budget > MONTHLY_PAID_BUDGET_GBP * 100) {
-    throw new Error(`Pass --monthly-budget-cents between ${ESTIMATED_GRID_REQUEST_COST_CENTS} and ${MONTHLY_PAID_BUDGET_GBP * 100}; this is an estimated cap, not a billing cap.`);
-  }
   return {
     gridFile: resolve(gridFile),
-    stateFile: resolve(stateFile),
+    stateFile: stateFile ? resolve(stateFile) : undefined,
     monthlyBudgetCents: budget,
     confirm: args.includes("--confirm"),
     auto: args.includes("--auto"),
@@ -107,7 +103,13 @@ async function searchNearby(latitude: number, longitude: number, apiKey: string)
 
 export async function runDailyCrawl(args: string[]) {
   const options = argumentsForRun(args);
-  if (options.auto && !options.confirm) throw new Error("Automatic runs must be confirmed by the scheduler.");
+  if (options.auto) throw new Error("Automatic paid grid crawling is not enabled; use a confirmed manual run.");
+  if ((options.confirm && !options.skipUncertain || options.plan) &&
+      (!Number.isSafeInteger(options.monthlyBudgetCents) ||
+       options.monthlyBudgetCents < ESTIMATED_GRID_REQUEST_COST_CENTS ||
+       options.monthlyBudgetCents > MONTHLY_PAID_BUDGET_GBP * 100)) {
+    throw new Error(`Pass --monthly-budget-cents between ${ESTIMATED_GRID_REQUEST_COST_CENTS} and ${MONTHLY_PAID_BUDGET_GBP * 100}; this is an estimated cap, not a billing cap.`);
+  }
   if (options.pause) {
     if (options.confirm || options.auto || options.plan || options.skipUncertain) {
       throw new Error("--pause must be used alone; it does not make a paid request.");
@@ -118,7 +120,7 @@ export async function runDailyCrawl(args: string[]) {
       logEvent("grid_crawl_automation_paused");
     });
   }
-  if (options.gridFile === options.stateFile) throw new Error("Grid and progress files must differ.");
+  if (options.stateFile && options.gridFile === options.stateFile) throw new Error("Grid and progress files must differ.");
   const raw = await readFile(options.gridFile, "utf8");
   const points = parseGrid(JSON.parse(raw) as unknown);
   const hash = gridHash(raw);
@@ -130,7 +132,11 @@ export async function runDailyCrawl(args: string[]) {
     const runtime = await import("../lib/gridCrawlRuntime");
     return runtime.withGridCrawlLock(async () => {
       const state = await runtime.getGridRuntimeState();
-      if (state.next_index >= points.length) throw new Error("Database cursor is beyond the grid.");
+      if (state.next_index > points.length) throw new Error("Database cursor is beyond the grid.");
+      if (state.next_index === points.length) {
+        logEvent("grid_crawl_plan", { total: points.length, next: state.next_index, status: "complete", paid_requests_made: 0 });
+        return;
+      }
       const point = points[state.next_index];
       const region = runtime.regionKey(point);
       const followingCity = points.findIndex((candidate, index) =>
@@ -166,7 +172,9 @@ export async function runDailyCrawl(args: string[]) {
     // used for confirmed runs; their authoritative cursor is in PostgreSQL.
     let preview: GridProgress;
     try {
-      preview = validateProgress(JSON.parse(await readFile(options.stateFile, "utf8")) as unknown, hash, points.length);
+      preview = options.stateFile
+        ? validateProgress(JSON.parse(await readFile(options.stateFile, "utf8")) as unknown, hash, points.length)
+        : { version: 1, gridHash: hash, nextIndex: 0, date: today, attemptedToday: 0 };
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
       preview = { version: 1, gridHash: hash, nextIndex: 0, date: today, attemptedToday: 0 };
@@ -174,6 +182,9 @@ export async function runDailyCrawl(args: string[]) {
     logEvent("grid_crawl_plan", { total: points.length, next: preview.nextIndex,
       remainingToday: DAILY_GRID_LIMIT - preview.attemptedToday, mode: "offline_preview" });
     return;
+  }
+  if (!options.skipUncertain && options.stateFile) {
+    throw new Error("--state is for offline preview only; reconcile any older paid progress before a database-backed run.");
   }
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
   if (!apiKey) throw new Error("GOOGLE_MAPS_API_KEY is required; no crawl was started.");
@@ -184,6 +195,14 @@ export async function runDailyCrawl(args: string[]) {
     if (state.grid_hash && state.grid_hash !== hash) {
       throw new Error("Grid changed after paid work; inspect it before crawling.");
     }
+    if (!state.grid_hash && !options.skipUncertain) {
+      try {
+        await readFile(resolve(process.cwd(), "grid-progress.json"), "utf8");
+        throw new Error("Legacy grid-progress.json exists; reconcile prior paid progress with the database before a paid run.");
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      }
+    }
     if (state.pending_index !== null) {
       throw new Error(`Point ${state.pending_index} has an uncertain paid reservation; no retry was made.`);
     }
@@ -192,8 +211,12 @@ export async function runDailyCrawl(args: string[]) {
       attemptedToday: state.attempt_date === today ? state.attempted_today : 0,
     }, hash, points.length);
     logEvent("grid_crawl_plan", { total: points.length, next: progress.nextIndex,
-      remainingToday: DAILY_GRID_LIMIT - progress.attemptedToday, mode: options.auto ? "automatic" : "manual" });
-    if (progress.nextIndex >= points.length) throw new Error("Database cursor is beyond the grid; no request was made.");
+      remainingToday: DAILY_GRID_LIMIT - progress.attemptedToday, mode: "manual" });
+    if (progress.nextIndex === points.length) {
+      logEvent("grid_crawl_complete", { total: points.length, paid_requests_made: 0 });
+      return;
+    }
+    if (progress.nextIndex > points.length) throw new Error("Database cursor is beyond the grid; no request was made.");
     if (progress.attemptedToday >= DAILY_GRID_LIMIT) {
       logEvent("budget_exhausted", { remaining: 0, scope: "utc_daily_grid_requests" });
       logDailyBudgetSummary(progress);

@@ -10,7 +10,6 @@ import { startGlobalMetricsScheduler } from "./cron/globalMetrics";
 import { startOperationalLogCleanup } from "./cron/operationalLogCleanup";
 import { startAiDescriptionCacheCleanup } from "./cron/aiDescriptionCacheCleanup";
 import { startBetterContactScheduler } from "./cron/betterContact";
-import { startGridCrawlScheduler } from "./cron/gridCrawl";
 import { startSocialAutomationScheduler } from "./cron/socialAutomation";
 import { startExternalIngestionScheduler } from "./cron/scheduler";
 import { startDailyOrchestrationScheduler } from "./scheduler/dailyOrchestration";
@@ -50,7 +49,6 @@ async function initializeAfterListen(): Promise<void> {
   startOperationalLogCleanup();
   startAiDescriptionCacheCleanup();
   startBetterContactScheduler();
-  startGridCrawlScheduler();
   startExternalIngestionScheduler();
   startDailyOrchestrationScheduler();
   startSocialAutomationScheduler();

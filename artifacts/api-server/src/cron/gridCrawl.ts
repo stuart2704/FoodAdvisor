@@ -20,7 +20,6 @@ async function runIfDue(): Promise<void> {
       : resolve(process.cwd(), "artifacts/api-server/coordinates.json");
     await runDailyCrawl([
       "--grid", gridFile,
-      "--state", resolve(process.cwd(), "grid-progress.json"),
       "--monthly-budget-cents", String(state.monthly_budget_cents),
       "--confirm", "--auto",
     ]);

@@ -41,26 +41,29 @@ export function exhaustedAllocationTransition(
       !Number.isSafeInteger(nextRegionIndex) || nextRegionIndex < resumeAt || nextRegionIndex > gridLength) {
     throw new Error("Invalid next city or region boundary.");
   }
-  return { nextIndex: resumeAt === gridLength ? 0 : resumeAt,
+  return { nextIndex: resumeAt,
     resumeAt, closeRegion: kind === "region" || resumeAt === nextRegionIndex };
 }
 
 const todayUTC = () => new Date().toISOString().slice(0, 10);
 const monthUTC = (date: string) => `${date.slice(0, 7)}-01`;
 
-/** A session lock prevents a CLI runner and any API replicas from crawling together. */
-export async function withGridCrawlLock<T>(run: () => Promise<T>): Promise<T> {
-  const client = await pool.connect();
-  let locked = false;
+/** A transaction lock survives transaction-pooling proxies for the whole crawl. */
+export async function withGridCrawlLock<T>(run: () => Promise<T>, database: Pick<typeof pool, "connect"> = pool): Promise<T> {
+  const client = await database.connect();
   try {
+    await client.query("BEGIN");
     const result = await client.query<{ locked: boolean }>(
-      "SELECT pg_try_advisory_lock($1, $2) AS locked", [19067, 2026],
+      "SELECT pg_try_advisory_xact_lock($1, $2) AS locked", [19067, 2026],
     );
-    locked = result.rows[0]?.locked === true;
-    if (!locked) throw new Error("Another grid crawl is running; no paid request was made.");
-    return await run();
+    if (result.rows[0]?.locked !== true) throw new Error("Another grid crawl is running; no paid request was made.");
+    const value = await run();
+    await client.query("COMMIT");
+    return value;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
   } finally {
-    if (locked) await client.query("SELECT pg_advisory_unlock($1, $2)", [19067, 2026]);
     client.release();
   }
 }
@@ -171,8 +174,9 @@ export async function reserveGridPoint(
   monthlyBudgetCents: number,
   auto: boolean,
   simulate = false,
+  database: Pick<typeof pool, "connect"> = pool,
 ): Promise<ReservationResult> {
-  const client = await pool.connect();
+  const client = await database.connect();
   const date = todayUTC();
   const month = monthUTC(date);
   try {
@@ -204,13 +208,13 @@ export async function reserveGridPoint(
         throw new Error("Earlier grid reservations exist without a database cursor; reconcile them before activation.");
       }
     }
+    if (state.grid_hash !== null && state.monthly_budget_cents !== monthlyBudgetCents) {
+      throw new Error("Configured monthly crawl budget differs from the saved limit; reconcile it before another paid request.");
+    }
     const attempts = state.attempt_date === date ? state.attempted_today : 0;
     if (attempts >= DAILY_GRID_LIMIT) {
       await finish();
       return { status: "daily", attemptedToday: attempts };
-    }
-    if (auto && state.monthly_budget_cents !== monthlyBudgetCents) {
-      throw new Error("Automatic crawl budget changed; manual review is required.");
     }
     const region = regionKey(point);
     const allocation = allocations[region];
@@ -240,7 +244,7 @@ export async function reserveGridPoint(
     if (regionRow.next_region_run && regionRow.next_region_run > date) {
       // Skip an entire region that is not yet due, without reserving a request.
       await client.query("UPDATE crawler_progress SET next_index = $1 WHERE id = 1",
-        [nextRegionIndex === gridLength ? 0 : nextRegionIndex]);
+        [nextRegionIndex]);
       await finish();
       return { status: "not_due", attemptedToday: attempts };
     }
@@ -333,8 +337,9 @@ export async function reserveGridPoint(
 export async function completeGridPoint(
   hash: string, index: number, point: GridPoint, nextIndex: number,
   regionCompleted: boolean, gridCompleted: boolean,
+  database: Pick<typeof pool, "connect"> = pool,
 ): Promise<void> {
-  const client = await pool.connect();
+  const client = await database.connect();
   try {
     await client.query("BEGIN");
     const result = await client.query<{ grid_hash: string; next_index: number; pending_index: number | null }>(
@@ -354,10 +359,9 @@ export async function completeGridPoint(
     }
     await client.query(`
       UPDATE crawler_progress SET pending_index = NULL, next_index = $1,
-        automation_enabled = TRUE, cycle_number = cycle_number + $2,
-        cycle_completed = $3, last_run = NOW()
+        automation_enabled = FALSE, cycle_completed = $2, last_run = NOW()
       WHERE id = 1
-    `, [gridCompleted ? 0 : nextIndex, gridCompleted ? 1 : 0, gridCompleted]);
+    `, [nextIndex, gridCompleted]);
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");
@@ -371,8 +375,10 @@ export async function completeGridPoint(
  * Operator-only recovery after checking the provider and ledger. The point is
  * skipped, never retried, and automation stays paused until another manual run.
  */
-export async function skipUncertainGridPoint(hash: string, points: readonly GridPoint[]): Promise<number> {
-  const client = await pool.connect();
+export async function skipUncertainGridPoint(
+  hash: string, points: readonly GridPoint[], database: Pick<typeof pool, "connect"> = pool,
+): Promise<number> {
+  const client = await database.connect();
   try {
     await client.query("BEGIN");
     const result = await client.query<{ grid_hash: string | null; pending_index: number | null }>(
@@ -398,7 +404,7 @@ export async function skipUncertainGridPoint(hash: string, points: readonly Grid
       UPDATE crawler_progress SET pending_index = NULL, next_index = $1,
         automation_enabled = FALSE, cycle_completed = FALSE, last_run = NOW()
       WHERE id = 1
-    `, [skipped + 1 === points.length ? 0 : skipped + 1]);
+    `, [skipped + 1]);
     await client.query("COMMIT");
     return skipped;
   } catch (error) {

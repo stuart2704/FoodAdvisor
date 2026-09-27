@@ -20,7 +20,7 @@ test("an exhausted first region advances to the next region, not the next day at
     nextIndex: 2, resumeAt: 2, closeRegion: true,
   });
   assert.deepEqual(exhaustedAllocationTransition("region", 4, 4, 4), {
-    nextIndex: 0, resumeAt: 4, closeRegion: true,
+    nextIndex: 4, resumeAt: 4, closeRegion: true,
   });
 });
 

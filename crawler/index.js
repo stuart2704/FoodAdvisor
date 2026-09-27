@@ -6,8 +6,6 @@ const supplied = process.argv.slice(2);
 const args = [
   "--filter", "api-server", "exec", "tsx", "src/scripts/gridCrawl.ts",
   ...(supplied.includes("--grid") ? [] : ["--grid", "coordinates.json"]),
-  ...(supplied.includes("--state") ? [] : ["--state", "grid-progress.json"]),
-  ...(supplied.includes("--monthly-budget-cents") ? [] : ["--monthly-budget-cents", "3000"]),
   ...supplied,
 ];
 
