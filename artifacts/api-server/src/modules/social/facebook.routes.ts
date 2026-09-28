@@ -6,7 +6,7 @@ import { encryptToken } from "./crypto";
 import {
   beginFacebookLogin, clearPendingPages, consumeFacebookLogin, exchangeFacebookCode,
   facebookAuthorizationUrl, facebookConfig, facebookRedirectUri, FacebookGraphFailure,
-  fetchFacebookPages, pendingPages, savePendingPages, FACEBOOK_CALLBACK_PATH,
+  fetchFacebookPages, fetchFacebookPagesWithSummary, pendingPages, savePendingPages, FACEBOOK_CALLBACK_PATH,
 } from "./facebook.oauth";
 
 export const facebookRouter: IRouter = Router();
@@ -67,8 +67,15 @@ facebookRouter.get("/callback", async (req, res): Promise<void> => {
     return;
   }
   try {
-    const pages = await fetchFacebookPages(userToken);
-    if (pages.length === 0) { res.redirect(303, finish("no_pages")); return; }
+    const { pages, returnedPageCount, contentPageCount } = await fetchFacebookPagesWithSummary(userToken);
+    if (pages.length === 0) {
+      // Aggregate counts only: never log Page names, IDs, tokens, or Graph response bodies.
+      req.log.info({ returnedPageCount, contentPageCount }, "Facebook returned no connectable Pages");
+      const reason = returnedPageCount === 0 ? "no_pages"
+        : contentPageCount === 0 ? "no_content_access" : "no_page_token";
+      res.redirect(303, finish(reason));
+      return;
+    }
     savePendingPages(res, userToken, restaurantId);
     res.redirect(303, finish("select"));
   } catch (error) {

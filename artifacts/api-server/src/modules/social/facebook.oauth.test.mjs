@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   beginFacebookLogin, consumeFacebookLogin, savePendingPages, pendingPages,
   facebookAuthorizationUrl, facebookConfig, exchangeFacebookCode, fetchFacebookPages,
+  fetchFacebookPagesWithSummary,
 } from "./facebook.oauth.ts";
 
 function response() {
@@ -109,5 +110,21 @@ test("Facebook exchanges a code for a long-lived user token and lists only publi
     assert.equal(new URL(calls[1].url).searchParams.get("grant_type"), "fb_exchange_token");
     assert.deepEqual(await fetchFacebookPages(token), [{ id: "123", name: "Page", accessToken: "page-token" }]);
     assert.equal(calls[2].init.headers.Authorization, "Bearer long-token");
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("Page selection distinguishes no Pages, missing content task, and missing Page token", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    for (const [data, expected] of [
+      [[], { returnedPageCount: 0, contentPageCount: 0, pages: [] }],
+      [[{ id: "1", name: "Read only", access_token: "hidden", tasks: ["ANALYZE"] }],
+        { returnedPageCount: 1, contentPageCount: 0, pages: [] }],
+      [[{ id: "2", name: "Can post", tasks: ["CREATE_CONTENT"] }],
+        { returnedPageCount: 1, contentPageCount: 1, pages: [] }],
+    ]) {
+      globalThis.fetch = async () => Response.json({ data });
+      assert.deepEqual(await fetchFacebookPagesWithSummary("test-token"), expected);
+    }
   } finally { globalThis.fetch = originalFetch; }
 });

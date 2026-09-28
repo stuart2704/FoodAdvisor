@@ -161,14 +161,26 @@ export async function exchangeFacebookCode(code: string, config: NonNullable<Ret
 }
 
 export type FacebookPage = { id: string; name: string; accessToken: string };
-export async function fetchFacebookPages(userToken: string): Promise<FacebookPage[]> {
+export async function fetchFacebookPagesWithSummary(userToken: string): Promise<{
+  pages: FacebookPage[];
+  returnedPageCount: number;
+  contentPageCount: number;
+}> {
   const data = await graphRequest(`${GRAPH}/me/accounts?fields=id,name,access_token,tasks&limit=100`, {
     headers: { Authorization: `Bearer ${userToken}` },
   });
   if (!Array.isArray(data.data)) throw new Error("Facebook did not return any Pages.");
-  return data.data.filter((page: any) =>
+  const contentPages = data.data.filter((page: any) =>
     typeof page.id === "string" && typeof page.name === "string"
-    && typeof page.access_token === "string" && Array.isArray(page.tasks)
-    && page.tasks.includes("CREATE_CONTENT")
-  ).map((page: any) => ({ id: page.id, name: page.name, accessToken: page.access_token }));
+    && Array.isArray(page.tasks) && page.tasks.includes("CREATE_CONTENT"));
+  return {
+    pages: contentPages.filter((page: any) => typeof page.access_token === "string" && page.access_token)
+      .map((page: any) => ({ id: page.id, name: page.name, accessToken: page.access_token })),
+    returnedPageCount: data.data.length,
+    contentPageCount: contentPages.length,
+  };
+}
+
+export async function fetchFacebookPages(userToken: string): Promise<FacebookPage[]> {
+  return (await fetchFacebookPagesWithSummary(userToken)).pages;
 }
