@@ -45,6 +45,12 @@ Under Node's strip-types test runner, extensionless local TypeScript imports are
 
 **How to apply:** When a test harness loads production modules, resolve or mock only unrelated imports in the harness, preserving the actual security and business logic under test.
 
+An artifact-local test command cannot assume another workspace package's TS runner is available as its own Node import hook. Node 24 can strip a directly imported TypeScript route without adding a test dependency when that route has no unresolved local imports.
+
+**Why:** An isolated web smoke check failed at startup when it requested a TS import hook that was available elsewhere in the monorepo, not in the web artifact's package scope.
+
+**How to apply:** Prefer Node's built-in stripping for a simple cross-package TypeScript import; use a package-scoped runner only when the imported module graph requires it.
+
 For one-off database diagnostics in this workspace, use the API package's TS runner rather than plain Node or the DB package's executable context; inline evaluation needs an async function instead of top-level await.
 
 **Why:** Plain Node could not resolve the DB package's TypeScript directory imports, the DB package did not have the runner executable, and inline evaluation used CommonJS transformation.
