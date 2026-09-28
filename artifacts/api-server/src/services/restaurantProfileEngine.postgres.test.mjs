@@ -18,11 +18,11 @@ async function freePort() {
   return port;
 }
 
-test("public profile selects active offers in PostgreSQL date and ID order", async () => {
+test("public profile selects eligible offers and events against isolated PostgreSQL", async () => {
   // Import the real service only after replacing inherited application DB URLs.
   // Each test file has its own Node process, so the DB module cannot be cached
   // from another suite's connection.
-  const directory = await mkdtemp(path.join(tmpdir(), "profile-offers-pg-"));
+  const directory = await mkdtemp(path.join(tmpdir(), "profile-content-pg-"));
   const data = path.join(directory, "data");
   const previous = {
     DATABASE_URL: process.env.DATABASE_URL,
@@ -47,8 +47,8 @@ test("public profile selects active offers in PostgreSQL date and ID order", asy
     const { restaurantsTable, pool: actualServicePool } = await import("@workspace/db");
     servicePool = actualServicePool;
     // The profile selects every restaurant column. Generate just that wide
-    // table from its mapping; keep the offer schema independent and literal
-    // so a wrong offer table/column/type in the query fails against PostgreSQL.
+     // table from its mapping; keep the offer and event schemas independent
+     // and literal so a wrong table/column/type in a query fails against PostgreSQL.
     const restaurantColumns = getTableConfig(restaurantsTable).columns.map((column) =>
       `"${column.name}" ${column.getSQLType()}${column.name === "place_id" ? " PRIMARY KEY" : ""}`,
     );
@@ -128,10 +128,37 @@ test("public profile selects active offers in PostgreSQL date and ID order", asy
         [id, title, `${title} description`, startDate, endDate, restaurantId],
       );
     }
+    const events = [
+      [30, "Tomorrow evening", "2026-09-26", "20:00", "verified-place"],
+      [12, "Today evening", "2026-09-25", "20:00", "verified-place"],
+      [13, "Yesterday", "2026-09-24", "23:59", "verified-place"],
+      [11, "Today morning", "2026-09-25", "09:00", "verified-place"],
+      [31, "Tomorrow morning", "2026-09-26", "09:00", "verified-place"],
+      [10, "Today midnight", "2026-09-25", "00:00", "verified-place"],
+      [14, "Today evening same time", "2026-09-25", "20:00", "verified-place"],
+      [40, "Other listing", "2026-09-25", "08:00", "other-place"],
+      [41, "Unverified listing", "2026-09-25", "08:00", "unverified-place"],
+      [42, "Unpublished listing", "2026-09-25", "08:00", "unpublished-place"],
+    ];
+    for (const [id, title, date, time, restaurantId] of events) {
+      await pool.query(
+        `INSERT INTO restaurant_events (id, restaurant_id, title, description, event_date, event_time, price)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [id, restaurantId, title, `${title} description`, date, time, "Free"],
+      );
+    }
 
     const { getRestaurantProfile } = await import("./restaurantProfileEngine.ts");
     const profile = await getRestaurantProfile("verified-place", new Date("2026-09-25T23:59:59Z"));
     assert.equal(profile.verified, true);
+    assert.deepEqual(profile.events.map(({ title }) => title), [
+      "Today midnight", "Today morning", "Today evening",
+      "Today evening same time", "Tomorrow morning", "Tomorrow evening",
+    ]);
+    assert.deepEqual(profile.events[1], {
+      id: 11, title: "Today morning", description: "Today morning description",
+      date: "2026-09-25", time: "09:00", price: "Free",
+    });
     assert.deepEqual(profile.offers.map(({ title }) => title), [
       "Ends today", "Today only", "Sooner expiry", "Starts today",
       "Earlier start", "Later start, low ID", "Later start, high ID",
@@ -145,7 +172,11 @@ test("public profile selects active offers in PostgreSQL date and ID order", asy
       "Sooner expiry", "Starts today", "Earlier start", "Later start, low ID",
       "Later start, high ID", "Starts tomorrow",
     ]);
+    assert.deepEqual(nextDay.events.map(({ title }) => title), [
+      "Tomorrow morning", "Tomorrow evening",
+    ]);
     assert.deepEqual((await getRestaurantProfile("unverified-place", new Date("2026-09-25T12:00:00Z"))).offers, []);
+    assert.deepEqual((await getRestaurantProfile("unverified-place", new Date("2026-09-25T12:00:00Z"))).events, []);
     assert.equal(await getRestaurantProfile("unpublished-place", new Date("2026-09-25T12:00:00Z")), null);
   } finally {
     await servicePool?.end();
