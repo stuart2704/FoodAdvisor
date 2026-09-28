@@ -78,10 +78,16 @@ facebookRouter.get("/callback", async (req, res): Promise<void> => {
       try {
         const checked = await checkFacebookPageById(userToken, login.pageId);
         // Status only; never log Page identifiers or raw provider responses.
-        req.log.info({ status: checked.status }, "Facebook direct Page check completed");
+        req.log.info({
+          status: checked.status,
+          ...(checked.status === "unverified_content" ? { reason: checked.reason } : {}),
+        }, "Facebook direct Page check completed");
         if (checked.status !== "ready") {
           const reason = checked.status === "page_mismatch" ? "direct_page_error"
-            : checked.status === "unverified_content" ? "direct_unverified"
+            : checked.status === "unverified_content"
+              ? checked.reason === "roles_denied" ? "direct_roles_denied"
+                : checked.reason === "role_not_returned" ? "direct_role_missing"
+                  : "direct_unverified"
             : checked.status === "no_page_token" ? "direct_no_token" : "direct_no_content";
           res.redirect(303, finish(reason));
           return;

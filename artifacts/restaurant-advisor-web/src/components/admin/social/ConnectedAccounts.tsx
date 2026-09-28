@@ -90,6 +90,8 @@ export function ConnectedAccounts() {
         no_page_token: "Meta returned a Page with content access but did not provide a Page token. Reconnect and grant the requested Page permissions.",
         direct_page_error: "Meta could not verify that Page ID with this Facebook login. Check the numeric Page ID on the Page itself and try again; the Page was not connected.",
         direct_unverified: "Meta found the Page but did not confirm permission to create content for this login. The Page was not connected.",
+        direct_roles_denied: "Meta found the Page but did not allow this login to check its Page role. The Page was not connected. The app still needs Page-specific access from Meta.",
+        direct_role_missing: "Meta found the Page but returned no Page role for this Facebook login. This does not prove you do not own it; the Page was not connected.",
         direct_no_content: "Meta found the Page but did not grant this login permission to create content on it. The Page was not connected.",
         direct_no_token: "Meta found the Page but did not issue a Page token to this login. The Page was not connected.",
         missing_code: "Facebook did not return a login code. Check your Facebook Login for Business configuration and try again.",

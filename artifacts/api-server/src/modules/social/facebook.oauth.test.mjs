@@ -77,7 +77,6 @@ test("direct Page lookup connects only with a matching Page token and content ta
       { id: "123", name: "Page", accessToken: "page-token" },
     ]);
     for (const [data, status] of [
-      [{ id: "123", name: "Page", access_token: "page-token" }, "unverified_content"],
       [{ id: "123", name: "Page", access_token: "page-token", tasks: ["ANALYZE"] }, "no_content_access"],
       [{ id: "123", name: "Page", tasks: ["CREATE_CONTENT"] }, "no_page_token"],
       [{ id: "999", name: "Other Page", access_token: "page-token", tasks: ["CREATE_CONTENT"] }, "page_mismatch"],
@@ -85,6 +84,8 @@ test("direct Page lookup connects only with a matching Page token and content ta
       globalThis.fetch = async () => Response.json(data);
       assert.deepEqual(await checkFacebookPageById("user-token", "123"), { status });
     }
+    globalThis.fetch = async () => Response.json({ id: "123", name: "Page" });
+    assert.deepEqual(await checkFacebookPageById("user-token", "123"), { status: "no_page_token" });
     await assert.rejects(checkFacebookPageById("user-token", "123/other"), /Invalid Facebook Page ID/);
   } finally { globalThis.fetch = originalFetch; }
 });
@@ -96,7 +97,9 @@ test("unsupported direct Page tasks field cannot bypass content verification", a
     globalThis.fetch = async () => (++calls === 1
       ? Response.json({ error: { code: 100 } }, { status: 400 })
       : Response.json({ id: "123", name: "Page", access_token: "page-token" }));
-    assert.deepEqual(await checkFacebookPageById("user-token", "123"), { status: "unverified_content" });
+    assert.deepEqual(await checkFacebookPageById("user-token", "123"), {
+      status: "unverified_content", reason: "role_not_returned",
+    });
     assert.equal(calls, 4);
   } finally { globalThis.fetch = originalFetch; }
 });
@@ -123,7 +126,9 @@ test("Page roles fallback verifies only the current login's CREATE_CONTENT task"
       if (path === "/v26.0/me") return Response.json({ id: "456" });
       return Response.json({ data: [{ id: "789", tasks: ["CREATE_CONTENT"] }] });
     };
-    assert.deepEqual(await checkFacebookPageById("user-token", "123"), { status: "unverified_content" });
+    assert.deepEqual(await checkFacebookPageById("user-token", "123"), {
+      status: "unverified_content", reason: "role_not_returned",
+    });
     globalThis.fetch = async (url) => {
       const path = new URL(url).pathname;
       if (path === "/v26.0/123") return Response.json({ id: "123", name: "Page", access_token: "page-token" });
@@ -137,7 +142,9 @@ test("Page roles fallback verifies only the current login's CREATE_CONTENT task"
       if (path === "/v26.0/me") return Response.json({ id: "456" });
       return Response.json({ error: { code: 200 } }, { status: 403 });
     };
-    assert.deepEqual(await checkFacebookPageById("user-token", "123"), { status: "unverified_content" });
+    assert.deepEqual(await checkFacebookPageById("user-token", "123"), {
+      status: "unverified_content", reason: "roles_denied",
+    });
   } finally { globalThis.fetch = originalFetch; }
 });
 

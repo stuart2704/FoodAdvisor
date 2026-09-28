@@ -193,17 +193,28 @@ export async function fetchFacebookPages(userToken: string): Promise<FacebookPag
 
 export type FacebookPageCheck =
   | { status: "ready"; page: FacebookPage }
-  | { status: "no_content_access" | "no_page_token" | "unverified_content" | "page_mismatch" };
+  | { status: "no_content_access" | "no_page_token" | "page_mismatch" }
+  | { status: "unverified_content"; reason:
+      "identity_unavailable" | "roles_denied" | "roles_unavailable" | "role_not_returned" | "role_tasks_unavailable" };
 
 // The Page node does not always expose tasks. The roles edge can verify the
 // current login's task for non-business Page users; an absent row or an
 // inaccessible edge is not evidence of publishing access.
-async function checkFacebookPageRole(userToken: string, pageToken: string, pageId: string): Promise<string[] | null> {
+async function checkFacebookPageRole(userToken: string, pageToken: string, pageId: string): Promise<
+  { tasks: string[] } | Extract<FacebookPageCheck, { status: "unverified_content" }>
+> {
+  let me: any;
   try {
-    const me = await graphRequest(`${GRAPH}/me?fields=id`, {
+    me = await graphRequest(`${GRAPH}/me?fields=id`, {
       headers: { Authorization: `Bearer ${userToken}` },
     });
-    if (typeof me.id !== "string" || !/^\d+$/.test(me.id)) return null;
+  } catch {
+    return { status: "unverified_content", reason: "identity_unavailable" };
+  }
+  if (typeof me.id !== "string" || !/^\d+$/.test(me.id)) {
+    return { status: "unverified_content", reason: "identity_unavailable" };
+  }
+  try {
     const url = new URL(`${GRAPH}/${pageId}/roles`);
     url.searchParams.set("uid", me.id);
     const roles = await graphRequest(url.toString(), {
@@ -211,9 +222,12 @@ async function checkFacebookPageRole(userToken: string, pageToken: string, pageI
     });
     const ownRole = Array.isArray(roles.data)
       ? roles.data.find((role: any) => role.id === me.id) : null;
-    return Array.isArray(ownRole?.tasks) ? ownRole.tasks : null;
-  } catch {
-    return null;
+    if (!ownRole) return { status: "unverified_content", reason: "role_not_returned" };
+    if (!Array.isArray(ownRole.tasks)) return { status: "unverified_content", reason: "role_tasks_unavailable" };
+    return { tasks: ownRole.tasks };
+  } catch (error) {
+    const denied = error instanceof FacebookGraphFailure && [10, 200, 283].includes(error.providerCode ?? -1);
+    return { status: "unverified_content", reason: denied ? "roles_denied" : "roles_unavailable" };
   }
 }
 
@@ -234,12 +248,14 @@ export async function checkFacebookPageById(userToken: string, pageId: string): 
     });
   }
   if (data.id !== pageId || typeof data.name !== "string") return { status: "page_mismatch" };
-  const tasks = Array.isArray(data.tasks) ? data.tasks
-    : typeof data.access_token === "string" && data.access_token
-      ? await checkFacebookPageRole(userToken, data.access_token, pageId) : null;
-  if (!tasks) return { status: "unverified_content" };
-  if (!tasks.includes("CREATE_CONTENT")) return { status: "no_content_access" };
   if (typeof data.access_token !== "string" || !data.access_token) return { status: "no_page_token" };
+  let tasks = data.tasks;
+  if (!Array.isArray(tasks)) {
+    const role = await checkFacebookPageRole(userToken, data.access_token, pageId);
+    if ("status" in role) return role;
+    tasks = role.tasks;
+  }
+  if (!tasks.includes("CREATE_CONTENT")) return { status: "no_content_access" };
   return { status: "ready", page: { id: data.id, name: data.name, accessToken: data.access_token } };
 }
 
