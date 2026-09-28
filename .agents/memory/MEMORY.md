@@ -42,3 +42,4 @@
 - [UI polling tests](ui-polling-tests.md) — testing-library waits also schedule intervals; capture only the application's polling interval when simulating ticks.
 - [Workspace package installation](workspace-package-installation.md) — generic package installs target the root and fail pnpm's workspace-root guard; scope additions to the owning package.
 - [AI generation lease ownership](ai-generation-lease-ownership.md) — use a renewable lease and exact reservation identity; an external schema change is not implicit in API rollout.
+- [Browser attachment checks](browser-attachment-checks.md) — Chromium download responses may bypass page response listeners; inspect the download and headers separately.

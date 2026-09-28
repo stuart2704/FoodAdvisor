@@ -9,7 +9,8 @@
     "test:route-entrypoints": "node --test scripts/route-entrypoints.test.mjs",
     "test:admin-login": "node scripts/admin-login-smoke.mjs",
     "test:admin-browser": "pnpm run test:admin-login && node scripts/admin-browser-smoke.mjs",
-    "check:public-navigation": "pnpm run test:routes && pnpm run build && pnpm run test:route-entrypoints",
+    "test:event-calendar-browser": "node scripts/event-calendar-browser.mjs",
+    "check:public-navigation": "pnpm run test:routes && pnpm run build && pnpm run test:route-entrypoints && pnpm run test:event-calendar-browser",
     "preview": "vite preview --config vite.config.ts --host 0.0.0.0",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0"
   },
