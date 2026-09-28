@@ -23,6 +23,12 @@ For a Facebook Page OAuth app, Meta's **Other → Business app type** creation r
 
 **How to apply:** Check the app type before giving menu instructions. Don't create another Page-use-case app, don't treat the disabled Assets step as a blocker for User access tokens, and verify the actual permission list before claiming a scope is unavailable.
 
+When Facebook Login for Business uses a configuration ID, let that dashboard configuration supply the permissions; Meta recommends not sending an additional `scope` parameter. A return to the app's callback rules out a blocked redirect but does not distinguish token exchange from Page-list permission failure.
+
+**Why:** Meta's Business Login documentation replaces scope with config_id, and a generic callback error obscured three failed Page-connection attempts despite successful callback routing.
+
+**How to apply:** Diagnose the token exchange and Page-list stages separately, logging only safe numeric provider error identifiers. Never log OAuth codes, app secrets, tokens or provider response bodies.
+
 Use a public, human-readable deletion-instructions page in Meta's **Data Deletion Instructions URL** field. Do not enter that page in the **Data Deletion Request URL** callback field: a callback must accept and verify Meta's signed POST, initiate deletion, and return a status URL and confirmation code.
 
 **Why:** A static instructions page can explain how to request deletion but cannot fulfil the signed callback protocol.

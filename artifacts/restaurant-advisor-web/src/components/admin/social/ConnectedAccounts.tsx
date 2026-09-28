@@ -85,6 +85,9 @@ export function ConnectedAccounts() {
         state_error: "Facebook connection expired or could not be verified. Try connecting again.",
         configuration_error: "Facebook app settings are missing or invalid.",
         no_pages: "No Pages with permission to create posts were found. Check your Page role and Meta app permissions.",
+          missing_code: "Facebook did not return a login code. Check your Facebook Login for Business configuration and try again.",
+          token_error: "Facebook returned a login code, but the app could not exchange it. Check that the Meta app credentials and redirect URI match this Business Login app.",
+          page_access_error: "Facebook login completed, but the app could not read your Pages. Check that your Business Login configuration grants pages_show_list and Page access.",
         authorization_error: "Facebook connection failed. Check the Meta app redirect URI, Page permissions, and app access.",
       };
       if (facebookResult === "select") {

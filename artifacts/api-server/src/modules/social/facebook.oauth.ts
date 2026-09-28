@@ -31,6 +31,25 @@ export function facebookRedirectUri() {
   catch { return null; }
 }
 
+export function facebookAuthorizationUrl(
+  config: NonNullable<ReturnType<typeof facebookConfig>>,
+  state: string,
+  configId?: string,
+) {
+  const url = new URL("https://www.facebook.com/v26.0/dialog/oauth");
+  url.searchParams.set("client_id", config.appId);
+  url.searchParams.set("redirect_uri", config.redirectUri);
+  url.searchParams.set("response_type", "code");
+  if (configId) {
+    // Business Login derives its permissions from this dashboard configuration.
+    url.searchParams.set("config_id", configId);
+  } else {
+    url.searchParams.set("scope", "pages_show_list,pages_manage_posts,pages_read_engagement,pages_manage_metadata");
+  }
+  url.searchParams.set("state", state);
+  return url.toString();
+}
+
 function signature(value: string) {
   const secret = process.env.SESSION_SECRET;
   if (!secret) throw new Error("SESSION_SECRET is required for Facebook OAuth state.");
@@ -86,6 +105,22 @@ export function pendingPages(req: Request): { userToken: string; restaurantId: s
 
 export function clearPendingPages(res: Response) { res.clearCookie(PENDING_COOKIE, cookieOptions); }
 
+export class FacebookGraphFailure extends Error {
+  readonly httpStatus: number;
+  readonly providerCode: number | null;
+  readonly providerSubcode: number | null;
+  constructor(
+    httpStatus: number,
+    providerCode: number | null,
+    providerSubcode: number | null,
+  ) {
+    super("Facebook authorization request failed.");
+    this.httpStatus = httpStatus;
+    this.providerCode = providerCode;
+    this.providerSubcode = providerSubcode;
+  }
+}
+
 async function graphRequest(url: string, init?: RequestInit) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10_000);
@@ -93,7 +128,17 @@ async function graphRequest(url: string, init?: RequestInit) {
     const response = await fetch(url, { ...init, signal: controller.signal });
     const data: any = await response.json().catch(() => null);
     // Never include provider response bodies, tokens, or URLs in errors or logs.
-    if (!response.ok || !data || data.error) throw new Error("Facebook authorization request failed.");
+    if (!response.ok || !data || data.error) {
+      const code = data?.error?.code;
+      const subcode = data?.error?.error_subcode;
+      // Only numeric error identifiers are safe to log. Never log provider bodies
+      // or request URLs: token-exchange URLs contain the app secret and login code.
+      throw new FacebookGraphFailure(
+        response.status,
+        Number.isSafeInteger(code) ? code : null,
+        Number.isSafeInteger(subcode) ? subcode : null,
+      );
+    }
     return data;
   } finally { clearTimeout(timer); }
 }

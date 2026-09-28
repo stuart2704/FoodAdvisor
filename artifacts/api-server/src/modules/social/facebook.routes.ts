@@ -5,7 +5,8 @@ import { db, restaurantsTable, socialAccountsTable } from "@workspace/db";
 import { encryptToken } from "./crypto";
 import {
   beginFacebookLogin, clearPendingPages, consumeFacebookLogin, exchangeFacebookCode,
-  facebookConfig, facebookRedirectUri, fetchFacebookPages, pendingPages, savePendingPages, FACEBOOK_CALLBACK_PATH,
+  facebookAuthorizationUrl, facebookConfig, facebookRedirectUri, FacebookGraphFailure,
+  fetchFacebookPages, pendingPages, savePendingPages, FACEBOOK_CALLBACK_PATH,
 } from "./facebook.oauth";
 
 export const facebookRouter: IRouter = Router();
@@ -34,15 +35,9 @@ facebookRouter.post("/start", async (req, res): Promise<void> => {
   }
   clearPendingPages(res);
   const state = beginFacebookLogin(res, restaurantId);
-  const url = new URL("https://www.facebook.com/v26.0/dialog/oauth");
-  url.searchParams.set("client_id", config.appId);
-  url.searchParams.set("redirect_uri", config.redirectUri);
-  url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", "pages_show_list,pages_manage_posts,pages_read_engagement,pages_manage_metadata");
-  if (process.env.FACEBOOK_CONFIG_ID?.trim()) url.searchParams.set("config_id", process.env.FACEBOOK_CONFIG_ID.trim());
-  url.searchParams.set("state", state);
+  const url = facebookAuthorizationUrl(config, state, process.env.FACEBOOK_CONFIG_ID?.trim());
   res.set("Referrer-Policy", "no-referrer");
-  res.json({ authorizationUrl: url.toString() });
+  res.json({ authorizationUrl: url });
 });
 
 facebookRouter.get("/callback", async (req, res): Promise<void> => {
@@ -54,16 +49,38 @@ facebookRouter.get("/callback", async (req, res): Promise<void> => {
   if (!config) { res.redirect(303, finish("configuration_error")); return; }
   const code = req.query.code;
   if (typeof code !== "string" || !code || code.length > 4096) {
-    res.redirect(303, finish("authorization_error")); return;
+    res.redirect(303, finish("missing_code")); return;
+  }
+  let userToken: string;
+  try {
+    userToken = await exchangeFacebookCode(code, config);
+  } catch (error) {
+    req.log.warn({
+      phase: "token_exchange",
+      ...(error instanceof FacebookGraphFailure ? {
+        httpStatus: error.httpStatus,
+        providerCode: error.providerCode,
+        providerSubcode: error.providerSubcode,
+      } : {}),
+    }, "Facebook connection failed");
+    res.redirect(303, finish("token_error"));
+    return;
   }
   try {
-    const userToken = await exchangeFacebookCode(code, config);
     const pages = await fetchFacebookPages(userToken);
     if (pages.length === 0) { res.redirect(303, finish("no_pages")); return; }
     savePendingPages(res, userToken, restaurantId);
     res.redirect(303, finish("select"));
-  } catch {
-    res.redirect(303, finish("authorization_error"));
+  } catch (error) {
+    req.log.warn({
+      phase: "page_list",
+      ...(error instanceof FacebookGraphFailure ? {
+        httpStatus: error.httpStatus,
+        providerCode: error.providerCode,
+        providerSubcode: error.providerSubcode,
+      } : {}),
+    }, "Facebook connection failed");
+    res.redirect(303, finish("page_access_error"));
   }
 });
 

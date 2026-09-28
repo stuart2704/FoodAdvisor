@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   beginFacebookLogin, consumeFacebookLogin, savePendingPages, pendingPages,
-  facebookConfig, exchangeFacebookCode, fetchFacebookPages,
+  facebookAuthorizationUrl, facebookConfig, exchangeFacebookCode, fetchFacebookPages,
 } from "./facebook.oauth.ts";
 
 function response() {
@@ -74,6 +74,18 @@ test("Facebook config uses an HTTPS callback on the same host as Instagram by de
       else process.env[key] = value;
     }
   }
+});
+
+test("Business Login uses its configuration permissions instead of an additional scope parameter", () => {
+  const config = { appId: "123", appSecret: "test-only", redirectUri: "https://example.test/admin/social/facebook/callback" };
+  const businessUrl = new URL(facebookAuthorizationUrl(config, "signed-state", "business-config"));
+  assert.equal(businessUrl.searchParams.get("config_id"), "business-config");
+  assert.equal(businessUrl.searchParams.has("scope"), false);
+  assert.equal(businessUrl.searchParams.get("response_type"), "code");
+  assert.equal(businessUrl.searchParams.get("redirect_uri"), config.redirectUri);
+  const regularUrl = new URL(facebookAuthorizationUrl(config, "signed-state"));
+  assert.equal(regularUrl.searchParams.has("config_id"), false);
+  assert.match(regularUrl.searchParams.get("scope"), /pages_show_list/);
 });
 
 test("Facebook exchanges a code for a long-lived user token and lists only publishable Pages", async () => {
