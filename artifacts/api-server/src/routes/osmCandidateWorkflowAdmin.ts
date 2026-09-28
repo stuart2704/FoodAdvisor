@@ -21,19 +21,14 @@ import {
 } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import { z } from "zod";
-import { sendGmailPlainText, GmailHttpError } from "../services/gmail/gmailClient";
 import { adminOnly } from "../middleware/adminOnly";
 import {
-  CLAIM_INVITE_TTL_MS,
-  MAX_CLAIM_INVITES,
-  MIN_INVITE_INTERVAL_MS,
   OSM_SOURCE,
-  createOpaqueToken,
-  hashOpaqueSecret,
+  autoInviteEligibility,
   isCurrentEvidenceSubmission,
   requiredFieldsComplete,
-  safeProviderErrorCode,
 } from "../services/osmCandidateWorkflow";
+import { sendOsmInvite } from "../services/osmInviteDelivery";
 
 const router: IRouter = Router();
 const candidateParams = z.object({
@@ -91,7 +86,7 @@ async function getWorkflow(sourceId: string) {
     ))
     .limit(1);
   if (!workflow) return null;
-  const [evidenceRows, activationRows] = await Promise.all([
+  const [evidenceRows, activationRows, inviteRows] = await Promise.all([
     db.select().from(osmCandidateEvidenceTable).where(and(
       eq(osmCandidateEvidenceTable.sourceName, OSM_SOURCE),
       eq(osmCandidateEvidenceTable.sourceId, sourceId),
@@ -100,10 +95,16 @@ async function getWorkflow(sourceId: string) {
       eq(osmActivationStatesTable.sourceName, OSM_SOURCE),
       eq(osmActivationStatesTable.sourceId, sourceId),
     )).limit(1),
+    db.select({ status: osmClaimInvitesTable.status, createdAt: osmClaimInvitesTable.createdAt })
+      .from(osmClaimInvitesTable).where(and(
+        eq(osmClaimInvitesTable.sourceName, OSM_SOURCE),
+        eq(osmClaimInvitesTable.sourceId, sourceId),
+      )).orderBy(desc(osmClaimInvitesTable.createdAt), desc(osmClaimInvitesTable.id)).limit(1),
   ]);
   const ownership = evidenceRows.find((item) => item.kind === "ownership");
   const rights = evidenceRows.find((item) => item.kind === "source_rights");
   const activation = activationRows[0];
+  const autoInvite = autoInviteEligibility(workflow, inviteRows[0], new Date());
   return {
     candidate: {
       sourceName: OSM_SOURCE,
@@ -126,6 +127,12 @@ async function getWorkflow(sourceId: string) {
       outreachBlocked: workflow.outreachBlocked,
       highConfidence: workflow.highConfidence,
       inviteCount: workflow.inviteCount,
+      autoInviteEnabled: workflow.autoInviteEnabled,
+      approvedContactEmail: workflow.approvedContactEmail,
+      contactEvidence: workflow.contactEvidence,
+      contactApprovedAt: workflow.contactApprovedAt?.toISOString() ?? null,
+      autoInviteStatus: autoInvite.status,
+      autoInviteDueAt: autoInvite.dueAt?.toISOString() ?? null,
       requiredFieldsComplete: requiredFieldsComplete(workflow.ownerDraft),
     },
     evidence: {
@@ -376,154 +383,37 @@ async function deliverInvite(
       : "Instantly outreach cannot send OSM claim links until a provider-specific OSM flow is configured." });
     return;
   }
-  // A development invitation would link to the currently published site,
-  // which may not yet contain this claim flow. Never send a broken real email.
   if (process.env.NODE_ENV !== "production") {
     res.status(409).json({ error: "Claim invitations can be emailed only after this claim workflow is published." });
     return;
   }
-  const now = new Date();
-  const rawToken = createOpaqueToken();
-  const tokenHash = hashOpaqueSecret(rawToken);
-  const claimUrl = `https://www.thefoodadvisor.co.uk/claim/${encodeURIComponent(sourceId)}/${encodeURIComponent(rawToken)}`;
-  const subject = "A secure claim invitation for your restaurant listing";
-  let reservation: { id: number; sentTo: string } | null = null;
   try {
-    reservation = await db.transaction(async (tx) => {
-      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${OSM_SOURCE}), hashtext(${sourceId}))`);
-      const [workflow] = await tx.select().from(osmCandidateWorkflowsTable).where(and(
-        eq(osmCandidateWorkflowsTable.sourceName, OSM_SOURCE),
-        eq(osmCandidateWorkflowsTable.sourceId, sourceId),
-      )).limit(1);
-      if (!workflow) return null;
-      if (!workflow.reviewed || !workflow.highConfidence || workflow.suppressed
-        || workflow.published || workflow.claimed || workflow.outreachBlocked) {
-        return null;
-      }
-      const [candidate] = await tx.select().from(externalCandidatesTable).where(and(
-        eq(externalCandidatesTable.sourceName, OSM_SOURCE),
-        eq(externalCandidatesTable.sourceId, sourceId),
-      )).limit(1);
-      if (!candidate) return null;
-      const [latest] = await tx.select().from(osmClaimInvitesTable).where(and(
-        eq(osmClaimInvitesTable.sourceName, OSM_SOURCE),
-        eq(osmClaimInvitesTable.sourceId, sourceId),
-      )).orderBy(desc(osmClaimInvitesTable.createdAt)).limit(1);
-      if (workflow.inviteCount >= MAX_CLAIM_INVITES) return null;
-      if (latest && ["reserved", "unknown"].includes(latest.status)) return null;
-      if (latest && now.getTime() - latest.createdAt.getTime() < MIN_INVITE_INTERVAL_MS) return null;
-      const recipient = requested.sentTo?.trim().toLowerCase() ?? latest?.sentTo;
-      if (!recipient || !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(recipient)) return null;
-      const [invite] = await tx.insert(osmClaimInvitesTable).values({
-        sourceName: OSM_SOURCE,
-        sourceId,
-        tokenHash,
-        sentTo: recipient,
-        method: "email",
-        status: "reserved",
-        createdAt: now,
-        expiresAt: new Date(now.getTime() + CLAIM_INVITE_TTL_MS),
-      }).returning({ id: osmClaimInvitesTable.id });
-      await tx.update(osmCandidateWorkflowsTable).set({
-        inviteCount: workflow.inviteCount + 1,
-        updatedAt: now,
-      }).where(and(
-        eq(osmCandidateWorkflowsTable.sourceName, OSM_SOURCE),
-        eq(osmCandidateWorkflowsTable.sourceId, sourceId),
-        eq(osmCandidateWorkflowsTable.inviteCount, workflow.inviteCount),
-      ));
-      return invite ? { id: invite.id, sentTo: recipient } : null;
+    const result = await sendOsmInvite(sourceId, requested.sentTo);
+    if (result.status === "ineligible") {
+      res.status(409).json({ error: "Candidate is ineligible, suppressed, already claimed, or at an invitation limit." });
+      return;
+    }
+    if (result.status !== "sent") {
+      res.status(503).json({ error: result.status === "unknown"
+        ? "Claim invitation delivery outcome is unknown; automatic resend is blocked to prevent duplicates."
+        : "The email provider rejected the invitation." });
+      return;
+    }
+    res.setHeader("Cache-Control", "no-store, private");
+    res.status(201).json({
+      id: String(result.id),
+      sourceName: OSM_SOURCE,
+      sourceId,
+      sentTo: result.sentTo,
+      method: "email",
+      status: "sent",
+      createdAt: new Date().toISOString(),
+      errorCode: null,
     });
   } catch (error) {
-    req.log.error({ err: error, sourceId }, "OSM invite reservation failed");
-    res.status(503).json({ error: "Claim invitation is unavailable." });
-    return;
-  }
-  if (!reservation) {
-    res.status(409).json({ error: "Candidate is ineligible, suppressed, already claimed, or at an invitation limit." });
-    return;
-  }
-  let status: "sent" | "failed" | "unknown" = "sent";
-  let errorCode: string | null = null;
-  try {
-    const [candidate] = await db.select().from(externalCandidatesTable).where(and(
-      eq(externalCandidatesTable.sourceName, OSM_SOURCE),
-      eq(externalCandidatesTable.sourceId, sourceId),
-    )).limit(1);
-    if (!candidate) throw new Error("candidate_missing");
-    await sendGmailPlainText({
-      to: reservation.sentTo,
-      subject,
-      body: [
-        `Hello,`,
-        "",
-        `The Food Advisor has a restaurant listing for ${candidate.rawName}.`,
-        "If you are authorised to manage this business, use the secure, single-use link below to begin the review process.",
-        "",
-        claimUrl,
-        "",
-        "The link expires in 48 hours. Email verification confirms control of this email address only; ownership and source-rights evidence are reviewed separately.",
-        "",
-        "The Food Advisor",
-      ].join("\r\n"),
-    });
-  } catch (error) {
-    const providerHttpError = error instanceof GmailHttpError;
-    status = providerHttpError && error.status < 500 ? "failed" : "unknown";
-    errorCode = safeProviderErrorCode(error);
-    req.log.warn({ sourceId, inviteId: reservation.id, errorCode }, "OSM claim invitation delivery failed");
-  }
-  try {
-    const deliveredAt = status === "sent" ? new Date() : null;
-    await db.transaction(async (tx) => {
-      await tx.update(osmClaimInvitesTable).set({
-        status,
-        providerSentAt: deliveredAt,
-      }).where(eq(osmClaimInvitesTable.id, reservation.id));
-      await tx.insert(osmOutreachLogsTable).values({
-        sourceName: OSM_SOURCE,
-        sourceId,
-        inviteId: reservation.id,
-        sentTo: reservation.sentTo,
-        method: "email",
-        status,
-        errorCode,
-        createdAt: new Date(),
-      });
-      if (status === "sent") {
-        await tx.update(osmCandidateWorkflowsTable).set({
-          state: "claim_invited",
-          updatedAt: deliveredAt ?? new Date(),
-        }).where(and(
-          eq(osmCandidateWorkflowsTable.sourceName, OSM_SOURCE),
-          eq(osmCandidateWorkflowsTable.sourceId, sourceId),
-          eq(osmCandidateWorkflowsTable.suppressed, false),
-          eq(osmCandidateWorkflowsTable.published, false),
-        ));
-      }
-    });
-  } catch (error) {
-    req.log.error({ err: error, sourceId, inviteId: reservation.id }, "OSM invitation result persistence failed");
+    req.log.error({ err: error, sourceId }, "OSM invitation delivery or result persistence failed");
     res.status(503).json({ error: "Claim invitation delivery could not be durably confirmed." });
-    return;
   }
-  if (status !== "sent") {
-    res.status(503).json({ error: status === "unknown"
-      ? "Claim invitation delivery outcome is unknown; automatic resend is blocked to prevent duplicates."
-      : "The email provider rejected the invitation." });
-    return;
-  }
-  res.setHeader("Cache-Control", "no-store, private");
-  res.status(201).json({
-    id: String(reservation.id),
-    sourceName: OSM_SOURCE,
-    sourceId,
-    sentTo: reservation.sentTo,
-    method: "email",
-    status: "sent",
-    createdAt: new Date().toISOString(),
-    errorCode: null,
-  });
 }
 
 router.post("/dashboard/osm-candidates/:sourceName/:sourceId/invites", adminOnly, async (req, res) => {
@@ -674,6 +564,63 @@ router.put("/dashboard/osm-candidates/:sourceName/:sourceId/outreach", adminOnly
   } catch (error) {
     req.log.error({ err: error, sourceId: params.data.sourceId }, "OSM outreach preference update failed");
     res.status(503).json({ error: "Outreach preference is unavailable." });
+  }
+});
+
+const autoInviteInput = z.discriminatedUnion("enabled", [
+  z.object({
+    enabled: z.literal(true),
+    email: z.string().email().max(254),
+    evidence: z.string().trim().min(10).max(2000),
+  }).strict(),
+  z.object({ enabled: z.literal(false) }).strict(),
+]);
+
+router.put("/dashboard/osm-candidates/:sourceName/:sourceId/auto-invite", adminOnly, async (req, res) => {
+  const params = candidateParams.safeParse(req.params);
+  const body = autoInviteInput.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: "A reviewed business contact email and its source are required to enable automatic invitations." });
+    return;
+  }
+  try {
+    const result = await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${OSM_SOURCE}), hashtext(${params.data.sourceId}))`);
+      const [current] = await tx.select().from(osmCandidateWorkflowsTable).where(and(
+        eq(osmCandidateWorkflowsTable.sourceName, OSM_SOURCE),
+        eq(osmCandidateWorkflowsTable.sourceId, params.data.sourceId),
+      )).limit(1);
+      if (!current) return "missing" as const;
+      if (body.data.enabled && (!current.reviewed || !current.highConfidence || current.suppressed
+        || current.published || current.claimed || current.outreachBlocked)) return "conflict" as const;
+      const now = new Date();
+      await tx.update(osmCandidateWorkflowsTable).set(body.data.enabled ? {
+        approvedContactEmail: body.data.email.trim().toLowerCase(),
+        contactEvidence: body.data.evidence,
+        contactApprovedAt: now,
+        contactApprovedBy: "admin_session",
+        autoInviteEnabled: true,
+        updatedAt: now,
+      } : { autoInviteEnabled: false, updatedAt: now }).where(and(
+        eq(osmCandidateWorkflowsTable.sourceName, OSM_SOURCE),
+        eq(osmCandidateWorkflowsTable.sourceId, params.data.sourceId),
+      ));
+      return "success" as const;
+    });
+    if (result !== "success") {
+      res.status(result === "missing" ? 404 : 409).json({ error: result === "missing"
+        ? "Candidate not found."
+        : "Only reviewed, high-confidence, unclaimed candidates with outreach allowed can be enabled." });
+      return;
+    }
+    const details = await getWorkflow(params.data.sourceId);
+    if (!details) throw new Error("Candidate disappeared after contact approval.");
+    const { workflow: _workflow, ...response } = details;
+    res.setHeader("Cache-Control", "no-store, private");
+    res.json(response);
+  } catch (error) {
+    req.log.error({ err: error, sourceId: params.data.sourceId }, "OSM automatic invitation preference update failed");
+    res.status(503).json({ error: "Automatic invitation preference is unavailable." });
   }
 });
 

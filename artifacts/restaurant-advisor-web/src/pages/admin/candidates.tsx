@@ -6,6 +6,7 @@ import {
   useListOsmCandidates, useGetOsmCandidate, useListOsmCandidateOutreachLogs,
   useReviewOsmCandidate, useSuppressOsmCandidate, useSendOsmClaimInvite,
   useResendOsmClaimInvite, useDecideOsmCandidateEvidence, useSetOsmCandidateOutreachBlocked,
+  useSetOsmCandidateAutoInvite,
 } from "@workspace/api-client-react";
 import type { OsmCandidateWorkflow, OsmCandidateState } from "@workspace/api-client-react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -40,14 +41,17 @@ function CandidateDetail({ row, close }: { row: OsmCandidateWorkflow; close: () 
   const resend = useResendOsmClaimInvite({ request: adminRequest });
   const decide = useDecideOsmCandidateEvidence({ request: adminRequest });
   const outreach = useSetOsmCandidateOutreachBlocked({ request: adminRequest });
+  const autoInvite = useSetOsmCandidateAutoInvite({ request: adminRequest });
   const [email, setEmail] = useState("");
+  const [businessEmail, setBusinessEmail] = useState("");
+  const [contactEvidence, setContactEvidence] = useState("");
   const [reason, setReason] = useState("");
   const [note, setNote] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const item = candidate.data ?? row;
   const c = item.candidate;
-  const pending = review.isPending || suppress.isPending || invite.isPending || resend.isPending || decide.isPending || outreach.isPending;
+  const pending = review.isPending || suppress.isPending || invite.isPending || resend.isPending || decide.isPending || outreach.isPending || autoInvite.isPending;
 
   async function run(action: () => Promise<unknown>, success: string) {
     setError(""); setMessage("");
@@ -73,6 +77,26 @@ function CandidateDetail({ row, close }: { row: OsmCandidateWorkflow; close: () 
         <h3>Review & outreach</h3>
         <p className="osm-small">Phone: {c.phone || "Not supplied"} · Website: {c.website || "Not supplied"} · Coordinates: {c.latitude ?? "—"}, {c.longitude ?? "—"}</p>
         <p className="osm-small">Identity email verified: {c.identityVerified ? "Yes" : "No"} · Source rights confirmed: {c.rightsConfirmed ? "Yes" : "No"} · Required fields complete: {c.requiredFieldsComplete ? "Yes" : "No"}</p>
+        <div className="osm-card subtle" data-testid="panel-auto-invite">
+          <h3>Automatic claim invitations</h3>
+          <p className="osm-small">Separate opt-in for a reviewed high-confidence lead. Confirm a business contact from a trusted source; OSM contact tags alone are not approval. First email waits at least 48 hours after both reviews. Up to three attempts, at least seven days apart. This does not publish the listing.</p>
+          <p data-testid="status-auto-invite">Status: <strong>{c.autoInviteStatus}</strong>{c.autoInviteDueAt ? ` · Next eligible ${new Date(c.autoInviteDueAt).toLocaleString()}` : ""} · {c.inviteCount}/3 attempts</p>
+          <p className="osm-small">Approved contact: {c.approvedContactEmail || "None"}{c.contactApprovedAt ? ` · Approved ${new Date(c.contactApprovedAt).toLocaleString()}` : ""}</p>
+          {c.contactEvidence && <p className="osm-small">Contact source: {c.contactEvidence}</p>}
+          {c.autoInviteStatus === "unknown" && <p className="osm-error" role="alert">Delivery may have succeeded. Automatic retries are blocked; investigate before any further contact.</p>}
+          {c.autoInviteStatus === "failed" && <p className="osm-small">The provider rejected the last attempt. A further attempt is not due until the date shown.</p>}
+          {c.autoInviteEnabled ? <button className="osm-btn quiet" disabled={pending} onClick={() => void run(() => autoInvite.mutateAsync({ sourceName, sourceId, data: { enabled: false } }), "Automatic invitations disabled. An email already being submitted may still complete.")} data-testid="button-disable-auto-invite">Disable automatic invitations</button>
+            : c.reviewed && c.highConfidence && !c.claimed && !c.suppressed && !c.published && !c.outreachBlocked && <form onSubmit={e => {
+              e.preventDefault();
+              if (!window.confirm(`Approve ${businessEmail} as a business contact for ${c.name} and opt in to delayed automatic invitations?`)) return;
+              void run(() => autoInvite.mutateAsync({sourceName, sourceId, data: { enabled: true, email: businessEmail, evidence: contactEvidence }}), "Contact approved; automatic invitations opted in.");
+            }}>
+              <label className="osm-field">Verified business contact email<input type="email" required maxLength={254} value={businessEmail} onChange={e => setBusinessEmail(e.target.value)} data-testid="input-auto-contact" /></label>
+              <label className="osm-field">Where you verified this contact and why it represents the business<textarea required minLength={10} maxLength={2000} value={contactEvidence} onChange={e => setContactEvidence(e.target.value)} data-testid="input-auto-evidence" /></label>
+              <button className="osm-btn" type="submit" disabled={pending} data-testid="button-enable-auto-invite">Approve contact & opt in</button>
+            </form>}
+          <p className="osm-small">Global automatic sending must also be enabled on the server. Turning this off cannot cancel a message already being submitted.</p>
+        </div>
         <div className="osm-actions">
           {c.state === "unverified" && <button disabled={pending} className="osm-btn" onClick={() => void run(() => review.mutateAsync({ sourceName, sourceId }), "Marked as reviewed.")} data-testid="button-review-candidate">Mark reviewed</button>}
           {!c.suppressed && <button disabled={pending} className="osm-btn danger" onClick={() => { if (window.confirm("Suppress this lead and block further outreach?")) void run(() => suppress.mutateAsync({ sourceName, sourceId, data: { reason } }), "Candidate suppressed."); }} data-testid="button-suppress-candidate">Reject / suppress</button>}
@@ -133,7 +157,7 @@ export default function AdminCandidatesPage() {
     <div className="osm-tabs" role="tablist" aria-label="Candidate workflow">{panels.map((p,i) => <button role="tab" aria-selected={panel===i} className={`osm-tab ${panel===i ? "active" : ""}`} key={p.label} onClick={() => {setPanel(i);setCursor(undefined);setSelected(null);}} data-testid={`tab-${p.state}`}>{p.label}</button>)}</div>
     <div className="osm-top"><div><h2>{panels[panel].label}</h2><p className="osm-intro">{panels[panel].description}</p></div><button className="osm-btn quiet" onClick={() => void list.refetch()} data-testid="button-refresh-candidates">Refresh list</button></div>
     {selected && <CandidateDetail key={`${selected.candidate.sourceName}:${selected.candidate.sourceId}`} row={selected} close={() => setSelected(null)} />}
-    <section className="osm-card">{list.isLoading || (panel===4 && published.isLoading) ? <><div className="osm-skeleton"/><div className="osm-skeleton"/><div className="osm-skeleton"/></> : list.isError || (panel===4 && published.isError) ? <div className="osm-error" role="alert">Could not load candidates. Check your administrator session. <button className="osm-btn quiet" onClick={() => {void list.refetch();if(panel===4)void published.refetch();}} data-testid="button-retry-candidates">Try again</button></div> : !rows.length ? <div className="osm-empty"><h3>Nothing in this queue</h3><p>There are no candidates at this stage right now.</p></div> : <div className="osm-table-scroll"><table className="osm-table"><thead><tr><th>Name</th><th>Address</th><th>Status</th><th>Actions</th></tr></thead><tbody>{rows.map(row => <tr key={`${row.candidate.sourceName}:${row.candidate.sourceId}`} data-testid={`row-candidate-${row.candidate.sourceId}`}><td><strong className="osm-strong">{row.candidate.name}</strong><br/><span className="osm-small">{row.candidate.sourceName} · {row.candidate.sourceId}</span></td><td>{row.candidate.address || <span className="osm-small">Not provided</span>}</td><td><span className={`osm-pill ${row.candidate.published ? "good" : ""}`}>{row.candidate.state.replaceAll("_"," ")}</span><br/><span className="osm-small">{row.evidence.ownershipStatus} / {row.evidence.rightsStatus}{row.activation.currentStep ? ` · ${row.activation.currentStep}` : ""}</span></td><td><button className="osm-btn quiet" onClick={() => setSelected(row)} data-testid={`button-open-candidate-${row.candidate.sourceId}`}>Review details</button></td></tr>)}</tbody></table></div>}
+    <section className="osm-card">{list.isLoading || (panel===4 && published.isLoading) ? <><div className="osm-skeleton"/><div className="osm-skeleton"/><div className="osm-skeleton"/></> : list.isError || (panel===4 && published.isError) ? <div className="osm-error" role="alert">Could not load candidates. Check your administrator session. <button className="osm-btn quiet" onClick={() => {void list.refetch();if(panel===4)void published.refetch();}} data-testid="button-retry-candidates">Try again</button></div> : !rows.length ? <div className="osm-empty"><h3>Nothing in this queue</h3><p>There are no candidates at this stage right now.</p></div> : <div className="osm-table-scroll"><table className="osm-table"><thead><tr><th>Name</th><th>Address</th><th>Status</th><th>Automatic invitations</th><th>Actions</th></tr></thead><tbody>{rows.map(row => <tr key={`${row.candidate.sourceName}:${row.candidate.sourceId}`} data-testid={`row-candidate-${row.candidate.sourceId}`}><td><strong className="osm-strong">{row.candidate.name}</strong><br/><span className="osm-small">{row.candidate.sourceName} · {row.candidate.sourceId}</span></td><td>{row.candidate.address || <span className="osm-small">Not provided</span>}</td><td><span className={`osm-pill ${row.candidate.published ? "good" : ""}`}>{row.candidate.state.replaceAll("_"," ")}</span><br/><span className="osm-small">{row.evidence.ownershipStatus} / {row.evidence.rightsStatus}{row.activation.currentStep ? ` · ${row.activation.currentStep}` : ""}</span></td><td><span className={`osm-pill ${row.candidate.autoInviteStatus === "unknown" ? "danger" : ""}`}>{row.candidate.autoInviteStatus}</span>{row.candidate.autoInviteDueAt && <><br/><span className="osm-small">{new Date(row.candidate.autoInviteDueAt).toLocaleString()}</span></>}</td><td><button className="osm-btn quiet" onClick={() => setSelected(row)} data-testid={`button-open-candidate-${row.candidate.sourceId}`}>Review details</button></td></tr>)}</tbody></table></div>}
     {list.data?.nextCursor && <button className="osm-btn quiet" onClick={() => {setCursor(list.data?.nextCursor ?? undefined);setSelected(null);}} data-testid="button-next-candidates">Next page</button>}{cursor && <button className="osm-btn quiet" style={{marginLeft:8}} onClick={() => {setCursor(undefined);setSelected(null);}} data-testid="button-first-candidates">First page</button>}
     </section>
   </div></AdminLayout>;

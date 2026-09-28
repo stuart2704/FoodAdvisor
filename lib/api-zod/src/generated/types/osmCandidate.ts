@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { OsmCandidateAutoInviteStatus } from './osmCandidateAutoInviteStatus';
 import type { OsmCandidateState } from './osmCandidateState';
 
 export interface OsmCandidate {
@@ -49,4 +50,20 @@ export interface OsmCandidate {
      */
   inviteCount: number;
   requiredFieldsComplete: boolean;
+  autoInviteEnabled: boolean;
+  /**
+     * Private approved business contact; admin-only.
+     * @nullable
+     */
+  approvedContactEmail: string | null;
+  /**
+     * Private admin-reviewed provenance for the business contact.
+     * @nullable
+     */
+  contactEvidence: string | null;
+  /** @nullable */
+  contactApprovedAt: Date | null;
+  autoInviteStatus: OsmCandidateAutoInviteStatus;
+  /** @nullable */
+  autoInviteDueAt: Date | null;
 }

@@ -8,6 +8,52 @@ export const VERIFICATION_CODE_TTL_MS = 10 * 60 * 1_000;
 export const VERIFICATION_CODE_MAX_ATTEMPTS = 5;
 export const MAX_CLAIM_INVITES = 3;
 export const MIN_INVITE_INTERVAL_MS = 7 * 24 * 60 * 60 * 1_000;
+export const AUTO_INVITE_REVIEW_DELAY_MS = 48 * 60 * 60 * 1_000;
+
+export function validBusinessEmail(value: string): boolean {
+  return value.length <= 254 && /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(value);
+}
+
+export function autoInviteEligibility(input: {
+  reviewed: boolean;
+  reviewedAt: Date | null;
+  highConfidence: boolean;
+  suppressed: boolean;
+  published: boolean;
+  claimed: boolean;
+  outreachBlocked: boolean;
+  autoInviteEnabled: boolean;
+  approvedContactEmail: string | null;
+  contactEvidence: string | null;
+  contactApprovedAt: Date | null;
+  inviteCount: number;
+}, latest: { status: string; createdAt: Date } | undefined, now: Date): {
+  status: "disabled" | "waiting" | "due" | "sent" | "failed" | "unknown" | "complete" | "ineligible";
+  dueAt: Date | null;
+} {
+  if (!input.autoInviteEnabled) return { status: "disabled", dueAt: null };
+  if (!input.reviewed || !input.highConfidence || input.suppressed || input.published
+      || input.claimed || input.outreachBlocked || !input.reviewedAt
+      || !input.contactApprovedAt || !input.contactEvidence?.trim()
+      || !input.approvedContactEmail || !validBusinessEmail(input.approvedContactEmail)) {
+    return { status: "ineligible", dueAt: null };
+  }
+  if (latest?.status === "reserved" || latest?.status === "unknown") {
+    return { status: "unknown", dueAt: null };
+  }
+  if (input.inviteCount >= MAX_CLAIM_INVITES) {
+    return { status: latest?.status === "failed" ? "failed" : latest?.status === "sent" ? "sent" : "complete", dueAt: null };
+  }
+  const dueAt = new Date(Math.max(
+    input.reviewedAt.getTime() + AUTO_INVITE_REVIEW_DELAY_MS,
+    input.contactApprovedAt.getTime() + AUTO_INVITE_REVIEW_DELAY_MS,
+    latest ? latest.createdAt.getTime() + MIN_INVITE_INTERVAL_MS : 0,
+  ));
+  if (dueAt.getTime() > now.getTime()) {
+    return { status: latest?.status === "sent" ? "sent" : latest?.status === "failed" ? "failed" : "waiting", dueAt };
+  }
+  return { status: "due", dueAt };
+}
 
 export type OsmCandidateState =
   | "unverified"

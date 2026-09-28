@@ -71,6 +71,20 @@ export const OsmActivationStep = {
   finalization: 'finalization',
 } as const;
 
+export type OsmCandidateAutoInviteStatus = typeof OsmCandidateAutoInviteStatus[keyof typeof OsmCandidateAutoInviteStatus];
+
+
+export const OsmCandidateAutoInviteStatus = {
+  disabled: 'disabled',
+  waiting: 'waiting',
+  due: 'due',
+  sent: 'sent',
+  failed: 'failed',
+  unknown: 'unknown',
+  complete: 'complete',
+  ineligible: 'ineligible',
+} as const;
+
 export interface OsmCandidate {
   sourceName: string;
   sourceId: string;
@@ -113,6 +127,22 @@ export interface OsmCandidate {
      */
   inviteCount: number;
   requiredFieldsComplete: boolean;
+  autoInviteEnabled: boolean;
+  /**
+     * Private approved business contact; admin-only.
+     * @nullable
+     */
+  approvedContactEmail: string | null;
+  /**
+     * Private admin-reviewed provenance for the business contact.
+     * @nullable
+     */
+  contactEvidence: string | null;
+  /** @nullable */
+  contactApprovedAt: string | null;
+  autoInviteStatus: OsmCandidateAutoInviteStatus;
+  /** @nullable */
+  autoInviteDueAt: string | null;
 }
 
 /**
@@ -259,6 +289,18 @@ export interface OsmEvidenceDecisionInput {
      * @nullable
      */
   reviewerNote?: string | null;
+}
+
+export interface OsmAutoInviteInput {
+  enabled: boolean;
+  /** @maxLength 254 */
+  email?: string;
+  /**
+     * Admin-reviewed business contact source and reason for approval.
+     * @minLength 10
+     * @maxLength 2000
+     */
+  evidence?: string;
 }
 
 export interface OsmOutreachPreferenceInput {

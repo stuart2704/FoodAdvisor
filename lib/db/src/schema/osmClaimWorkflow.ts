@@ -51,6 +51,11 @@ export const osmCandidateWorkflowsTable = pgTable(
     highConfidence: boolean("high_confidence").notNull().default(false),
     inviteCount: integer("invite_count").notNull().default(0),
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    approvedContactEmail: text("approved_contact_email"),
+    contactEvidence: text("contact_evidence"),
+    contactApprovedAt: timestamp("contact_approved_at", { withTimezone: true }),
+    contactApprovedBy: text("contact_approved_by"),
+    autoInviteEnabled: boolean("auto_invite_enabled").notNull().default(false),
     ownerDraft: jsonb("owner_draft")
       .$type<OsmOwnerDraftData>()
       .notNull(),

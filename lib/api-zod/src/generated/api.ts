@@ -1109,7 +1109,13 @@ export const ListOsmCandidatesResponse = zod.object({
   "outreachBlocked": zod.boolean(),
   "highConfidence": zod.boolean(),
   "inviteCount": zod.number().int().min(listOsmCandidatesResponseItemsItemCandidateInviteCountMin).max(listOsmCandidatesResponseItemsItemCandidateInviteCountMax),
-  "requiredFieldsComplete": zod.boolean()
+  "requiredFieldsComplete": zod.boolean(),
+  "autoInviteEnabled": zod.boolean(),
+  "approvedContactEmail": zod.string().nullable().describe('Private approved business contact; admin-only.'),
+  "contactEvidence": zod.string().nullable().describe('Private admin-reviewed provenance for the business contact.'),
+  "contactApprovedAt": zod.coerce.date().nullable(),
+  "autoInviteStatus": zod.enum(['disabled', 'waiting', 'due', 'sent', 'failed', 'unknown', 'complete', 'ineligible']),
+  "autoInviteDueAt": zod.coerce.date().nullable()
 }),
   "evidence": zod.object({
   "ownershipStatus": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
@@ -1203,7 +1209,13 @@ export const GetOsmCandidateResponse = zod.object({
   "outreachBlocked": zod.boolean(),
   "highConfidence": zod.boolean(),
   "inviteCount": zod.number().int().min(getOsmCandidateResponseCandidateInviteCountMin).max(getOsmCandidateResponseCandidateInviteCountMax),
-  "requiredFieldsComplete": zod.boolean()
+  "requiredFieldsComplete": zod.boolean(),
+  "autoInviteEnabled": zod.boolean(),
+  "approvedContactEmail": zod.string().nullable().describe('Private approved business contact; admin-only.'),
+  "contactEvidence": zod.string().nullable().describe('Private admin-reviewed provenance for the business contact.'),
+  "contactApprovedAt": zod.coerce.date().nullable(),
+  "autoInviteStatus": zod.enum(['disabled', 'waiting', 'due', 'sent', 'failed', 'unknown', 'complete', 'ineligible']),
+  "autoInviteDueAt": zod.coerce.date().nullable()
 }),
   "evidence": zod.object({
   "ownershipStatus": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
@@ -1295,7 +1307,13 @@ export const ReviewOsmCandidateResponse = zod.object({
   "outreachBlocked": zod.boolean(),
   "highConfidence": zod.boolean(),
   "inviteCount": zod.number().int().min(reviewOsmCandidateResponseCandidateInviteCountMin).max(reviewOsmCandidateResponseCandidateInviteCountMax),
-  "requiredFieldsComplete": zod.boolean()
+  "requiredFieldsComplete": zod.boolean(),
+  "autoInviteEnabled": zod.boolean(),
+  "approvedContactEmail": zod.string().nullable().describe('Private approved business contact; admin-only.'),
+  "contactEvidence": zod.string().nullable().describe('Private admin-reviewed provenance for the business contact.'),
+  "contactApprovedAt": zod.coerce.date().nullable(),
+  "autoInviteStatus": zod.enum(['disabled', 'waiting', 'due', 'sent', 'failed', 'unknown', 'complete', 'ineligible']),
+  "autoInviteDueAt": zod.coerce.date().nullable()
 }),
   "evidence": zod.object({
   "ownershipStatus": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
@@ -1395,7 +1413,13 @@ export const SuppressOsmCandidateResponse = zod.object({
   "outreachBlocked": zod.boolean(),
   "highConfidence": zod.boolean(),
   "inviteCount": zod.number().int().min(suppressOsmCandidateResponseCandidateInviteCountMin).max(suppressOsmCandidateResponseCandidateInviteCountMax),
-  "requiredFieldsComplete": zod.boolean()
+  "requiredFieldsComplete": zod.boolean(),
+  "autoInviteEnabled": zod.boolean(),
+  "approvedContactEmail": zod.string().nullable().describe('Private approved business contact; admin-only.'),
+  "contactEvidence": zod.string().nullable().describe('Private admin-reviewed provenance for the business contact.'),
+  "contactApprovedAt": zod.coerce.date().nullable(),
+  "autoInviteStatus": zod.enum(['disabled', 'waiting', 'due', 'sent', 'failed', 'unknown', 'complete', 'ineligible']),
+  "autoInviteDueAt": zod.coerce.date().nullable()
 }),
   "evidence": zod.object({
   "ownershipStatus": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
@@ -1560,7 +1584,13 @@ export const DecideOsmCandidateEvidenceResponse = zod.object({
   "outreachBlocked": zod.boolean(),
   "highConfidence": zod.boolean(),
   "inviteCount": zod.number().int().min(decideOsmCandidateEvidenceResponseCandidateInviteCountMin).max(decideOsmCandidateEvidenceResponseCandidateInviteCountMax),
-  "requiredFieldsComplete": zod.boolean()
+  "requiredFieldsComplete": zod.boolean(),
+  "autoInviteEnabled": zod.boolean(),
+  "approvedContactEmail": zod.string().nullable().describe('Private approved business contact; admin-only.'),
+  "contactEvidence": zod.string().nullable().describe('Private admin-reviewed provenance for the business contact.'),
+  "contactApprovedAt": zod.coerce.date().nullable(),
+  "autoInviteStatus": zod.enum(['disabled', 'waiting', 'due', 'sent', 'failed', 'unknown', 'complete', 'ineligible']),
+  "autoInviteDueAt": zod.coerce.date().nullable()
 }),
   "evidence": zod.object({
   "ownershipStatus": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
@@ -1656,7 +1686,13 @@ export const SetOsmCandidateOutreachBlockedResponse = zod.object({
   "outreachBlocked": zod.boolean(),
   "highConfidence": zod.boolean(),
   "inviteCount": zod.number().int().min(setOsmCandidateOutreachBlockedResponseCandidateInviteCountMin).max(setOsmCandidateOutreachBlockedResponseCandidateInviteCountMax),
-  "requiredFieldsComplete": zod.boolean()
+  "requiredFieldsComplete": zod.boolean(),
+  "autoInviteEnabled": zod.boolean(),
+  "approvedContactEmail": zod.string().nullable().describe('Private approved business contact; admin-only.'),
+  "contactEvidence": zod.string().nullable().describe('Private admin-reviewed provenance for the business contact.'),
+  "contactApprovedAt": zod.coerce.date().nullable(),
+  "autoInviteStatus": zod.enum(['disabled', 'waiting', 'due', 'sent', 'failed', 'unknown', 'complete', 'ineligible']),
+  "autoInviteDueAt": zod.coerce.date().nullable()
 }),
   "evidence": zod.object({
   "ownershipStatus": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
@@ -1692,6 +1728,117 @@ export const SetOsmCandidateOutreachBlockedResponse = zod.object({
   "errors": zod.array(zod.object({
   "step": zod.enum(['promotion', 'enrichment', 'scoring', 'publication', 'finalization']),
   "errorCode": zod.string().max(setOsmCandidateOutreachBlockedResponseActivationErrorsItemErrorCodeMax),
+  "timestamp": zod.coerce.date()
+})),
+  "activatedAt": zod.coerce.date().nullable()
+})
+})
+
+
+/**
+ * @summary Approve a business contact and opt this candidate into delayed invitations, or disable it
+ */
+export const setOsmCandidateAutoInvitePathSourceNameMax = 80;
+
+export const setOsmCandidateAutoInvitePathSourceIdMax = 512;
+
+
+
+export const SetOsmCandidateAutoInviteParams = zod.object({
+  "sourceName": zod.coerce.string().min(1).max(setOsmCandidateAutoInvitePathSourceNameMax),
+  "sourceId": zod.coerce.string().min(1).max(setOsmCandidateAutoInvitePathSourceIdMax)
+})
+
+export const setOsmCandidateAutoInviteBodyEmailMax = 254;
+
+export const setOsmCandidateAutoInviteBodyEvidenceMin = 10;
+export const setOsmCandidateAutoInviteBodyEvidenceMax = 2000;
+
+
+
+export const SetOsmCandidateAutoInviteBody = zod.object({
+  "enabled": zod.boolean(),
+  "email": zod.string().email().max(setOsmCandidateAutoInviteBodyEmailMax).optional(),
+  "evidence": zod.string().min(setOsmCandidateAutoInviteBodyEvidenceMin).max(setOsmCandidateAutoInviteBodyEvidenceMax).optional().describe('Admin-reviewed business contact source and reason for approval.')
+})
+
+export const setOsmCandidateAutoInviteResponseCandidateLatitudeMin = -90;
+export const setOsmCandidateAutoInviteResponseCandidateLatitudeMax = 90;
+
+export const setOsmCandidateAutoInviteResponseCandidateLongitudeMin = -180;
+export const setOsmCandidateAutoInviteResponseCandidateLongitudeMax = 180;
+
+export const setOsmCandidateAutoInviteResponseCandidateInviteCountMin = 0;
+export const setOsmCandidateAutoInviteResponseCandidateInviteCountMax = 3;
+
+export const setOsmCandidateAutoInviteResponseActivationErrorsItemErrorCodeMax = 100;
+
+
+
+export const SetOsmCandidateAutoInviteResponse = zod.object({
+  "candidate": zod.object({
+  "sourceName": zod.string(),
+  "sourceId": zod.string(),
+  "name": zod.string(),
+  "address": zod.string().nullable(),
+  "phone": zod.string().nullable(),
+  "website": zod.string().nullable(),
+  "latitude": zod.number().min(setOsmCandidateAutoInviteResponseCandidateLatitudeMin).max(setOsmCandidateAutoInviteResponseCandidateLatitudeMax).nullable(),
+  "longitude": zod.number().min(setOsmCandidateAutoInviteResponseCandidateLongitudeMin).max(setOsmCandidateAutoInviteResponseCandidateLongitudeMax).nullable(),
+  "importedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullish(),
+  "state": zod.enum(['unverified', 'reviewed', 'claim_invited', 'claim_verified', 'activated', 'published', 'suppressed']),
+  "reviewed": zod.boolean(),
+  "claimed": zod.boolean(),
+  "identityVerified": zod.boolean().describe('Email channel ownership only; not business ownership proof.'),
+  "rightsConfirmed": zod.boolean().describe('True only after explicit admin approval of source reuse rights evidence.'),
+  "published": zod.boolean(),
+  "suppressed": zod.boolean(),
+  "outreachBlocked": zod.boolean(),
+  "highConfidence": zod.boolean(),
+  "inviteCount": zod.number().int().min(setOsmCandidateAutoInviteResponseCandidateInviteCountMin).max(setOsmCandidateAutoInviteResponseCandidateInviteCountMax),
+  "requiredFieldsComplete": zod.boolean(),
+  "autoInviteEnabled": zod.boolean(),
+  "approvedContactEmail": zod.string().nullable().describe('Private approved business contact; admin-only.'),
+  "contactEvidence": zod.string().nullable().describe('Private admin-reviewed provenance for the business contact.'),
+  "contactApprovedAt": zod.coerce.date().nullable(),
+  "autoInviteStatus": zod.enum(['disabled', 'waiting', 'due', 'sent', 'failed', 'unknown', 'complete', 'ineligible']),
+  "autoInviteDueAt": zod.coerce.date().nullable()
+}),
+  "evidence": zod.object({
+  "ownershipStatus": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "rightsStatus": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "submittedAt": zod.coerce.date().nullable(),
+  "ownershipSubmission": zod.union([zod.object({
+  "status": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "description": zod.string(),
+  "evidenceUrl": zod.string().url().nullable(),
+  "sourceAttribution": zod.string().nullable(),
+  "submittedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullable(),
+  "reviewedBy": zod.string().nullable(),
+  "reviewerNote": zod.string().nullable()
+}).describe('Private evidence details returned only to authenticated administrators.'),zod.null()]),
+  "sourceRightsSubmission": zod.union([zod.object({
+  "status": zod.enum(['not_submitted', 'pending', 'approved', 'rejected']),
+  "description": zod.string(),
+  "evidenceUrl": zod.string().url().nullable(),
+  "sourceAttribution": zod.string().nullable(),
+  "submittedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullable(),
+  "reviewedBy": zod.string().nullable(),
+  "reviewerNote": zod.string().nullable()
+}).describe('Private evidence details returned only to authenticated administrators.'),zod.null()])
+}),
+  "activation": zod.object({
+  "promoted": zod.boolean(),
+  "enriched": zod.boolean(),
+  "scored": zod.boolean(),
+  "published": zod.boolean(),
+  "currentStep": zod.enum(['promotion', 'enrichment', 'scoring', 'publication', 'finalization']).nullable(),
+  "errors": zod.array(zod.object({
+  "step": zod.enum(['promotion', 'enrichment', 'scoring', 'publication', 'finalization']),
+  "errorCode": zod.string().max(setOsmCandidateAutoInviteResponseActivationErrorsItemErrorCodeMax),
   "timestamp": zod.coerce.date()
 })),
   "activatedAt": zod.coerce.date().nullable()
@@ -2015,7 +2162,13 @@ export const GetOsmOwnerDashboardResponse = zod.object({
   "outreachBlocked": zod.boolean(),
   "highConfidence": zod.boolean(),
   "inviteCount": zod.number().int().min(getOsmOwnerDashboardResponseCandidateInviteCountMin).max(getOsmOwnerDashboardResponseCandidateInviteCountMax),
-  "requiredFieldsComplete": zod.boolean()
+  "requiredFieldsComplete": zod.boolean(),
+  "autoInviteEnabled": zod.boolean(),
+  "approvedContactEmail": zod.string().nullable().describe('Private approved business contact; admin-only.'),
+  "contactEvidence": zod.string().nullable().describe('Private admin-reviewed provenance for the business contact.'),
+  "contactApprovedAt": zod.coerce.date().nullable(),
+  "autoInviteStatus": zod.enum(['disabled', 'waiting', 'due', 'sent', 'failed', 'unknown', 'complete', 'ineligible']),
+  "autoInviteDueAt": zod.coerce.date().nullable()
 }),
   "draft": zod.object({
   "name": zod.string(),

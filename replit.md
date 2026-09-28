@@ -40,6 +40,8 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 _Populate as you build — sharp edges, "always run X before Y" rules._
 
+- OSM claim invitations are separate from general outreach. Automatic sending requires production, `OSM_CLAIM_AUTO_INVITES_ENABLED=true`, an individually reviewed high-confidence candidate, and an admin-approved business email with recorded provenance. It never publishes listings. Apply the additive OSM claim-invite migration to the app's database before enabling the scheduler; do not use a broad forced schema push against an external production database.
+
 ## Pointers
 
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details

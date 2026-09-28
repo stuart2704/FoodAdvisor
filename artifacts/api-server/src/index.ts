@@ -3,6 +3,7 @@ import { logger } from "./lib/logger";
 import { startWatchRenewal } from "./cron/watchRenewal";
 import { startWatchHealthCheck } from "./cron/watchHealthCheck";
 import { startDailyOutreachScheduler } from "./cron/dailyOutreach";
+import { startOsmClaimInviteScheduler } from "./cron/osmClaimInvites";
 import { initializeStripe } from "./services/stripeClient";
 import { startDailyRankingScheduler } from "./cron/dailyRankings";
 import { startAnalyticsRollupScheduler } from "./cron/analyticsRollup";
@@ -43,6 +44,7 @@ async function initializeAfterListen(): Promise<void> {
   startWatchRenewal();
   startWatchHealthCheck();
   startDailyOutreachScheduler();
+  startOsmClaimInviteScheduler();
   startDailyRankingScheduler();
   startAnalyticsRollupScheduler();
   startGlobalMetricsScheduler();

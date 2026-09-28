@@ -1103,6 +1103,30 @@ paths:
               schema: { $ref: "#/components/schemas/OsmCandidateWorkflow" }
         "401": { description: Admin login required }
         "404": { description: Candidate not found }
+  /dashboard/osm-candidates/{sourceName}/{sourceId}/auto-invite:
+    put:
+      operationId: setOsmCandidateAutoInvite
+      tags: [osm-candidates]
+      security: [{ adminSession: [] }]
+      summary: Approve a business contact and opt this candidate into delayed invitations, or disable it
+      parameters:
+        - $ref: "#/components/parameters/OsmSourceName"
+        - $ref: "#/components/parameters/OsmSourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OsmAutoInviteInput" }
+      responses:
+        "200":
+          description: Candidate and invitation eligibility refreshed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OsmCandidateWorkflow" }
+        "400": { description: Invalid contact approval }
+        "401": { description: Admin login required }
+        "404": { description: Candidate not found }
+        "409": { description: Candidate is no longer eligible }
   /dashboard/osm-candidates/{sourceName}/{sourceId}/outreach-logs:
     get:
       operationId: listOsmCandidateOutreachLogs
@@ -1530,7 +1554,7 @@ components:
     OsmCandidate:
       type: object
       additionalProperties: false
-      required: [sourceName, sourceId, name, address, phone, website, latitude, longitude, importedAt, state, reviewed, claimed, identityVerified, rightsConfirmed, published, suppressed, outreachBlocked, highConfidence, inviteCount, requiredFieldsComplete]
+      required: [sourceName, sourceId, name, address, phone, website, latitude, longitude, importedAt, state, reviewed, claimed, identityVerified, rightsConfirmed, published, suppressed, outreachBlocked, highConfidence, inviteCount, requiredFieldsComplete, autoInviteEnabled, approvedContactEmail, contactEvidence, contactApprovedAt, autoInviteStatus, autoInviteDueAt]
       properties:
         sourceName: { type: string }
         sourceId: { type: string }
@@ -1553,6 +1577,12 @@ components:
         highConfidence: { type: boolean }
         inviteCount: { type: integer, minimum: 0, maximum: 3 }
         requiredFieldsComplete: { type: boolean }
+        autoInviteEnabled: { type: boolean }
+        approvedContactEmail: { type: ["string", "null"], description: Private approved business contact; admin-only. }
+        contactEvidence: { type: ["string", "null"], description: Private admin-reviewed provenance for the business contact. }
+        contactApprovedAt: { type: ["string", "null"], format: date-time }
+        autoInviteStatus: { type: string, enum: [disabled, waiting, due, sent, failed, unknown, complete, ineligible] }
+        autoInviteDueAt: { type: ["string", "null"], format: date-time }
     OsmCandidateWorkflow:
       type: object
       additionalProperties: false
@@ -1637,6 +1667,14 @@ components:
         reviewedAt: { type: ["string", "null"], format: date-time }
         reviewedBy: { type: ["string", "null"] }
         reviewerNote: { type: ["string", "null"] }
+    OsmAutoInviteInput:
+      type: object
+      additionalProperties: false
+      required: [enabled]
+      properties:
+        enabled: { type: boolean }
+        email: { type: string, format: email, maxLength: 254 }
+        evidence: { type: string, minLength: 10, maxLength: 2000, description: Admin-reviewed business contact source and reason for approval. }
     OsmOutreachPreferenceInput:
       type: object
       additionalProperties: false
