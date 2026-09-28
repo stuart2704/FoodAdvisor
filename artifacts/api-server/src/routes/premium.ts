@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { createCheckoutSession } from "../services/stripeService";
+import { validatePremiumPrice } from "../services/stripeClient";
 
 const router: IRouter = Router();
 
@@ -21,6 +22,22 @@ const CheckoutBody = z
     portalToken: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
   })
   .strict();
+
+// Release check: GET /api/premium/readiness must return 200 on the published
+// domain before directing owners to Premium. Keep /api/healthz for liveness.
+router.get("/premium/readiness", async (req, res): Promise<void> => {
+  res.setHeader("Cache-Control", "no-store");
+  try {
+    await validatePremiumPrice();
+    res.json({ status: "ready" });
+  } catch (error) {
+    req.log.error({ err: error }, "Premium price readiness check failed");
+    res.status(503).json({
+      status: "unavailable",
+      error: "Premium checkout is not ready. No charge was made.",
+    });
+  }
+});
 
 router.post(
   "/premium/checkout",

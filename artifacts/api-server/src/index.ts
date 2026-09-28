@@ -62,7 +62,7 @@ async function initializeAfterListen(): Promise<void> {
   } catch (err) {
     logger.error(
       { err },
-      "Stripe initialization failed; payment routes remain unavailable.",
+      "Stripe initialization failed; check /api/premium/readiness before advertising checkout.",
     );
   }
 }

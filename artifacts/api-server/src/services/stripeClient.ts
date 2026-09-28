@@ -224,9 +224,18 @@ export async function getPremiumStripeClient(): Promise<{
   livemode: boolean;
 }> {
   const { secretKey } = await getStripeCredentials();
+  const livemode = stripeKeyLivemode(secretKey);
+  if (
+    (process.env.REPLIT_DEPLOYMENT === "1" ||
+      !!process.env.WEB_REPL_RENEWAL ||
+      process.env.NODE_ENV === "production") &&
+    !livemode
+  ) {
+    throw new Error("Production Premium checkout requires live Stripe credentials.");
+  }
   return {
     stripe: new Stripe(secretKey, { maxNetworkRetries: 2 }),
-    livemode: stripeKeyLivemode(secretKey),
+    livemode,
   };
 }
 
@@ -330,15 +339,13 @@ function managedWebhookUrl(): string {
   return `${webhookBaseUrl()}/api/stripe/webhook`;
 }
 
-async function validatePremiumPrice(): Promise<void> {
+/** Read-only release probe. Never creates a customer, checkout session, or charge. */
+export async function validatePremiumPrice(): Promise<void> {
   const { stripe, livemode } = await getPremiumStripeClient();
   const priceId = getPremiumPriceId(livemode);
-  console.info("Validating Stripe Premium price", {
-    priceId,
-    livemode,
-  });
   const price = await stripe.prices.retrieve(priceId);
   if (
+    price.id !== priceId ||
     price.livemode !== livemode ||
     !price.active ||
     price.currency.toLowerCase() !== PREMIUM_CURRENCY ||
@@ -348,7 +355,7 @@ async function validatePremiumPrice(): Promise<void> {
     price.recurring.interval_count !== 1
   ) {
     throw new Error(
-      "STRIPE_PREMIUM_PRICE_ID must be the active £99 GBP monthly Price for the current Stripe environment.",
+      "Premium price must be an active £99 GBP monthly Price for the current Stripe environment.",
     );
   }
 }

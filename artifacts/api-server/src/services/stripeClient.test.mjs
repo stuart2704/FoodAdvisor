@@ -17,6 +17,11 @@ const stubs = {
 await Promise.all([
   writeFile(stubs.stripe, `export default class Stripe {
     constructor(key) { this.key = key; }
+    prices = { retrieve: async (id) => {
+      globalThis.__retrievedPrices.push(id);
+      if (globalThis.__priceError) throw globalThis.__priceError;
+      return globalThis.__price;
+    } };
     webhooks = { constructEventAsync: async (_body, signature, secret) => {
       globalThis.__verificationSecrets.push(secret);
       if (signature !== "valid") throw { type: "StripeSignatureVerificationError" };
@@ -35,8 +40,8 @@ await Promise.all([
   }
   export const runMigrations = async () => {};`),
   writeFile(stubs.connectors, `export class ReplitConnectors {}`),
-  writeFile(stubs.price, `export const getPremiumPriceId = () => "price_test";
-    export const stripeKeyLivemode = () => false;`),
+  writeFile(stubs.price, `export const getPremiumPriceId = (live) => live ? "price_live" : "price_test";
+    export const stripeKeyLivemode = (key) => key.startsWith("sk_live_");`),
 ]);
 const output = path.join(temp, "client.mjs");
 await build({
@@ -63,6 +68,8 @@ const original = {
   host: process.env.REPLIT_CONNECTORS_HOSTNAME,
   identity: process.env.REPL_IDENTITY,
   domain: process.env.REPLIT_DEV_DOMAIN,
+  nodeEnv: process.env.NODE_ENV,
+  deployment: process.env.REPLIT_DEPLOYMENT,
 };
 after(() => {
   globalThis.fetch = original.fetch;
@@ -72,6 +79,8 @@ after(() => {
     ["REPLIT_CONNECTORS_HOSTNAME", original.host],
     ["REPL_IDENTITY", original.identity],
     ["REPLIT_DEV_DOMAIN", original.domain],
+    ["NODE_ENV", original.nodeEnv],
+    ["REPLIT_DEPLOYMENT", original.deployment],
   ]) {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
@@ -86,7 +95,7 @@ globalThis.__closedPools = 0;
 let now = 1_000_000;
 Date.now = () => now;
 
-const { getUncachableStripeClient, getStripeSync, verifyStripeEvent } =
+const { getUncachableStripeClient, getStripeSync, verifyStripeEvent, validatePremiumPrice } =
   await import(pathToFileURL(output).href);
 const credentials = (key) => ({
   items: [{ environment: "development", status: "connected",
@@ -130,4 +139,43 @@ test("expired credentials retry a 429, and a failed refresh is not cached", asyn
   await assert.rejects(getUncachableStripeClient(), /503/);
   globalThis.fetch = async () => Response.json(credentials("sk_test_recovered"));
   assert.equal((await getUncachableStripeClient()).key, "sk_test_recovered");
+});
+
+test("release probe reads a live £99 monthly price without creating a checkout", async () => {
+  process.env.NODE_ENV = "production";
+  process.env.STRIPE_SECRET_KEY = "sk_live_example";
+  globalThis.__retrievedPrices = [];
+  globalThis.__price = {
+    id: "price_live", livemode: true, active: true, currency: "gbp",
+    unit_amount: 9900, type: "recurring",
+    recurring: { interval: "month", interval_count: 1 },
+  };
+  try {
+    await validatePremiumPrice();
+    assert.deepEqual(globalThis.__retrievedPrices, ["price_live"]);
+    for (const changed of [
+      { id: "price_other" }, { active: false }, { livemode: false }, { currency: "usd" },
+      { unit_amount: 9901 }, { type: "one_time" },
+      { recurring: { interval: "year", interval_count: 1 } },
+      { recurring: { interval: "month", interval_count: 2 } },
+    ]) {
+      globalThis.__price = { ...globalThis.__price, ...changed };
+      await assert.rejects(validatePremiumPrice(), /active £99 GBP monthly/);
+      globalThis.__price = {
+        id: "price_live", livemode: true, active: true, currency: "gbp",
+        unit_amount: 9900, type: "recurring",
+        recurring: { interval: "month", interval_count: 1 },
+      };
+    }
+    globalThis.__priceError = new Error("No such price");
+    await assert.rejects(validatePremiumPrice(), /No such price/);
+    globalThis.__priceError = undefined;
+    process.env.STRIPE_SECRET_KEY = "sk_test_example";
+    await assert.rejects(validatePremiumPrice(), /requires live Stripe credentials/);
+  } finally {
+    delete process.env.STRIPE_SECRET_KEY;
+    delete process.env.NODE_ENV;
+    delete globalThis.__price;
+    delete globalThis.__priceError;
+  }
 });

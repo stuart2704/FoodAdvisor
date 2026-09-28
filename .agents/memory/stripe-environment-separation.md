@@ -20,3 +20,9 @@ Published API processes repeatedly selected the development price because publis
 **Why:** Background task changes are isolated until the task is applied. Rebuilding the main project, even successfully, cannot include unmerged task changes.
 
 **How to apply:** Apply the finished task to the main project, republish, then confirm a new, non-sensitive startup marker from the running API before attempting checkout.
+
+Keep payment readiness separate from general API liveness. A usable restaurant site is not proof that the live Premium price is sellable; an operator should explicitly verify Premium readiness on the published deployment before advertising checkout, while diners can still browse if Stripe is unavailable.
+
+**Why:** Stripe initialization may fail after the API starts listening, and coupling general liveness to Stripe would hide an otherwise working site without establishing that the selected live price is valid.
+
+**How to apply:** Treat an independent, read-only price lookup against the production account as the release signal; do not infer readiness from development checks, the general health response, or checkout creation.

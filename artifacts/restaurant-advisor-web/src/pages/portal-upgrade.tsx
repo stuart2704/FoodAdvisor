@@ -24,6 +24,25 @@ export default function PortalUpgradePage() {
   const [portal, setPortal] = useState<PortalResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [checkoutReady, setCheckoutReady] = useState(false);
+  const [checkingCheckout, setCheckingCheckout] = useState(true);
+
+  async function checkCheckoutReadiness() {
+    setCheckingCheckout(true);
+    setCheckoutReady(false);
+    try {
+      const response = await fetch('/api/premium/readiness', { cache: 'no-store' });
+      setCheckoutReady(response.ok && (await response.json()).status === 'ready');
+    } catch {
+      setCheckoutReady(false);
+    } finally {
+      setCheckingCheckout(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!awaitingConfirmation) void checkCheckoutReadiness();
+  }, [awaitingConfirmation]);
 
   useEffect(() => {
     let active = true;
@@ -60,6 +79,7 @@ export default function PortalUpgradePage() {
   }, [token, awaitingConfirmation]);
 
   async function upgrade() {
+    if (!checkoutReady || checkingCheckout) return;
     setLoading(true);
     setError('');
     try {
@@ -129,7 +149,7 @@ export default function PortalUpgradePage() {
                 <p className="text-muted-foreground">
                   {awaitingConfirmation
                     ? 'We appreciate your business! Your checkout has returned, and we are waiting for Stripe to confirm payment before activating Premium. You can safely return to your portal; please do not pay again.'
-                    : 'Upgrade your restaurant listing to Premium for £99 GBP per month.'}
+                    : checkoutReady ? 'Upgrade your restaurant listing to Premium for £99 GBP per month.' : 'Premium checkout is currently unavailable.'}
                 </p>
                 {awaitingConfirmation && (
                   <p className="text-sm text-muted-foreground">
@@ -138,9 +158,17 @@ export default function PortalUpgradePage() {
                   </p>
                 )}
                 {cancelled && <p>Checkout was cancelled. Your existing listing is unchanged.</p>}
-                {!awaitingConfirmation && <Button onClick={upgrade} disabled={loading}>
+                {!awaitingConfirmation && !checkingCheckout && !checkoutReady && (
+                  <div role="status" data-testid="status-premium-checkout" className="text-sm text-muted-foreground">
+                    Please try again later. No charge was made.{' '}
+                    <button type="button" data-testid="button-recheck-checkout" className="font-semibold text-primary underline" onClick={() => void checkCheckoutReadiness()}>
+                      Check again
+                    </button>
+                  </div>
+                )}
+                {!awaitingConfirmation && <Button data-testid="button-upgrade-premium" onClick={upgrade} disabled={loading || checkingCheckout || !checkoutReady}>
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {loading ? 'Opening checkout…' : 'Upgrade Now'}
+                  {loading ? 'Opening checkout…' : checkingCheckout ? 'Checking availability…' : 'Upgrade Now'}
                 </Button>}
               </>
             )}
