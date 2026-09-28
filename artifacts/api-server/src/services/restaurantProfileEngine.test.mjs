@@ -185,6 +185,21 @@ test("profile exposes only active offers, including both same-day boundaries", a
   });
 });
 
+test("offer selection stays anchored to the request's UTC day across midnight", async () => {
+  reset([restaurant], [
+    offer(1, "Ends on request day", "2026-09-25", "2026-09-25"),
+    offer(2, "Starts next day", "2026-09-26", "2026-09-26"),
+  ]);
+  const beforeMidnight = await getRestaurantProfile(
+    restaurant.placeId, new Date("2026-09-25T23:59:59.000Z"),
+  );
+  assert.deepEqual(beforeMidnight.offers.map((item) => item.title), ["Ends on request day"]);
+  const afterMidnight = await getRestaurantProfile(
+    restaurant.placeId, new Date("2026-09-26T00:00:01.000Z"),
+  );
+  assert.deepEqual(afterMidnight.offers.map((item) => item.title), ["Starts next day"]);
+});
+
 test("unverified and unpublished listings cannot expose their stored offers", async () => {
   const states = [
     { claimStatus: null, claimedAt: null },

@@ -16,6 +16,7 @@ import { logEvent } from "../services/analyticsEngine";
 import { preserveVanishedLocation } from "../utils/locationAliases";
 import { asc, isNotNull, sql } from "drizzle-orm";
 import { cache } from "../lib/cache";
+import { profileCacheControl } from "../services/restaurantProfileCache";
 
 const router: IRouter = Router();
 
@@ -172,7 +173,9 @@ async function serveRestaurantProfile(
   id: string,
 ) {
   try {
-    const data = await getRestaurantProfile(id);
+    // Offer and event eligibility must use the same UTC day as the cache deadline.
+    const asOf = new Date();
+    const data = await getRestaurantProfile(id, asOf);
     if (!data) {
       res.status(404).json({ success: false, error: "Restaurant not found." });
       return;
@@ -187,7 +190,7 @@ async function serveRestaurantProfile(
     } catch (error) {
       req.log.warn({ err: error }, "Restaurant profile metric could not be recorded");
     }
-    res.setHeader("Cache-Control", "public, max-age=300");
+    res.setHeader("Cache-Control", profileCacheControl(asOf));
     res.json({ success: true, data });
   } catch (error) {
     req.log.error({ err: error }, "Restaurant profile query failed");

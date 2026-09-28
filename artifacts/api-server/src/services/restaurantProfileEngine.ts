@@ -137,6 +137,7 @@ export interface RestaurantProfile {
 
 export async function getRestaurantProfile(
   id: string,
+  asOf = new Date(),
 ): Promise<RestaurantProfile | null> {
   const placeId = id.trim();
   if (!placeId || placeId.length > 512) return null;
@@ -156,7 +157,7 @@ export async function getRestaurantProfile(
         eq(placeAmenityChecksTable.status, "completed")))
       .limit(1)
     : [];
-  const today = new Date().toISOString().slice(0, 10);
+  const today = asOf.toISOString().slice(0, 10);
   const [menu, chefRow, offers, events, collectionRows] = await Promise.all([
     db
       .select({
