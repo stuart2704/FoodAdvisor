@@ -22,6 +22,7 @@ export function ConnectedAccounts() {
   const [error, setError] = useState("");
   
   const [facebookRestaurantId, setFacebookRestaurantId] = useState("");
+  const [facebookPageId, setFacebookPageId] = useState("");
   const [facebookConfig, setFacebookConfig] = useState<OAuthConfig | null>(null);
   const [facebookPages, setFacebookPages] = useState<{ id: string; name: string }[]>([]);
   const [facebookConnecting, setFacebookConnecting] = useState(false);
@@ -87,6 +88,10 @@ export function ConnectedAccounts() {
         no_pages: "Meta returned no Pages for this login. The features listed under Business Integrations do not confirm which Page Meta granted to the app. If this persists after reconnecting, share the time of your attempt so we can check the login grant.",
         no_content_access: "Meta returned Pages, but did not report permission to create content on them for this login. Check the account's Page content access.",
         no_page_token: "Meta returned a Page with content access but did not provide a Page token. Reconnect and grant the requested Page permissions.",
+        direct_page_error: "Meta could not verify that Page ID with this Facebook login. Check the numeric Page ID on the Page itself and try again; the Page was not connected.",
+        direct_unverified: "Meta found the Page but did not confirm permission to create content for this login. The Page was not connected.",
+        direct_no_content: "Meta found the Page but did not grant this login permission to create content on it. The Page was not connected.",
+        direct_no_token: "Meta found the Page but did not issue a Page token to this login. The Page was not connected.",
         missing_code: "Facebook did not return a login code. Check your Facebook Login for Business configuration and try again.",
         token_error: "Facebook returned a login code, but the app could not exchange it. Check that the Meta app credentials and redirect URI match this Business Login app.",
         page_access_error: "Facebook login completed, but the app could not read your Pages. Check that your Business Login configuration grants pages_show_list and Page access.",
@@ -112,13 +117,21 @@ export function ConnectedAccounts() {
   }, []);
 
   const handleFacebookConnect = async () => {
+    const pageId = facebookPageId.trim();
+    if (pageId && !/^\d{1,30}$/.test(pageId)) {
+      setFacebookError("Enter the numeric Facebook Page ID, or leave the field blank.");
+      return;
+    }
     setFacebookConnecting(true);
     setFacebookError("");
     setConnectSuccess("");
     try {
       const result = await fetchSocial<{ authorizationUrl: string }>("/facebook/start", {
         method: "POST",
-        body: JSON.stringify(facebookRestaurantId.trim() ? { restaurantId: facebookRestaurantId.trim() } : {}),
+        body: JSON.stringify({
+          ...(facebookRestaurantId.trim() ? { restaurantId: facebookRestaurantId.trim() } : {}),
+          ...(pageId ? { pageId } : {}),
+        }),
       });
       window.location.assign(result.authorizationUrl);
     } catch (err) {
@@ -137,6 +150,7 @@ export function ConnectedAccounts() {
       });
       setFacebookPages([]);
       setFacebookRestaurantId("");
+      setFacebookPageId("");
       setConnectSuccess(`${result.pageName} connected to Facebook.`);
       await loadAccounts();
     } catch (err) {
@@ -238,7 +252,7 @@ export function ConnectedAccounts() {
       <div className="social-card">
         <h2>Connect Facebook Page</h2>
         <p style={{ color: "#aaa", fontSize: "0.9rem" }}>
-          Sign in with Facebook and choose a Page you manage. No Page access token needs to be copied.
+          Sign in with Facebook and choose a Page you manage. If Meta returns no Pages, enter its numeric Page ID below to check it directly. No access token needs to be copied.
         </p>
         <p>Facebook: <strong>{loading ? "Loading..." : accounts.some(account => account.platform === "facebook" && account.status === "connected") ? "Connected" : "Not Connected"}</strong></p>
         {facebookError && <div className="social-alert" role="alert">{facebookError}</div>}
@@ -263,6 +277,16 @@ export function ConnectedAccounts() {
               <label htmlFor="facebook-restaurant">Restaurant Place ID (optional)</label>
               <input id="facebook-restaurant" type="text" value={facebookRestaurantId}
                 onChange={e => setFacebookRestaurantId(e.target.value)} placeholder="Leave blank for The Food Advisor brand" />
+            </div>
+            <div className="social-form-group">
+              <label htmlFor="facebook-page-id">Facebook Page ID (optional)</label>
+              <input id="facebook-page-id" type="text" inputMode="numeric" pattern="[0-9]{1,30}"
+                value={facebookPageId} onChange={e => setFacebookPageId(e.target.value)}
+                placeholder="Numeric Page ID, not your profile ID or Page URL" />
+              <p style={{ color: "#aaa", fontSize: "0.8rem" }}>
+                On the public Facebook Page, open its name beneath the cover photo, then Transparency and privacy policy → Page ID.
+                This check will only connect a Page if Meta confirms a Page token and content permission.
+              </p>
             </div>
             <button type="button" className="social-btn" disabled={!facebookConfig?.configured || facebookConnecting}
               onClick={() => void handleFacebookConnect()}>

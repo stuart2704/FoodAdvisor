@@ -3,7 +3,8 @@ import { test } from "node:test";
 import {
   beginFacebookLogin, consumeFacebookLogin, savePendingPages, pendingPages,
   facebookAuthorizationUrl, facebookConfig, exchangeFacebookCode, fetchFacebookPages,
-  fetchFacebookPagesWithSummary, inspectFacebookPageGrant,
+  fetchFacebookPagesWithSummary, inspectFacebookPageGrant, checkFacebookPageById,
+  fetchConnectableFacebookPages,
 } from "./facebook.oauth.ts";
 
 function response() {
@@ -20,12 +21,13 @@ test("Facebook login is signed, browser-bound, scoped, and single use at callbac
   process.env.SESSION_SECRET = "test-only-session-secret-with-sufficient-length";
   try {
     const started = response();
-    const state = beginFacebookLogin(started, "restaurant-id");
+    const state = beginFacebookLogin(started, "restaurant-id", "123456");
     const saved = started.cookies[0];
     assert.equal(saved.options.httpOnly, true);
     assert.equal(saved.options.secure, true);
     assert.equal(saved.options.sameSite, "lax");
-    assert.equal(consumeFacebookLogin({ cookies: { [saved.name]: saved.value }, query: { state } }, response()), "restaurant-id");
+    assert.deepEqual(consumeFacebookLogin({ cookies: { [saved.name]: saved.value }, query: { state } }, response()),
+      { restaurantId: "restaurant-id", pageId: "123456" });
     assert.equal(consumeFacebookLogin({ cookies: {}, query: { state } }, response()), undefined);
     assert.equal(consumeFacebookLogin({ cookies: { [saved.name]: saved.value }, query: { state: "wrong" } }, response()), undefined);
     const tampered = saved.value.replace(/^./, saved.value[0] === "a" ? "b" : "a");
@@ -41,17 +43,62 @@ test("pending Page selection is encrypted, scoped, and expires", () => {
   process.env.SOCIAL_TOKEN_ENCRYPTION_KEY = "test-only-encryption-key";
   try {
     const started = response();
-    savePendingPages(started, "secret-user-token", null);
+    savePendingPages(started, "secret-user-token", null, "123456");
     const saved = started.cookies[0];
     assert.equal(saved.value.includes("secret-user-token"), false);
     assert.deepEqual(pendingPages({ cookies: { [saved.name]: saved.value } }), {
-      userToken: "secret-user-token", restaurantId: null,
+      userToken: "secret-user-token", restaurantId: null, pageId: "123456",
     });
     assert.equal(pendingPages({ cookies: { [saved.name]: `${saved.value}tampered` } }), null);
   } finally {
     if (previous === undefined) delete process.env.SOCIAL_TOKEN_ENCRYPTION_KEY;
     else process.env.SOCIAL_TOKEN_ENCRYPTION_KEY = previous;
   }
+});
+
+test("direct Page lookup connects only with a matching Page token and content task", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    const calls = [];
+    globalThis.fetch = async (url, init) => {
+      calls.push({ url: String(url), init });
+      return Response.json({ id: "123", name: "Page", access_token: "page-token", tasks: ["CREATE_CONTENT"] });
+    };
+    assert.deepEqual(await checkFacebookPageById("user-token", "123"), {
+      status: "ready", page: { id: "123", name: "Page", accessToken: "page-token" },
+    });
+    assert.equal(new URL(calls[0].url).pathname, "/v26.0/123");
+    assert.equal(calls[0].init.headers.Authorization, "Bearer user-token");
+    let requestCount = 0;
+    globalThis.fetch = async () => (++requestCount === 1
+      ? Response.json({ data: [] })
+      : Response.json({ id: "123", name: "Page", access_token: "page-token", tasks: ["CREATE_CONTENT"] }));
+    assert.deepEqual(await fetchConnectableFacebookPages("user-token", "123"), [
+      { id: "123", name: "Page", accessToken: "page-token" },
+    ]);
+    for (const [data, status] of [
+      [{ id: "123", name: "Page", access_token: "page-token" }, "unverified_content"],
+      [{ id: "123", name: "Page", access_token: "page-token", tasks: ["ANALYZE"] }, "no_content_access"],
+      [{ id: "123", name: "Page", tasks: ["CREATE_CONTENT"] }, "no_page_token"],
+      [{ id: "999", name: "Other Page", access_token: "page-token", tasks: ["CREATE_CONTENT"] }, "page_mismatch"],
+    ]) {
+      globalThis.fetch = async () => Response.json(data);
+      assert.deepEqual(await checkFacebookPageById("user-token", "123"), { status });
+    }
+    await assert.rejects(checkFacebookPageById("user-token", "123/other"), /Invalid Facebook Page ID/);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("unsupported direct Page tasks field cannot bypass content verification", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    let calls = 0;
+    globalThis.fetch = async () => (++calls === 1
+      ? Response.json({ error: { code: 100 } }, { status: 400 })
+      : Response.json({ id: "123", name: "Page", access_token: "page-token" }));
+    assert.deepEqual(await checkFacebookPageById("user-token", "123"), { status: "unverified_content" });
+    assert.equal(calls, 2);
+  } finally { globalThis.fetch = originalFetch; }
 });
 
 test("Facebook config uses an HTTPS callback on the same host as Instagram by default", () => {

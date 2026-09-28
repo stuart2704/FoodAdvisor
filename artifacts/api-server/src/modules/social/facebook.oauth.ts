@@ -56,14 +56,14 @@ function signature(value: string) {
   return createHmac("sha256", secret).update(`facebook-oauth:${value}`).digest("base64url");
 }
 
-export function beginFacebookLogin(res: Response, restaurantId: string | null) {
+export function beginFacebookLogin(res: Response, restaurantId: string | null, pageId: string | null = null) {
   const state = randomBytes(32).toString("base64url");
-  const payload = Buffer.from(JSON.stringify({ state, restaurantId, expiresAt: Date.now() + LIFETIME })).toString("base64url");
+  const payload = Buffer.from(JSON.stringify({ state, restaurantId, pageId, expiresAt: Date.now() + LIFETIME })).toString("base64url");
   res.cookie(STATE_COOKIE, `${payload}.${signature(payload)}`, { ...cookieOptions, maxAge: LIFETIME });
   return state;
 }
 
-export function consumeFacebookLogin(req: Request, res: Response): string | null | undefined {
+export function consumeFacebookLogin(req: Request, res: Response): { restaurantId: string | null; pageId: string | null } | undefined {
   res.clearCookie(STATE_COOKIE, cookieOptions);
   const value: unknown = req.cookies?.[STATE_COOKIE];
   const state: unknown = req.query.state;
@@ -76,18 +76,23 @@ export function consumeFacebookLogin(req: Request, res: Response): string | null
   try {
     const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
     if (parsed.state !== state || parsed.expiresAt < Date.now() || parsed.expiresAt > Date.now() + LIFETIME
-      || !(parsed.restaurantId === null || typeof parsed.restaurantId === "string")) return undefined;
-    return parsed.restaurantId;
+      || !(parsed.restaurantId === null || typeof parsed.restaurantId === "string")
+      || !(parsed.pageId === null || parsed.pageId === undefined || isFacebookPageId(parsed.pageId))) return undefined;
+    return { restaurantId: parsed.restaurantId, pageId: parsed.pageId ?? null };
   } catch { return undefined; }
 }
 
-export function savePendingPages(res: Response, userToken: string, restaurantId: string | null) {
-  const data = JSON.stringify({ userToken, restaurantId, expiresAt: Date.now() + LIFETIME });
+export function isFacebookPageId(value: unknown): value is string {
+  return typeof value === "string" && /^\d{1,30}$/.test(value);
+}
+
+export function savePendingPages(res: Response, userToken: string, restaurantId: string | null, pageId: string | null = null) {
+  const data = JSON.stringify({ userToken, restaurantId, pageId, expiresAt: Date.now() + LIFETIME });
   const encrypted = encryptToken(data);
   res.cookie(PENDING_COOKIE, `${encrypted.iv}.${encrypted.tag}.${encrypted.encrypted}`, { ...cookieOptions, maxAge: LIFETIME });
 }
 
-export function pendingPages(req: Request): { userToken: string; restaurantId: string | null } | null {
+export function pendingPages(req: Request): { userToken: string; restaurantId: string | null; pageId: string | null } | null {
   const value: unknown = req.cookies?.[PENDING_COOKIE];
   if (typeof value !== "string" || value.length > 4096) return null;
   const [iv, tag, encrypted, extra] = value.split(".");
@@ -98,8 +103,9 @@ export function pendingPages(req: Request): { userToken: string; restaurantId: s
     if (typeof data.userToken !== "string" || !data.userToken
       || typeof data.expiresAt !== "number"
       || data.expiresAt < Date.now() || data.expiresAt > Date.now() + LIFETIME
-      || !(data.restaurantId === null || typeof data.restaurantId === "string")) return null;
-    return { userToken: data.userToken, restaurantId: data.restaurantId };
+      || !(data.restaurantId === null || typeof data.restaurantId === "string")
+      || !(data.pageId === null || data.pageId === undefined || isFacebookPageId(data.pageId))) return null;
+    return { userToken: data.userToken, restaurantId: data.restaurantId, pageId: data.pageId ?? null };
   } catch { return null; }
 }
 
@@ -183,6 +189,42 @@ export async function fetchFacebookPagesWithSummary(userToken: string): Promise<
 
 export async function fetchFacebookPages(userToken: string): Promise<FacebookPage[]> {
   return (await fetchFacebookPagesWithSummary(userToken)).pages;
+}
+
+export type FacebookPageCheck =
+  | { status: "ready"; page: FacebookPage }
+  | { status: "no_content_access" | "no_page_token" | "unverified_content" | "page_mismatch" };
+
+// A direct Page lookup is only a candidate: do not connect it unless Meta also
+// reports CREATE_CONTENT and a Page token for this same login and Page ID.
+export async function checkFacebookPageById(userToken: string, pageId: string): Promise<FacebookPageCheck> {
+  if (!isFacebookPageId(pageId)) throw new Error("Invalid Facebook Page ID.");
+  const url = `${GRAPH}/${pageId}?fields=id,name,access_token,tasks`;
+  let data: any;
+  try {
+    data = await graphRequest(url, { headers: { Authorization: `Bearer ${userToken}` } });
+  } catch (error) {
+    // Some Graph versions do not expose tasks on a Page node. A narrower
+    // lookup can diagnose visibility, but never authorize a connection alone.
+    if (!(error instanceof FacebookGraphFailure) || error.providerCode !== 100) throw error;
+    data = await graphRequest(`${GRAPH}/${pageId}?fields=id,name,access_token`, {
+      headers: { Authorization: `Bearer ${userToken}` },
+    });
+  }
+  if (data.id !== pageId || typeof data.name !== "string") return { status: "page_mismatch" };
+  if (!Array.isArray(data.tasks)) return { status: "unverified_content" };
+  if (!data.tasks.includes("CREATE_CONTENT")) return { status: "no_content_access" };
+  if (typeof data.access_token !== "string" || !data.access_token) return { status: "no_page_token" };
+  return { status: "ready", page: { id: data.id, name: data.name, accessToken: data.access_token } };
+}
+
+export async function fetchConnectableFacebookPages(userToken: string, pageId: string | null): Promise<FacebookPage[]> {
+  const pages = await fetchFacebookPages(userToken);
+  if (!pageId) return pages;
+  const listed = pages.find(page => page.id === pageId);
+  if (listed) return [listed];
+  const checked = await checkFacebookPageById(userToken, pageId);
+  return checked.status === "ready" ? [checked.page] : [];
 }
 
 // Return only fixed permission flags and aggregate asset counts. Never expose
