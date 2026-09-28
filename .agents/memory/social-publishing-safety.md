@@ -23,6 +23,6 @@ TikTok Direct Post's initial `publish_id` is only a tracking ID, not proof that 
 
 Do not attach The Food Advisor's own brand TikTok account to an arbitrary restaurant for connection or testing. Keep brand accounts separate from restaurant-scoped accounts; brand posts need their own approved, brand-owned media path rather than reuse of chef-photo permission.
 
-**Why:** The creator confirmed the TikTok account is for the brand and they do not believe they are authorised to represent any listed restaurant. A convenient Place ID would misrepresent whose content is being published.
+**Why:** The creator confirmed the TikTok account is for the brand and they do not believe they are authorised to represent any listed restaurant. A convenient Place ID would misrepresent whose content is being published. They subsequently confirmed that brand-scoped OAuth connected after supplying the matching developer-app credentials; restaurant association was not needed.
 
-**How to apply:** Allow brand OAuth without a restaurant association, retain restaurant-scoped checks for restaurant posts, and require a separate explicit brand-media approval flow before trying a private brand Direct Post.
+**How to apply:** Allow brand OAuth without a restaurant association, retain restaurant-scoped checks for restaurant posts, and require a separate explicit brand-media approval flow before trying a private brand Direct Post. A successful account connection is not evidence that Direct Post is approved or that a post completed.
