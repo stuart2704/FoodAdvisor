@@ -37,6 +37,7 @@ import {
   hashOpaqueSecret,
   hashVerificationCode,
   normalizeOsmState,
+  publicationPreconditions,
   requiredFieldsComplete,
   safeProviderErrorCode,
 } from "../services/osmCandidateWorkflow";
@@ -377,6 +378,7 @@ async function submitVerificationCode(req: Request, res: Response) {
     const now = new Date();
     const codeHash = hashVerificationCode(body.data.code);
     const result = await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${OSM_SOURCE}), hashtext(${owner.sourceId}))`);
       const [code] = await tx.select().from(osmVerificationCodesTable).where(and(
         eq(osmVerificationCodesTable.ownerSessionHash, owner.tokenHash),
         isNull(osmVerificationCodesTable.usedAt),
@@ -425,6 +427,44 @@ async function submitVerificationCode(req: Request, res: Response) {
           eq(osmCandidateWorkflowsTable.sourceId, owner.sourceId),
           eq(osmCandidateWorkflowsTable.suppressed, false),
           eq(osmCandidateWorkflowsTable.published, false),
+        ));
+        // The verified claimant gets a durable, private listing draft before
+        // either evidence decision permits publication. An empty city/address
+        // cannot become public: activation checks the complete owner draft.
+        const placeId = encodedOsmPlaceId(owner.sourceId);
+        const [existing] = await tx.select({
+          placeId: restaurantsTable.placeId,
+          published: restaurantsTable.published,
+        }).from(restaurantsTable).where(and(
+          eq(restaurantsTable.sourceName, OSM_SOURCE),
+          eq(restaurantsTable.sourceId, owner.sourceId),
+        )).limit(1);
+        if (existing && (existing.placeId !== placeId || existing.published)) {
+          throw new Error("osm_listing_identity_conflict");
+        }
+        if (!existing) {
+          await tx.insert(restaurantsTable).values({
+            placeId,
+            sourceName: OSM_SOURCE,
+            sourceId: owner.sourceId,
+            sourceAttribution: "© OpenStreetMap contributors, Open Database Licence (ODbL)",
+            published: false,
+            name: workflow.ownerDraft.name,
+            address: workflow.ownerDraft.address ?? "",
+            city: workflow.ownerDraft.city ?? "",
+            latitude: workflow.ownerDraft.latitude,
+            longitude: workflow.ownerDraft.longitude,
+            googleMapsUrl: null,
+            outreachStatus: "suppressed",
+            suppressedAt: now,
+            suppressionReason: "private_owner_draft",
+          });
+        }
+        await tx.update(osmCandidateWorkflowsTable).set({
+          restaurantPlaceId: placeId,
+        }).where(and(
+          eq(osmCandidateWorkflowsTable.sourceName, owner.sourceName),
+          eq(osmCandidateWorkflowsTable.sourceId, owner.sourceId),
         ));
         return { identityVerified: true, state };
       }
@@ -622,6 +662,26 @@ router.patch("/owner/claim/draft", ownerSession, async (req, res) => {
         eq(osmCandidateWorkflowsTable.suppressed, false),
         eq(osmCandidateWorkflowsTable.published, false),
       )).returning({ sourceId: osmCandidateWorkflowsTable.sourceId });
+      if (row && current.restaurantPlaceId) {
+        const [updatedDraft] = await tx.update(restaurantsTable).set({
+          name: draft.name,
+          address: draft.address ?? "",
+          city: draft.city ?? "",
+          phone: draft.phone,
+          website: draft.website,
+          ownerDescription: draft.description,
+          openingHours: draft.openingHours,
+          latitude: draft.latitude,
+          longitude: draft.longitude,
+          updatedAt: now,
+        }).where(and(
+          eq(restaurantsTable.placeId, current.restaurantPlaceId),
+          eq(restaurantsTable.sourceName, OSM_SOURCE),
+          eq(restaurantsTable.sourceId, owner.sourceId),
+          eq(restaurantsTable.published, false),
+        )).returning({ placeId: restaurantsTable.placeId });
+        if (!updatedDraft) throw new Error("private_draft_missing");
+      }
       if (row && identityFieldsChanged) {
         await tx.update(osmCandidateEvidenceTable).set({
           status: "pending",
@@ -858,21 +918,39 @@ async function runActivation(sourceId: string) {
           eq(osmCandidateWorkflowsTable.sourceId, sourceId),
         )).limit(1);
         if (!current || current.suppressed || current.published || !current.identityVerified
-          || !current.rightsConfirmed || current.state !== "claim_verified"
+          || !current.claimed || !current.reviewed || !current.rightsConfirmed || current.state !== "claim_verified"
           || !requiredFieldsComplete(current.ownerDraft)) {
           throw new Error("activation_gate_changed");
         }
+        const [candidate] = await tx.select({
+          verificationStatus: externalCandidatesTable.verificationStatus,
+        }).from(externalCandidatesTable).where(and(
+          eq(externalCandidatesTable.sourceName, OSM_SOURCE),
+          eq(externalCandidatesTable.sourceId, sourceId),
+        )).limit(1);
+        if (candidate?.verificationStatus !== "verified") throw new Error("candidate_not_reviewed");
         const decisions = await tx.select({
           kind: osmCandidateEvidenceTable.kind,
           status: osmCandidateEvidenceTable.status,
+          reviewedAt: osmCandidateEvidenceTable.reviewedAt,
+          sourceAttribution: osmCandidateEvidenceTable.sourceAttribution,
         }).from(osmCandidateEvidenceTable).where(and(
           eq(osmCandidateEvidenceTable.sourceName, OSM_SOURCE),
           eq(osmCandidateEvidenceTable.sourceId, sourceId),
         ));
-        if (!decisions.some((item) => item.kind === "ownership" && item.status === "approved")
-          || !decisions.some((item) => item.kind === "source_rights" && item.status === "approved")) {
+        if (!decisions.some((item) => item.kind === "ownership" && item.status === "approved" && item.reviewedAt)
+          || !decisions.some((item) => item.kind === "source_rights" && item.status === "approved"
+            && item.reviewedAt && /openstreetmap/i.test(item.sourceAttribution ?? ""))) {
           throw new Error("activation_evidence_gate_changed");
         }
+        const [usedInvite] = await tx.select({ sentTo: osmClaimInvitesTable.sentTo })
+          .from(osmClaimInvitesTable)
+          .where(and(
+            eq(osmClaimInvitesTable.sourceName, OSM_SOURCE),
+            eq(osmClaimInvitesTable.sourceId, sourceId),
+            eq(osmClaimInvitesTable.status, "used"),
+          )).orderBy(desc(osmClaimInvitesTable.usedAt)).limit(1);
+        if (!usedInvite) throw new Error("verified_claim_missing");
         const [existing] = await tx.select().from(restaurantsTable).where(and(
           eq(restaurantsTable.sourceName, OSM_SOURCE),
           eq(restaurantsTable.sourceId, sourceId),
@@ -891,21 +969,34 @@ async function runActivation(sourceId: string) {
             latitude: current.ownerDraft.latitude,
             longitude: current.ownerDraft.longitude,
             googleMapsUrl: null,
-            claimEmail: (await tx.select({ sentTo: osmClaimInvitesTable.sentTo })
-              .from(osmClaimInvitesTable)
-              .where(and(
-                eq(osmClaimInvitesTable.sourceName, OSM_SOURCE),
-                eq(osmClaimInvitesTable.sourceId, sourceId),
-                eq(osmClaimInvitesTable.status, "used"),
-              )).orderBy(desc(osmClaimInvitesTable.usedAt)).limit(1))[0]?.sentTo ?? null,
+            claimEmail: usedInvite.sentTo,
             claimStatus: "basic",
             claimedAt: now,
             outreachStatus: "suppressed",
             suppressedAt: now,
             suppressionReason: "owner_claimed",
           });
-        } else if (existing.placeId !== placeId) {
+        } else if (existing.placeId !== placeId || existing.sourceName !== OSM_SOURCE
+          || existing.sourceId !== sourceId || current.restaurantPlaceId !== placeId) {
           throw new Error("osm_listing_identity_conflict");
+        }
+        if (existing) {
+          await tx.update(restaurantsTable).set({
+            name: current.ownerDraft.name,
+            address: current.ownerDraft.address!,
+            city: current.ownerDraft.city!,
+            claimEmail: usedInvite.sentTo,
+            claimStatus: "basic",
+            claimedAt: now,
+            outreachStatus: "suppressed",
+            suppressedAt: now,
+            suppressionReason: "owner_claimed",
+          }).where(and(
+            eq(restaurantsTable.placeId, placeId),
+            eq(restaurantsTable.sourceName, OSM_SOURCE),
+            eq(restaurantsTable.sourceId, sourceId),
+            eq(restaurantsTable.published, false),
+          ));
         }
         await tx.update(osmCandidateWorkflowsTable).set({
           state: "activated",
@@ -1037,36 +1128,74 @@ async function runActivation(sourceId: string) {
         eq(osmCandidateWorkflowsTable.sourceName, OSM_SOURCE),
         eq(osmCandidateWorkflowsTable.sourceId, sourceId),
       )).limit(1);
-      if (!current || current.suppressed || !current.reviewed || !current.claimed
-        || !current.identityVerified || !current.rightsConfirmed
-        || !requiredFieldsComplete(current.ownerDraft)) {
-        throw new Error("activation_gate_changed");
-      }
+      if (!current) throw new Error("activation_gate_changed");
       if (current.published) return;
+      const [activation] = await tx.select().from(osmActivationStatesTable).where(and(
+        eq(osmActivationStatesTable.sourceName, OSM_SOURCE),
+        eq(osmActivationStatesTable.sourceId, sourceId),
+      )).limit(1);
+      const [candidate] = await tx.select({
+        verificationStatus: externalCandidatesTable.verificationStatus,
+      }).from(externalCandidatesTable).where(and(
+        eq(externalCandidatesTable.sourceName, OSM_SOURCE),
+        eq(externalCandidatesTable.sourceId, sourceId),
+      )).limit(1);
       const decisions = await tx.select({
         kind: osmCandidateEvidenceTable.kind,
         status: osmCandidateEvidenceTable.status,
+        sourceAttribution: osmCandidateEvidenceTable.sourceAttribution,
+        reviewedAt: osmCandidateEvidenceTable.reviewedAt,
       }).from(osmCandidateEvidenceTable).where(and(
         eq(osmCandidateEvidenceTable.sourceName, OSM_SOURCE),
         eq(osmCandidateEvidenceTable.sourceId, sourceId),
       ));
-      if (!decisions.some((item) => item.kind === "ownership" && item.status === "approved")
-        || !decisions.some((item) => item.kind === "source_rights" && item.status === "approved")) {
+      if (!decisions.some((item) => item.kind === "ownership" && item.status === "approved" && item.reviewedAt)
+        || !decisions.some((item) => item.kind === "source_rights" && item.status === "approved"
+          && item.reviewedAt && /openstreetmap/i.test(item.sourceAttribution ?? ""))) {
         throw new Error("activation_evidence_gate_changed");
       }
-      await tx.update(restaurantsTable).set({
+      const gate = publicationPreconditions({
+        state: current.state as never,
+        reviewed: current.reviewed,
+        claimed: current.claimed,
+        identityVerified: current.identityVerified,
+        rightsStatus: "approved",
+        ownershipStatus: "approved",
+        suppressed: current.suppressed,
+        published: current.published,
+        draft: current.ownerDraft,
+        candidateStatus: candidate?.verificationStatus,
+        restaurantPlaceId: current.restaurantPlaceId,
+        promoted: activation?.promoted ?? false,
+        enriched: activation?.enriched ?? false,
+        scored: activation?.scored ?? false,
+      });
+      if (!gate.eligible || !current.rightsConfirmed) throw new Error("activation_gate_changed");
+      // A fresh evidence approval can change activated -> claim_verified.
+      // Reconcile that state under the same lock as the final publication.
+      if (current.state === "claim_verified") {
+        const [reconciled] = await tx.update(osmCandidateWorkflowsTable).set({
+          state: "activated",
+          updatedAt: new Date(),
+        }).where(and(
+          eq(osmCandidateWorkflowsTable.sourceName, OSM_SOURCE),
+          eq(osmCandidateWorkflowsTable.sourceId, sourceId),
+          eq(osmCandidateWorkflowsTable.state, "claim_verified"),
+          eq(osmCandidateWorkflowsTable.suppressed, false),
+          eq(osmCandidateWorkflowsTable.published, false),
+        )).returning({ sourceId: osmCandidateWorkflowsTable.sourceId });
+        if (!reconciled) throw new Error("activation_gate_changed");
+      }
+      const [published] = await tx.update(restaurantsTable).set({
         published: true,
         publishedAt: new Date(),
         sourceAttribution: "© OpenStreetMap contributors, Open Database Licence (ODbL)",
       }).where(and(
         eq(restaurantsTable.placeId, current.restaurantPlaceId ?? placeId),
         eq(restaurantsTable.sourceName, OSM_SOURCE),
+        eq(restaurantsTable.sourceId, sourceId),
         eq(restaurantsTable.published, false),
-      ));
-      const [published] = await tx.select({ placeId: restaurantsTable.placeId }).from(restaurantsTable).where(and(
-        eq(restaurantsTable.placeId, current.restaurantPlaceId ?? placeId),
-        eq(restaurantsTable.published, true),
-      )).limit(1);
+      )).returning({ placeId: restaurantsTable.placeId });
       if (!published) throw new Error("publication_not_committed");
       const publishedAt = new Date();
       await tx.update(osmCandidateWorkflowsTable).set({

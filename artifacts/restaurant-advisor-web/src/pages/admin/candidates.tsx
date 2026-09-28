@@ -85,7 +85,7 @@ function CandidateDetail({ row, close }: { row: OsmCandidateWorkflow; close: () 
           <button disabled={pending || import.meta.env.DEV} className="osm-btn" type="submit" data-testid="button-send-invite">Send claim invitation</button>
         </form>}
         {c.state === "claim_invited" && c.inviteCount < 3 && !c.outreachBlocked && <button disabled={pending} className="osm-btn quiet" onClick={() => { if (window.confirm("Resend this invitation to the last contact?")) void run(() => resend.mutateAsync({sourceName,sourceId}), "Invitation resent."); }} data-testid="button-resend-invite">Resend invitation · {c.inviteCount}/3 sent</button>}
-        <div className="osm-note">Email verification confirms access to the inbox, not ownership of the business. Ownership and rights require separate approval.</div>
+        <div className="osm-note">Candidate details include OpenStreetMap data © OpenStreetMap contributors (ODbL). <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">Source and licence details</a>. Email verification confirms access to the inbox, not ownership of the business. Ownership and rights require separate approval.</div>
         <h3>Evidence decisions</h3>
         <p className="osm-small">Review the actual submitted material before making each independent decision. External evidence links open in a new tab.</p>
         <label className="osm-field">Reviewer note (optional)<textarea maxLength={2000} value={note} onChange={e => setNote(e.target.value)} data-testid="input-reviewer-note" /></label>

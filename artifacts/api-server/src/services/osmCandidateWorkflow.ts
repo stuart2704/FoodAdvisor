@@ -127,6 +127,30 @@ export function activationPreconditions(input: {
   return { eligible: true };
 }
 
+/**
+ * A promoted private draft may return to claim_verified when the owner
+ * resubmits evidence after a failed activation. Review and rights must be
+ * freshly approved, but repeating promotion is neither needed nor safe.
+ */
+export function publicationPreconditions(input: Parameters<typeof activationPreconditions>[0] & {
+  candidateStatus: string | undefined;
+  restaurantPlaceId: string | null;
+  promoted: boolean;
+  enriched: boolean;
+  scored: boolean;
+}): { eligible: true } | { eligible: false; reason: string } {
+  const gate = activationPreconditions(input);
+  if (!gate.eligible) return gate;
+  if (input.candidateStatus !== "verified") return { eligible: false, reason: "candidate_not_reviewed" };
+  if (!input.promoted || !input.enriched || !input.scored || !input.restaurantPlaceId) {
+    return { eligible: false, reason: "activation_steps_incomplete" };
+  }
+  if (input.state !== "activated" && input.state !== "claim_verified") {
+    return { eligible: false, reason: "claim_state_not_ready" };
+  }
+  return { eligible: true };
+}
+
 export function isCurrentEvidenceSubmission(input: {
   kind: "ownership" | "source_rights";
   status: string;

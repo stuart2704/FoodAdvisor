@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getGetOsmOwnerDashboardQueryKey, getGetOsmOwnerAnalyticsQueryKey, useGetOsmOwnerDashboard, useGetOsmOwnerAnalytics, useUpdateOsmOwnerDraft, useActivateOsmOwnerListing, useSetOsmOwnerOutreachPreference } from "@workspace/api-client-react";
 import type { OsmOwnerDraft, OsmOwnerDraftInput } from "@workspace/api-client-react";
 import { clearOwnerSession, isUnauthorized, ownerRequest, ownerSession, readableError } from "./osm-shared";
+import OsmAttribution from "../components/OsmAttribution";
 import "./osm-workflow.css";
 
 function Analytics({ active, onUnauthorized }: {active:boolean;onUnauthorized:()=>void}) {
@@ -61,6 +62,7 @@ export default function OsmOwnerPage() {
     dashboard.isLoading ? <section className="osm-card"><div className="osm-skeleton"/><div className="osm-skeleton"/><div className="osm-skeleton"/></section> :
     dashboard.isError ? <section className="osm-card"><div className="osm-error" role="alert">We could not load your private workspace. <button className="osm-btn quiet" onClick={()=>void dashboard.refetch()} data-testid="button-retry-owner">Try again</button></div></section> :
     data && <>
+      <OsmAttribution />
       {notice && <div className="osm-success" role="status" data-testid="status-owner-notice">{notice}</div>}{error && <div className="osm-error" role="alert" data-testid="status-owner-error">{error}</div>}
       <div className="osm-split"><div>
         <section className="osm-card"><span className="osm-eyebrow">{data.dashboardMode==="activated"?"Activated listing":"Before activation"}</span><h2>Where things stand</h2><div className="osm-progress"><span className={data.candidate.identityVerified?"done":""}>Email verified</span><span className={data.evidence.ownershipStatus==="approved"?"done":""}>Ownership: {data.evidence.ownershipStatus.replaceAll("_"," ")}</span><span className={data.evidence.rightsStatus==="approved"?"done":""}>Source rights: {data.evidence.rightsStatus.replaceAll("_"," ")}</span><span className={data.draft.requiredFieldsComplete?"done":""}>Details complete</span><span className={data.activation.published?"done":""}>Published</span></div>

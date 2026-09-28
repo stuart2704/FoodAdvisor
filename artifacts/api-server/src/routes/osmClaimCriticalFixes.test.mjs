@@ -6,6 +6,7 @@ import test from "node:test";
 import {
   activationPreconditions,
   isCurrentEvidenceSubmission,
+  publicationPreconditions,
 } from "../services/osmCandidateWorkflow.ts";
 import { redactRequestUrl } from "../lib/requestUrlRedaction.ts";
 
@@ -110,6 +111,63 @@ test("suppressed and already-published workflows fail activation preconditions",
     activationPreconditions({ ...base, state: "published", published: true }),
     { eligible: false, reason: "candidate_already_published" },
   );
+  for (const changes of [
+    { reviewed: false, highConfidence: true },
+    { claimed: false },
+    { identityVerified: false },
+    { ownershipStatus: "pending" },
+    { ownershipStatus: "rejected" },
+    { rightsStatus: "pending" },
+    { rightsStatus: "rejected" },
+  ]) {
+    assert.equal(activationPreconditions({ ...base, ...changes }).eligible, false);
+  }
+  assert.deepEqual(activationPreconditions(base), { eligible: true });
+});
+
+test("private drafts and publication are tied to the reviewed candidate and current evidence", async () => {
+  const source = await readSource("../routes/osmClaimWorkflowOwner.ts");
+  assert.match(source, /identityVerified: true,[\s\S]*published: false,[\s\S]*restaurantPlaceId: placeId/);
+  assert.match(source, /candidateStatus: candidate\?\.verificationStatus/);
+  assert.match(source, /promoted: activation\?\.promoted \?\? false/);
+  assert.match(source, /item\.kind === "source_rights" && item\.status === "approved"[\s\S]*item\.reviewedAt && \/openstreetmap\/i/);
+  assert.match(source, /eq\(restaurantsTable\.sourceId, sourceId\),\s*eq\(restaurantsTable\.published, false\)/);
+});
+
+test("a promoted draft can publish after evidence is resubmitted and approved again", () => {
+  const base = {
+    state: "activated",
+    reviewed: true,
+    claimed: true,
+    identityVerified: true,
+    ownershipStatus: "approved",
+    rightsStatus: "approved",
+    suppressed: false,
+    published: false,
+    candidateStatus: "verified",
+    restaurantPlaceId: "osm:osm%3Anode%3A123",
+    promoted: true,
+    enriched: true,
+    scored: true,
+    draft: {
+      name: "Sample", address: "1 Main Street", city: "Cardiff",
+      phone: null, website: null, description: null, openingHours: [],
+      latitude: 51.48, longitude: -3.18,
+    },
+  };
+  assert.deepEqual(publicationPreconditions(base), { eligible: true });
+  const resubmitted = {
+    ...base, state: "claim_invited", ownershipStatus: "pending", rightsStatus: "pending",
+  };
+  assert.equal(publicationPreconditions(resubmitted).eligible, false);
+  assert.equal(publicationPreconditions({ ...resubmitted, ownershipStatus: "approved" }).eligible, false);
+  const reapproved = {
+    ...resubmitted, state: "claim_verified", ownershipStatus: "approved", rightsStatus: "approved",
+  };
+  assert.deepEqual(publicationPreconditions(reapproved), { eligible: true });
+  assert.equal(publicationPreconditions({ ...reapproved, candidateStatus: "rejected" }).eligible, false);
+  assert.equal(publicationPreconditions({ ...reapproved, promoted: false }).eligible, false);
+  assert.equal(publicationPreconditions({ ...reapproved, suppressed: true }).eligible, false);
 });
 
 test("Google provider routes verify publication and source before cached/provider reads", async () => {
