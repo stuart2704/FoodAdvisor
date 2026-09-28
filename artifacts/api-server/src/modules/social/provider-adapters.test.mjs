@@ -50,6 +50,8 @@ test("TikTok OAuth state is bound to the initiating browser and grants publishin
     const state = beginTikTokLogin(res, "restaurant");
     assert.deepEqual(consumeTikTokLogin({ cookies: { [res.name]: res.cookieValue }, query: { state } }, res), { restaurantId: "restaurant" });
     assert.equal(consumeTikTokLogin({ cookies: { [res.name]: res.cookieValue }, query: { state: "wrong" } }, res), null);
+    const brandState = beginTikTokLogin(res, null);
+    assert.deepEqual(consumeTikTokLogin({ cookies: { [res.name]: res.cookieValue }, query: { state: brandState } }, res), { restaurantId: null });
     globalThis.fetch = async (url) => {
       if (String(url).endsWith("/oauth/token/")) return Response.json({ access_token: "access", refresh_token: "refresh", open_id: "user", expires_in: 7200, scope: "user.info.basic,video.publish" });
       if (String(url).includes("/user/info/")) return Response.json({ data: { user: { open_id: "user", display_name: "Test" } }, error: { code: "ok" } });

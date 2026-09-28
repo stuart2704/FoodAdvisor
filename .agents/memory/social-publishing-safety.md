@@ -20,3 +20,9 @@ TikTok Direct Post's initial `publish_id` is only a tracking ID, not proof that 
 **Why:** TikTok processes media asynchronously after accepting the initiation request, and a retry can create a duplicate even if no public post is visible yet.
 
 **How to apply:** Preserve the ID and pending status through restarts, expose safe status reconciliation, and use a private-only creator setting when testing with an unaudited app.
+
+Do not attach The Food Advisor's own brand TikTok account to an arbitrary restaurant for connection or testing. Keep brand accounts separate from restaurant-scoped accounts; brand posts need their own approved, brand-owned media path rather than reuse of chef-photo permission.
+
+**Why:** The creator confirmed the TikTok account is for the brand and they do not believe they are authorised to represent any listed restaurant. A convenient Place ID would misrepresent whose content is being published.
+
+**How to apply:** Allow brand OAuth without a restaurant association, retain restaurant-scoped checks for restaurant posts, and require a separate explicit brand-media approval flow before trying a private brand Direct Post.

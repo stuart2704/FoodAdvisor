@@ -157,10 +157,10 @@ export function ConnectedAccounts() {
     }
   };
   const handleTikTokConnect = async () => {
-    setTiktokConnecting(true); setTiktokError("");
+    setTiktokConnecting(true); setTiktokError(""); setConnectSuccess("");
     try {
       const result = await fetchSocial<{ authorizationUrl: string }>("/tiktok/start", {
-        method: "POST", body: JSON.stringify(tiktokRestaurantId.trim() ? { restaurantId: tiktokRestaurantId.trim() } : {}),
+        method: "POST", body: JSON.stringify({ restaurantId: tiktokRestaurantId.trim() || null }),
       });
       window.location.assign(result.authorizationUrl);
     } catch (err) {
@@ -216,16 +216,17 @@ export function ConnectedAccounts() {
       </div>
       <div className="social-card">
         <h2>Connect TikTok</h2>
-        <p>Connect a TikTok creator through Login Kit. Direct photo posting requires the Content Posting API and video.publish permission. Unreviewed apps may be limited to private posts.</p>
+        <p>Connect The Food Advisor's own TikTok account without a restaurant ID. Only enter a Place ID for a restaurant you are authorised to represent.</p>
+        <p>Direct photo posting requires the Content Posting API and video.publish permission. Brand photo drafts and approvals are not available yet, so connecting the brand account does not enable brand posting.</p>
         {tiktokError && <div className="social-alert" role="alert">{tiktokError}</div>}
-        <p>TikTok: <strong>{accounts.some(a => a.platform === "tiktok" && a.status === "connected") ? "Connected" : "Not Connected"}</strong></p>
+        <p>TikTok brand account: <strong data-testid="status-tiktok-brand-account">{accounts.some(a => a.platform === "tiktok" && a.restaurantId === null && a.status === "connected") ? "Connected" : "Not Connected"}</strong></p>
         {!tiktokConfig?.configured && <p>Configure TikTok client key, secret and HTTPS redirect URI before connecting.</p>}
         {tiktokConfig?.redirectUri && <p style={{ overflowWrap: "anywhere" }}>Add this Login Kit redirect URI: {tiktokConfig.redirectUri}</p>}
         <div className="social-form-group">
-          <label htmlFor="tiktok-restaurant">Restaurant Place ID (required)</label>
-          <input id="tiktok-restaurant" value={tiktokRestaurantId} onChange={e => setTiktokRestaurantId(e.target.value)} placeholder="Restaurant Place ID" />
+          <label htmlFor="tiktok-restaurant">Restaurant Place ID (optional)</label>
+          <input id="tiktok-restaurant" data-testid="input-tiktok-restaurant" value={tiktokRestaurantId} onChange={e => setTiktokRestaurantId(e.target.value)} placeholder="Leave blank for The Food Advisor brand" />
         </div>
-        <button type="button" className="social-btn" disabled={!tiktokConfig?.configured || tiktokConnecting || !tiktokRestaurantId.trim()} onClick={() => void handleTikTokConnect()}>
+        <button type="button" data-testid="button-connect-tiktok" className="social-btn" disabled={!tiktokConfig?.configured || tiktokConnecting} onClick={() => void handleTikTokConnect()}>
           {tiktokConnecting ? "Opening TikTok..." : "Connect TikTok"}
         </button>
       </div>

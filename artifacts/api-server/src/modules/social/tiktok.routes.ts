@@ -14,10 +14,15 @@ tiktokRouter.get("/config", (_req, res) => res.json({
 tiktokRouter.post("/start", async (req, res): Promise<void> => {
   const config = tiktokConfig();
   if (!config) { res.status(503).json({ error: "TikTok Login Kit and HTTPS redirect URI must be configured." }); return; }
-  const restaurantId = req.body?.restaurantId;
-  if (typeof restaurantId !== "string" || !restaurantId.trim()) { res.status(400).json({ error: "A restaurant Place ID is required for photo posting." }); return; }
-  const [r] = await db.select({ id: restaurantsTable.placeId }).from(restaurantsTable).where(eq(restaurantsTable.placeId, restaurantId)).limit(1);
-  if (!r) { res.status(404).json({ error: "Restaurant not found." }); return; }
+  const requestedRestaurantId = req.body?.restaurantId;
+  if (requestedRestaurantId != null && (typeof requestedRestaurantId !== "string" || !requestedRestaurantId.trim())) {
+    res.status(400).json({ error: "Provide a valid restaurant Place ID, or leave it blank for The Food Advisor brand." }); return;
+  }
+  const restaurantId = typeof requestedRestaurantId === "string" ? requestedRestaurantId.trim() : null;
+  if (restaurantId !== null) {
+    const [r] = await db.select({ id: restaurantsTable.placeId }).from(restaurantsTable).where(eq(restaurantsTable.placeId, restaurantId)).limit(1);
+    if (!r) { res.status(404).json({ error: "Restaurant not found." }); return; }
+  }
   const url = new URL("https://www.tiktok.com/v2/auth/authorize/");
   url.searchParams.set("client_key", config.clientKey);
   url.searchParams.set("redirect_uri", config.redirectUri);
