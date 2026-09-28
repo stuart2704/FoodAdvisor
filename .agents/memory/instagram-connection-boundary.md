@@ -46,3 +46,9 @@ For Instagram Login, use the Instagram-specific app ID and secret shown under th
 **Why:** The wrong app ID produced “Invalid platform app”; the misplaced callback produced “Invalid redirect_uri”; an unaccepted Instagram tester role produced “Insufficient developer role.” The creator then confirmed the website showed “Connected” after correcting these separately.
 
 **How to apply:** Diagnose each Meta error at its corresponding setup boundary rather than re-entering all credentials. The website can display a standing redirect-URI instruction even when the account is connected; do not mistake that help text for another error.
+
+When Meta returns an empty `/me/accounts` list, a direct Page lookup can still find the Page without reporting the login's `CREATE_CONTENT` task. A Page token by itself does not establish publishing access. Meta's Page roles edge may verify tasks for a non-business user, but an empty or inaccessible roles result cannot rule out a business-managed user.
+
+**Why:** A real production login had all requested permission flags but no listed Pages; entering the Page ID found it, yet did not confirm its content task. Meta documents different coverage for Page roles and business-assigned users.
+
+**How to apply:** Never claim the Page is connected based on a direct lookup alone. Match the login's own identity to an explicitly reported `CREATE_CONTENT` task and require a Page token. If Meta withholds task evidence, report it as unverified rather than as proof the creator lacks Page ownership.

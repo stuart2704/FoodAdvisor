@@ -97,7 +97,47 @@ test("unsupported direct Page tasks field cannot bypass content verification", a
       ? Response.json({ error: { code: 100 } }, { status: 400 })
       : Response.json({ id: "123", name: "Page", access_token: "page-token" }));
     assert.deepEqual(await checkFacebookPageById("user-token", "123"), { status: "unverified_content" });
-    assert.equal(calls, 2);
+    assert.equal(calls, 4);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("Page roles fallback verifies only the current login's CREATE_CONTENT task", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    const calls = [];
+    globalThis.fetch = async (url, init) => {
+      const path = new URL(url).pathname;
+      calls.push({ path, url: String(url), authorization: init.headers.Authorization });
+      if (path === "/v26.0/123") return Response.json({ id: "123", name: "Page", access_token: "page-token" });
+      if (path === "/v26.0/me") return Response.json({ id: "456" });
+      return Response.json({ data: [{ id: "456", tasks: ["CREATE_CONTENT"] }] });
+    };
+    assert.deepEqual(await checkFacebookPageById("user-token", "123"), {
+      status: "ready", page: { id: "123", name: "Page", accessToken: "page-token" },
+    });
+    assert.equal(new URL(calls[2].url).searchParams.get("uid"), "456");
+    assert.equal(calls[2].authorization, "Bearer page-token");
+    globalThis.fetch = async (url) => {
+      const path = new URL(url).pathname;
+      if (path === "/v26.0/123") return Response.json({ id: "123", name: "Page", access_token: "page-token" });
+      if (path === "/v26.0/me") return Response.json({ id: "456" });
+      return Response.json({ data: [{ id: "789", tasks: ["CREATE_CONTENT"] }] });
+    };
+    assert.deepEqual(await checkFacebookPageById("user-token", "123"), { status: "unverified_content" });
+    globalThis.fetch = async (url) => {
+      const path = new URL(url).pathname;
+      if (path === "/v26.0/123") return Response.json({ id: "123", name: "Page", access_token: "page-token" });
+      if (path === "/v26.0/me") return Response.json({ id: "456" });
+      return Response.json({ data: [{ id: "456", tasks: ["ANALYZE"] }] });
+    };
+    assert.deepEqual(await checkFacebookPageById("user-token", "123"), { status: "no_content_access" });
+    globalThis.fetch = async (url) => {
+      const path = new URL(url).pathname;
+      if (path === "/v26.0/123") return Response.json({ id: "123", name: "Page", access_token: "page-token" });
+      if (path === "/v26.0/me") return Response.json({ id: "456" });
+      return Response.json({ error: { code: 200 } }, { status: 403 });
+    };
+    assert.deepEqual(await checkFacebookPageById("user-token", "123"), { status: "unverified_content" });
   } finally { globalThis.fetch = originalFetch; }
 });
 

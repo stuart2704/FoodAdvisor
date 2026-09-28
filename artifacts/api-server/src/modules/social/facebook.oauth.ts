@@ -195,6 +195,28 @@ export type FacebookPageCheck =
   | { status: "ready"; page: FacebookPage }
   | { status: "no_content_access" | "no_page_token" | "unverified_content" | "page_mismatch" };
 
+// The Page node does not always expose tasks. The roles edge can verify the
+// current login's task for non-business Page users; an absent row or an
+// inaccessible edge is not evidence of publishing access.
+async function checkFacebookPageRole(userToken: string, pageToken: string, pageId: string): Promise<string[] | null> {
+  try {
+    const me = await graphRequest(`${GRAPH}/me?fields=id`, {
+      headers: { Authorization: `Bearer ${userToken}` },
+    });
+    if (typeof me.id !== "string" || !/^\d+$/.test(me.id)) return null;
+    const url = new URL(`${GRAPH}/${pageId}/roles`);
+    url.searchParams.set("uid", me.id);
+    const roles = await graphRequest(url.toString(), {
+      headers: { Authorization: `Bearer ${pageToken}` },
+    });
+    const ownRole = Array.isArray(roles.data)
+      ? roles.data.find((role: any) => role.id === me.id) : null;
+    return Array.isArray(ownRole?.tasks) ? ownRole.tasks : null;
+  } catch {
+    return null;
+  }
+}
+
 // A direct Page lookup is only a candidate: do not connect it unless Meta also
 // reports CREATE_CONTENT and a Page token for this same login and Page ID.
 export async function checkFacebookPageById(userToken: string, pageId: string): Promise<FacebookPageCheck> {
@@ -212,8 +234,11 @@ export async function checkFacebookPageById(userToken: string, pageId: string): 
     });
   }
   if (data.id !== pageId || typeof data.name !== "string") return { status: "page_mismatch" };
-  if (!Array.isArray(data.tasks)) return { status: "unverified_content" };
-  if (!data.tasks.includes("CREATE_CONTENT")) return { status: "no_content_access" };
+  const tasks = Array.isArray(data.tasks) ? data.tasks
+    : typeof data.access_token === "string" && data.access_token
+      ? await checkFacebookPageRole(userToken, data.access_token, pageId) : null;
+  if (!tasks) return { status: "unverified_content" };
+  if (!tasks.includes("CREATE_CONTENT")) return { status: "no_content_access" };
   if (typeof data.access_token !== "string" || !data.access_token) return { status: "no_page_token" };
   return { status: "ready", page: { id: data.id, name: data.name, accessToken: data.access_token } };
 }
