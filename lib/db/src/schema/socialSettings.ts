@@ -4,6 +4,9 @@ import { createInsertSchema } from "drizzle-zod";
 export const socialSettingsTable = pgTable("social_settings", {
   id: uuid("id").primaryKey(),
   automation: boolean("automation").notNull().default(false),
+  workerHeartbeatAt: timestamp("worker_heartbeat_at", { withTimezone: true }),
+  workerSuccessAt: timestamp("worker_success_at", { withTimezone: true }),
+  workerFailureAt: timestamp("worker_failure_at", { withTimezone: true }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

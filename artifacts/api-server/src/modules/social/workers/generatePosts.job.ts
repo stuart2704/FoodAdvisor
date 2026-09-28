@@ -1,6 +1,6 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
-import { db, restaurantsTable, socialPostsTable, socialSchedulesTable, socialSettingsTable } from "@workspace/db";
+import { db, restaurantsTable, socialLogsTable, socialPostsTable, socialSchedulesTable, socialSettingsTable } from "@workspace/db";
 import { generateRestaurantPost, generateBrandPost } from "../ai.service";
 import { getSocialSettings, SOCIAL_SETTINGS_ID } from "../settings";
 import { assignedToday, dueSlotToday } from "./dueSlot";
@@ -17,6 +17,8 @@ export async function generatePostsJob(now = new Date()): Promise<void> {
       ? await db.select().from(socialPostsTable).where(and(isNull(socialPostsTable.restaurantId), eq(socialPostsTable.platform, schedule.platform), eq(socialPostsTable.status, "draft")))
       : await db.select().from(socialPostsTable).where(and(eq(socialPostsTable.restaurantId, schedule.restaurantId), eq(socialPostsTable.platform, schedule.platform), eq(socialPostsTable.status, "draft")));
     if (existing.length) continue;
+    const started = Date.now();
+    try {
     const [r] = schedule.restaurantId ? await db.select().from(restaurantsTable).where(eq(restaurantsTable.placeId, schedule.restaurantId)) : [];
     if (schedule.restaurantId && (!r || !r.published)) throw new Error(`Published restaurant ${schedule.restaurantId} not found.`);
     // Listing cuisine tags can be inferred; only use published name/city and approved chef facts.
@@ -30,7 +32,12 @@ export async function generatePostsJob(now = new Date()): Promise<void> {
         .where(and(eq(socialSchedulesTable.id, schedule.id), eq(socialSchedulesTable.enabled, true)))
         .limit(1).for("update");
       if (!active) return;
-      await tx.insert(socialPostsTable).values({ id: randomUUID(), restaurantId: schedule.restaurantId, platform: schedule.platform, content: generated.caption, mediaObjectPath: generated.mediaObjectPath, status: "draft", idempotencyKey: `${schedule.id}:${now.toISOString().slice(0, 10)}` }).onConflictDoNothing({ target: socialPostsTable.idempotencyKey });
+      const [post] = await tx.insert(socialPostsTable).values({ id: randomUUID(), restaurantId: schedule.restaurantId, platform: schedule.platform, content: generated.caption, mediaObjectPath: generated.mediaObjectPath, status: "draft", idempotencyKey: `${schedule.id}:${now.toISOString().slice(0, 10)}` }).onConflictDoNothing({ target: socialPostsTable.idempotencyKey }).returning({ id: socialPostsTable.id });
+      if (post) await tx.insert(socialLogsTable).values({ id: randomUUID(), postId: post.id, restaurantId: schedule.restaurantId, platform: schedule.platform, event: "generate", status: "success", durationMs: Date.now() - started });
     });
+    } catch (error) {
+      await db.insert(socialLogsTable).values({ id: randomUUID(), restaurantId: schedule.restaurantId, platform: schedule.platform, event: "generate", status: "failed", message: "Automated draft generation failed.", durationMs: Date.now() - started });
+      throw error;
+    }
   }
 }

@@ -57,7 +57,7 @@ export async function publishPostsJob(now = new Date()): Promise<void> {
         if (failed) await tx.insert(socialLogsTable).values({
           id: randomUUID(), postId: failed.id, accountId: null,
           restaurantId: failed.restaurantId, platform: failed.platform,
-          event: "publish", status: "failed", message, attemptCount: failed.attemptCount,
+          event: "preflight", status: "failed", message, attemptCount: failed.attemptCount,
         });
       });
     }

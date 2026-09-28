@@ -1,5 +1,6 @@
 import { and, asc, eq, isNull } from "drizzle-orm";
-import { db, socialPostsTable, socialSchedulesTable, socialSettingsTable } from "@workspace/db";
+import { randomUUID } from "node:crypto";
+import { db, socialLogsTable, socialPostsTable, socialSchedulesTable, socialSettingsTable } from "@workspace/db";
 import { getSocialSettings, SOCIAL_SETTINGS_ID } from "../settings";
 import { assignedToday, dueSlotToday } from "./dueSlot";
 export async function schedulePostsJob(now = new Date()): Promise<void> {
@@ -10,6 +11,7 @@ export async function schedulePostsJob(now = new Date()): Promise<void> {
   for (const s of schedules) {
     if (!dueSlotToday(s.timeOfDay, now) || assignedToday(s.lastAssignedAt, now) || s.platform !== "facebook") continue;
     await db.transaction(async (tx) => {
+      const started = Date.now();
       const [settings] = await tx.select({ automation: socialSettingsTable.automation })
         .from(socialSettingsTable).where(eq(socialSettingsTable.id, SOCIAL_SETTINGS_ID))
         .limit(1).for("update");
@@ -32,9 +34,12 @@ export async function schedulePostsJob(now = new Date()): Promise<void> {
           .set({ status: "scheduled", scheduledFor: slot, updatedAt: now })
           .where(and(eq(socialPostsTable.id, draft.id), eq(socialPostsTable.status, "draft")))
           .returning({ id: socialPostsTable.id });
-        if (assigned) await tx.update(socialSchedulesTable)
-          .set({ lastAssignedAt: slot, updatedAt: now })
-          .where(eq(socialSchedulesTable.id, active.id));
+        if (assigned) {
+          await tx.update(socialSchedulesTable)
+            .set({ lastAssignedAt: slot, updatedAt: now })
+            .where(eq(socialSchedulesTable.id, active.id));
+          await tx.insert(socialLogsTable).values({ id: randomUUID(), postId: assigned.id, restaurantId: active.restaurantId, platform: active.platform, event: "schedule", status: "success", durationMs: Date.now() - started });
+        }
       }
     });
   }

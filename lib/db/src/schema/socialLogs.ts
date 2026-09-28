@@ -12,6 +12,7 @@ export const socialLogsTable = pgTable("social_logs", {
   status: text("status").notNull(),
   message: text("message"),
   attemptCount: integer("attempt_count").notNull().default(0),
+  durationMs: integer("duration_ms"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 export const insertSocialLogSchema = createInsertSchema(socialLogsTable);

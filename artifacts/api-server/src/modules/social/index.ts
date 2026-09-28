@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { randomUUID } from "node:crypto";
-import { and, count, desc, eq, inArray, isNotNull, isNull, lte, ne } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, isNotNull, isNull, lte, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, restaurantsTable, socialAccountsTable, socialLogsTable, socialPostsTable, socialSchedulesTable, socialSettingsTable } from "@workspace/db";
 import { adminOnly } from "../../middleware/adminOnly";
@@ -180,14 +180,22 @@ router.post("/social/posts/generate", async (req, res): Promise<void> => {
   }
   const r = typeof restaurantId === "string" ? await restaurant(restaurantId) : undefined;
   if (scope !== "brand" && (!r || !r.published)) { res.status(404).json({ error: "Published restaurant not found." }); return; }
+  const started = Date.now();
   try {
     const [previous] = await db.select({ total: count() }).from(socialPostsTable)
       .where(scope === "brand" ? isNull(socialPostsTable.restaurantId) : eq(socialPostsTable.restaurantId, restaurantId));
     // Cuisine tags are not independently approved for social copy.
     const generated = scope === "brand" ? await generateBrandPost() : await generateRestaurantPost({ placeId: r!.placeId, name: r!.name, city: r!.city }, previous?.total ?? 0);
-    const [post] = await db.insert(socialPostsTable).values({ id: randomUUID(), restaurantId: scope === "brand" ? null : restaurantId, platform, content: generated.caption, mediaObjectPath: generated.mediaObjectPath, status: "draft", idempotencyKey: randomUUID() }).returning();
+    const post = await db.transaction(async (tx) => {
+      const [created] = await tx.insert(socialPostsTable).values({ id: randomUUID(), restaurantId: scope === "brand" ? null : restaurantId, platform, content: generated.caption, mediaObjectPath: generated.mediaObjectPath, status: "draft", idempotencyKey: randomUUID() }).returning();
+      await tx.insert(socialLogsTable).values({ id: randomUUID(), postId: created.id, restaurantId: created.restaurantId, platform, event: "generate", status: "success", durationMs: Date.now() - started });
+      return created;
+    });
     res.status(201).json({ post });
-  } catch (error) { res.status(502).json({ error: error instanceof Error ? error.message : "Post generation failed." }); }
+  } catch (error) {
+    await db.insert(socialLogsTable).values({ id: randomUUID(), restaurantId: scope === "brand" ? null : restaurantId, platform, event: "generate", status: "failed", message: "Manual draft generation failed.", durationMs: Date.now() - started });
+    res.status(502).json({ error: error instanceof Error ? error.message : "Post generation failed." });
+  }
 });
 router.post("/social/posts/:postId/photo-approval", async (req, res): Promise<void> => {
   const id = z.string().uuid().safeParse(req.params.postId);
@@ -246,6 +254,7 @@ router.post("/social/posts/schedule", async (req, res): Promise<void> => {
     ? isNull(socialAccountsTable.restaurantId)
     : eq(socialAccountsTable.restaurantId, candidate.restaurantId);
   await getSocialSettings();
+  const started = Date.now();
   const result = await db.transaction(async (tx) => {
     const [settings] = await tx.select({ automation: socialSettingsTable.automation })
       .from(socialSettingsTable).where(eq(socialSettingsTable.id, SOCIAL_SETTINGS_ID))
@@ -265,6 +274,7 @@ router.post("/social/posts/schedule", async (req, res): Promise<void> => {
       .set({ status: "scheduled", scheduledFor, updatedAt: new Date() })
       .where(and(eq(socialPostsTable.id, postId), eq(socialPostsTable.status, "draft")))
       .returning();
+    if (post) await tx.insert(socialLogsTable).values({ id: randomUUID(), postId: post.id, restaurantId: post.restaurantId, platform: post.platform, event: "schedule", status: "success", durationMs: Date.now() - started });
     return post ? { reason: "scheduled" as const, post } : { reason: "not-draft" as const };
   });
   if (result.reason === "automation-off") {
@@ -325,6 +335,7 @@ router.post("/social/posts/:postId/status", async (req, res): Promise<void> => {
       platform: "tiktok", event: "status", status: success ? "success" : "failed",
       message: success ? `Publish ID: ${post.providerPostId}; Post ID: ${status.publicaly_available_post_id?.join(",") || "not returned"}` : "TikTok reports publishing failed.",
       attemptCount: post.attemptCount,
+      durationMs: post.updatedAt ? Math.max(0, Date.now() - post.updatedAt.getTime()) : null,
     });
     res.json({ post: updated ?? post, providerStatus: status.status });
   } catch { res.status(502).json({ error: "TikTok status is unavailable. Do not resend; check again later." }); }
@@ -333,9 +344,9 @@ router.get("/social/posts", async (_req, res): Promise<void> => { res.json({ pos
 router.get("/social/logs", async (_req, res): Promise<void> => { res.json({ logs: await db.select().from(socialLogsTable).orderBy(desc(socialLogsTable.createdAt)) }); });
 router.get("/social/errors", async (_req, res): Promise<void> => {
   const [total] = await db.select({ count: count() }).from(socialLogsTable)
-    .where(eq(socialLogsTable.status, "failed"));
+    .where(inArray(socialLogsTable.status, ["failed", "uncertain"]));
   const errors = await db.select().from(socialLogsTable)
-    .where(eq(socialLogsTable.status, "failed"))
+    .where(inArray(socialLogsTable.status, ["failed", "uncertain"]))
     .orderBy(desc(socialLogsTable.createdAt)).limit(100);
   // Existing logs store a safe generic message, not provider error codes.
   // Do not guess token, permission, or rate-limit causes from that message.
@@ -364,6 +375,50 @@ router.get("/social/settings", async (_req, res): Promise<void> => {
       retryAttempts: 0,
       postingWindow: null,
     },
+  });
+});
+router.get("/social/health", async (_req, res): Promise<void> => {
+  const settings = await getSocialSettings();
+  const configured = verifiedRunner();
+  const now = Date.now();
+  // The external runner targets five-minute intervals; allow missed/delayed invocations,
+  // but do not mistake a yesterday heartbeat for a running worker.
+  const fresh = settings.workerSuccessAt && settings.workerHeartbeatAt
+    && settings.workerHeartbeatAt.getTime() >= now - 20 * 60 * 1000
+    && settings.workerHeartbeatAt.getTime() <= now + 5 * 60 * 1000
+    && settings.workerSuccessAt.getTime() > (settings.workerFailureAt?.getTime() ?? 0);
+  const since = new Date(now - 30 * 86_400_000);
+  const rows = await db.select({
+    event: socialLogsTable.event, status: socialLogsTable.status,
+    total: count(),
+    averageMs: sql<number | null>`avg(${socialLogsTable.durationMs})::float8`,
+  }).from(socialLogsTable).where(gte(socialLogsTable.createdAt, since))
+    .groupBy(socialLogsTable.event, socialLogsTable.status);
+  const metric = (event: string, status: string) => rows.find(row => row.event === event && row.status === status);
+  const total = (event: string, status: string) => metric(event, status)?.total ?? 0;
+  const outcomes = total("publish", "success") + total("publish", "failed") + total("status", "success") + total("status", "failed");
+  res.json({
+    health: {
+      state: !settings.automation ? "disabled" : !configured ? "not_configured" : fresh ? "healthy" : "configured",
+      workerConfigured: configured,
+      lastHeartbeatAt: settings.workerHeartbeatAt,
+      lastSuccessAt: settings.workerSuccessAt,
+      lastFailureAt: settings.workerFailureAt,
+    },
+    periodDays: 30,
+    metrics: {
+      generation: { succeeded: total("generate", "success"), failed: total("generate", "failed"), averageMs: metric("generate", "success")?.averageMs ?? null },
+      scheduling: { succeeded: total("schedule", "success"), failed: total("schedule", "failed"), averageMs: metric("schedule", "success")?.averageMs ?? null },
+      publishing: {
+        attempts: total("publish", "attempt"), succeeded: total("publish", "success"),
+        failed: total("publish", "failed") + total("status", "failed"),
+        uncertain: total("publish", "uncertain"), pending: total("publish", "pending"),
+        completed: total("status", "success"),
+        successRate: outcomes ? Math.round(100 * (total("publish", "success") + total("status", "success")) / outcomes) : null,
+        averageMs: metric("publish", "success")?.averageMs ?? null,
+      },
+    },
+    capabilities: { facebookPublishing: "supported", instagramPublishing: "not_verified", tokenRefresh: "not_verified" },
   });
 });
 router.post("/social/settings", async (req, res): Promise<void> => {

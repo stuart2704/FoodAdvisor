@@ -61,7 +61,9 @@ test("master OFF serializes scheduling and final claim; server OFF still permits
     process.env.SOCIAL_EXTERNAL_SCHEDULER_VERIFIED = "true";
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
     await pool.query(`
-      CREATE TABLE social_settings (id uuid PRIMARY KEY, automation boolean NOT NULL DEFAULT false, updated_at timestamptz NOT NULL DEFAULT now());
+      CREATE TABLE social_settings (id uuid PRIMARY KEY, automation boolean NOT NULL DEFAULT false,
+        worker_heartbeat_at timestamptz, worker_success_at timestamptz, worker_failure_at timestamptz,
+        updated_at timestamptz NOT NULL DEFAULT now());
       CREATE TABLE social_posts (
         id uuid PRIMARY KEY, restaurant_id text, platform text NOT NULL, account_id uuid,
         content text NOT NULL, media_url text, media_object_path text, media_approved_at timestamptz,
@@ -83,7 +85,7 @@ test("master OFF serializes scheduling and final claim; server OFF still permits
       CREATE TABLE social_logs (
         id uuid PRIMARY KEY, post_id uuid, account_id uuid, restaurant_id text,
         platform text NOT NULL, event text NOT NULL, status text NOT NULL, message text,
-        attempt_count integer NOT NULL DEFAULT 0, created_at timestamp DEFAULT now()
+        attempt_count integer NOT NULL DEFAULT 0, duration_ms integer, created_at timestamp DEFAULT now()
       );
       INSERT INTO social_settings(id, automation) VALUES ('${SETTINGS_ID}', true);
     `);

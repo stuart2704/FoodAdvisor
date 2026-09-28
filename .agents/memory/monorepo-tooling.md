@@ -44,3 +44,9 @@ Under Node's strip-types test runner, extensionless local TypeScript imports are
 **Why:** An API regression suite failed during module loading despite the behavior under test being unrelated to logging and server middleware.
 
 **How to apply:** When a test harness loads production modules, resolve or mock only unrelated imports in the harness, preserving the actual security and business logic under test.
+
+For one-off database diagnostics in this workspace, use the API package's TS runner rather than plain Node or the DB package's executable context; inline evaluation needs an async function instead of top-level await.
+
+**Why:** Plain Node could not resolve the DB package's TypeScript directory imports, the DB package did not have the runner executable, and inline evaluation used CommonJS transformation.
+
+**How to apply:** Run read-only diagnostic expressions from the API package's executable scope, wrapping awaited queries in an async function and closing the pool when finished.

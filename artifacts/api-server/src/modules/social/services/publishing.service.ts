@@ -73,17 +73,24 @@ export async function publishPost(postId: string, options: { scheduledOnly?: boo
       if (!settings?.automation
         || process.env.SOCIAL_AUTOMATION_ENABLED !== "true"
         || process.env.SOCIAL_EXTERNAL_SCHEDULER_VERIFIED !== "true") return [];
-      return tx.update(socialPostsTable)
+      const claimed = await tx.update(socialPostsTable)
         .set({ status: "publishing", attemptCount: candidate.attemptCount + 1, updatedAt: new Date() })
         .where(and(eq(socialPostsTable.id, postId), eq(socialPostsTable.status, "scheduled")))
         .returning();
+      if (claimed[0]) await tx.insert(socialLogsTable).values({ id: randomUUID(), postId, accountId: account.id, restaurantId: claimed[0].restaurantId, platform: claimed[0].platform, event: "publish", status: "attempt", attemptCount: claimed[0].attemptCount });
+      return claimed;
     })
-    : await db.update(socialPostsTable)
+    : await db.transaction(async (tx) => {
+      const claimed = await tx.update(socialPostsTable)
       .set({ status: "publishing", attemptCount: candidate.attemptCount + 1, updatedAt: new Date() })
       .where(and(eq(socialPostsTable.id, postId), inArray(socialPostsTable.status, ["draft", "scheduled"])))
       .returning();
+      if (claimed[0]) await tx.insert(socialLogsTable).values({ id: randomUUID(), postId, accountId: account.id, restaurantId: claimed[0].restaurantId, platform: claimed[0].platform, event: "publish", status: "attempt", attemptCount: claimed[0].attemptCount });
+      return claimed;
+    });
   if (!claimed) return null;
 
+  const started = Date.now();
   let providerPostId: string;
   try {
     const input = { token, pageId: account.pageId ?? undefined, content: claimed.content, mediaUrl: claimed.mediaUrl ?? undefined };
@@ -101,8 +108,8 @@ export async function publishPost(postId: string, options: { scheduledOnly?: boo
       .where(and(eq(socialPostsTable.id, postId), eq(socialPostsTable.status, "publishing")));
     await db.insert(socialLogsTable).values({
       id: randomUUID(), postId, accountId: account.id, restaurantId: claimed.restaurantId,
-      platform: claimed.platform, event: "publish", status: "failed",
-      message, attemptCount: claimed.attemptCount,
+      platform: claimed.platform, event: "publish", status: "uncertain",
+      message, attemptCount: claimed.attemptCount, durationMs: Date.now() - started,
     });
     throw new Error(message);
   }
@@ -116,7 +123,7 @@ export async function publishPost(postId: string, options: { scheduledOnly?: boo
     .returning();
   await db.insert(socialLogsTable).values({
     id: randomUUID(), postId, accountId: account.id, restaurantId: claimed.restaurantId,
-    platform: claimed.platform, event: "publish", status: pending ? "pending" : "success", message: `Provider ID: ${providerPostId}`, attemptCount: claimed.attemptCount,
+    platform: claimed.platform, event: "publish", status: pending ? "pending" : "success", message: `Provider ID: ${providerPostId}`, attemptCount: claimed.attemptCount, durationMs: Date.now() - started,
   });
   return post;
 }
