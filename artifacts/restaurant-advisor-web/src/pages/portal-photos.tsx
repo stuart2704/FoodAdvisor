@@ -1,10 +1,11 @@
 import { useEffect, useState, type ChangeEvent } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { portalPath, portalToken } from '@/lib/portal-access';
 import { ArrowLeft, Camera, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function PortalPhotosPage() {
-  const { token = '' } = useParams<{ token: string }>();
+  const token = portalToken();
   const [valid, setValid] = useState<boolean | null>(null);
   const [photos, setPhotos] = useState<{ id: string; url: string; status: string }[]>([]);
   const [busy, setBusy] = useState(false);
@@ -79,7 +80,7 @@ export default function PortalPhotosPage() {
   return (
     <div className="min-h-screen bg-background p-6 text-foreground md:p-12">
       <main className="mx-auto max-w-3xl">
-        <Link to={`/portal/${token}`} className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-primary">
+        <Link to={portalPath()} className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-primary">
           <ArrowLeft className="h-4 w-4" /> Back to portal
         </Link>
         <Card>

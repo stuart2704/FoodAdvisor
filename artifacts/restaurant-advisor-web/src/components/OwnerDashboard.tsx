@@ -428,6 +428,7 @@ export default function OwnerDashboard({
       });
       const data = await response.json();
       if (!response.ok || data.success !== true) throw new Error(data.error || "Offer could not be saved.");
+      trackEvent(publishing ? "owner_offer_published" : "owner_offer_updated", undefined, "/offers");
       setOfferForm(emptyOffer);
       setEditingOfferId(null);
       setOfferMessage(publishing ? "Offer published." : "Offer updated.");
@@ -449,6 +450,7 @@ export default function OwnerDashboard({
       );
       const data = await response.json();
       if (!response.ok || data.success !== true) throw new Error(data.error || "Offer could not be deleted.");
+      trackEvent("owner_offer_deleted", undefined, "/offers");
       if (editingOfferId === id) {
         setEditingOfferId(null);
         setOfferForm(emptyOffer);

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import { setPortalToken } from '@/lib/portal-access';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -74,7 +75,8 @@ export default function ClaimRestaurant() {
       }
       const portalToken = claimResult.portalToken;
       if (portalToken) {
-        window.location.assign(`/portal/${encodeURIComponent(portalToken)}`);
+        setPortalToken(portalToken);
+        window.location.assign('/portal');
         return;
       }
       if (claimResult.status === 'basic') {

@@ -4,6 +4,41 @@
     <meta charset="UTF-8" />
     <title>The Food Advisor</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // This must run in the head, before the publishing proxy's async analytics script.
+      // Legacy /portal/<bearer>/... links and new /portal#access=<bearer> links
+      // are scrubbed before any pageview can inspect location.href.
+      (function () {
+        var path = window.location.pathname;
+        if (path !== "/portal" && !path.startsWith("/portal/")) return;
+        var referrer = document.createElement("meta");
+        referrer.name = "referrer";
+        referrer.content = "no-referrer";
+        document.head.appendChild(referrer);
+        var parts = path.split("/").filter(Boolean);
+        var section = "";
+        var cleanSections = ["menu", "photos", "analytics", "onboarding", "upgrade"];
+        var legacy = parts[1] && !cleanSections.includes(parts[1]);
+        if (legacy) {
+          section = cleanSections.includes(parts[2])
+            ? "/" + parts.slice(2).join("/") : "";
+        } else if (parts[1]) {
+          section = "/" + parts.slice(1).join("/");
+        }
+        var fragment = window.location.hash.match(/^#access=([A-Za-z0-9_-]{43})$/);
+        var token = fragment ? fragment[1] : legacy ? parts[1] : "";
+        try {
+          if (/^[A-Za-z0-9_-]{43}$/.test(token)) {
+            sessionStorage.setItem("ownerPortalAccess", token);
+          } else if (token || window.location.hash.startsWith("#access=")) {
+            sessionStorage.removeItem("ownerPortalAccess");
+          }
+        } catch (_) {
+          // Without storage, access fails closed; still remove the bearer URL.
+        }
+        window.history.replaceState(window.history.state, "", "/portal" + section);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

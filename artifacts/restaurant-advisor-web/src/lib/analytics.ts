@@ -23,7 +23,7 @@ export function trackEvent(name: string, data?: AnalyticsData, safePath?: string
       window.umami?.track(({ website }) => ({
         website,
         url: safePath,
-        title: "Booking",
+        title: safePath === "/offers" ? "Offers" : "Booking",
         name,
         data,
       }));

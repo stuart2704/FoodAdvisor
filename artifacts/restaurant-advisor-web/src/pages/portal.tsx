@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { portalPath, portalToken } from '@/lib/portal-access';
 import { BarChart3, Camera, Crown, ListChecks, Loader2, UtensilsCrossed } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import OwnerDashboard from '@/components/OwnerDashboard';
@@ -21,7 +22,7 @@ interface PortalResponse {
 }
 
 export default function PortalPage() {
-  const { token = '' } = useParams<{ token: string }>();
+  const token = portalToken();
   const [data, setData] = useState<PortalResponse | null>(null);
 
   useEffect(() => {
@@ -57,17 +58,17 @@ export default function PortalPage() {
   }
   const restaurant = data.restaurant;
   const sections = [
-    { href: `/portal/${token}/onboarding`, label: 'Onboarding Progress', icon: ListChecks },
-    { href: `/portal/${token}/menu`, label: 'Manage Menu', icon: UtensilsCrossed },
-    { href: `/portal/${token}/photos`, label: 'Manage Photos', icon: Camera },
+    { href: portalPath('onboarding'), label: 'Onboarding Progress', icon: ListChecks },
+    { href: portalPath('menu'), label: 'Manage Menu', icon: UtensilsCrossed },
+    { href: portalPath('photos'), label: 'Manage Photos', icon: Camera },
     {
       href: restaurant.premium
-        ? `/portal/${token}/analytics`
-        : `/portal/${token}/upgrade`,
+        ? portalPath('analytics')
+        : portalPath('upgrade'),
       label: restaurant.premium ? 'View Analytics' : 'Analytics — Premium',
       icon: BarChart3,
     },
-    { href: `/portal/${token}/upgrade`, label: 'View Premium Options', icon: Crown },
+    { href: portalPath('upgrade'), label: 'View Premium Options', icon: Crown },
   ];
   return (
     <div className="min-h-screen bg-background p-6 text-foreground md:p-12">

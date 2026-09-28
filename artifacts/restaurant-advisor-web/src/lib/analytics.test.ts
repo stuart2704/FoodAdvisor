@@ -32,4 +32,14 @@ describe("booking analytics", () => {
     vi.stubGlobal("window", { umami: { track: () => { throw new Error("unavailable"); } } });
     expect(() => trackEvent("booking_link_withdrawn", undefined, "/booking")).not.toThrow();
   });
+
+  it("sends offer outcomes without tracker-inferred owner URLs or referrers", () => {
+    const track = vi.fn((payload: (props: { website: string }) => Record<string, unknown>) =>
+      payload({ website: "site", url: "/portal/private-token", referrer: "/portal/private-token" } as { website: string }));
+    vi.stubGlobal("window", { umami: { track } });
+    trackEvent("owner_offer_published", undefined, "/offers");
+    expect(track.mock.results[0].value).toEqual({
+      website: "site", url: "/offers", title: "Offers", name: "owner_offer_published", data: undefined,
+    });
+  });
 });

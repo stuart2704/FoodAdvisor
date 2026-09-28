@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { portalPath, portalToken } from '@/lib/portal-access';
 import { ArrowLeft, BarChart3, Crown, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,7 +28,7 @@ interface InsightResponse {
 }
 
 export default function PortalAnalyticsPage() {
-  const { token = '' } = useParams<{ token: string }>();
+  const token = portalToken();
   const [portal, setPortal] = useState<PortalResponse | null>(null);
   const [insight, setInsight] = useState<InsightResponse['insight']>();
   const [insightError, setInsightError] = useState('');
@@ -100,7 +101,7 @@ export default function PortalAnalyticsPage() {
   return (
     <div className="min-h-screen bg-background p-6 text-foreground md:p-12">
       <main className="mx-auto max-w-3xl">
-        <Link to={`/portal/${token}`} className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-primary">
+        <Link to={portalPath()} className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-primary">
           <ArrowLeft className="h-4 w-4" /> Back to portal
         </Link>
         <Card>
@@ -150,7 +151,7 @@ export default function PortalAnalyticsPage() {
                   Analytics are a Premium feature. Your Basic listing remains active.
                 </p>
                 <Button asChild>
-                  <Link to={`/portal/${token}/upgrade`}>
+                  <Link to={portalPath('upgrade')}>
                     <Crown className="mr-2 h-4 w-4" /> View Premium Options
                   </Link>
                 </Button>

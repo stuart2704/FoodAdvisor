@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { portalPath, portalToken } from '@/lib/portal-access';
 import { ArrowLeft, Crown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +11,7 @@ interface PortalResponse {
 }
 
 export default function PortalUpgradePage() {
-  const { token: routeToken = '' } = useParams<{ token: string }>();
+  const routeToken = portalToken();
   const [returnToken] = useState(() => {
     try {
       const saved = JSON.parse(sessionStorage.getItem('premiumCheckoutReturn') ?? 'null');
@@ -121,7 +122,7 @@ export default function PortalUpgradePage() {
   return (
     <div className="min-h-screen bg-background p-6 text-foreground md:p-12">
       <main className="mx-auto max-w-3xl">
-        <Link to={`/portal/${token}`} className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-primary">
+        <Link to={portalPath()} className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-primary">
           <ArrowLeft className="h-4 w-4" /> Back to portal
         </Link>
         <Card>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { portalPath, portalToken } from '@/lib/portal-access';
 import { ArrowLeft, Check, Loader2 } from 'lucide-react';
 
 interface PortalRestaurant {
@@ -10,7 +11,7 @@ interface PortalRestaurant {
 }
 
 export default function PortalOnboardingPage() {
-  const { token = '' } = useParams<{ token: string }>();
+  const token = portalToken();
   const [restaurant, setRestaurant] = useState<PortalRestaurant | null>(null);
   const [menuCount, setMenuCount] = useState(0);
   const [step, setStep] = useState(0);
@@ -65,21 +66,21 @@ export default function PortalOnboardingPage() {
       title: 'Basic information',
       description: `${restaurant.name} · ${restaurant.address}`,
       complete: true,
-      href: `/portal/${token}`,
+      href: portalPath(),
       action: 'Review listing',
     },
     {
       title: 'Menu setup',
       description: menuCount > 0 ? `${menuCount} menu items added.` : 'Add your first menu items.',
       complete: menuCount > 0,
-      href: `/portal/${token}/menu`,
+      href: portalPath('menu'),
       action: 'Manage menu',
     },
     {
       title: 'Photos',
       description: 'Add restaurant photos when secure uploads are enabled.',
       complete: false,
-      href: `/portal/${token}/photos`,
+      href: portalPath('photos'),
       action: 'View photos',
     },
     {
@@ -88,7 +89,7 @@ export default function PortalOnboardingPage() {
         ? 'Your owner claim is verified.'
         : 'Complete the secure owner claim process.',
       complete: restaurant.verified,
-      href: `/portal/${token}`,
+      href: portalPath(),
       action: 'Review verification',
     },
   ];
@@ -96,7 +97,7 @@ export default function PortalOnboardingPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12 md:px-12">
-      <Link to={`/portal/${token}`} className="inline-flex items-center gap-2 font-semibold text-primary">
+      <Link to={portalPath()} className="inline-flex items-center gap-2 font-semibold text-primary">
         <ArrowLeft className="h-4 w-4" /> Back to portal
       </Link>
       <h1 className="mt-6 font-serif text-4xl font-semibold">Restaurant onboarding</h1>

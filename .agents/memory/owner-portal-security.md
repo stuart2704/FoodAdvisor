@@ -15,6 +15,12 @@ Automatic pageview analytics must be assessed separately from custom-event paylo
 
 **How to apply:** Before enabling analytics for portal traffic, verify that both pageviews and custom events exclude or safely redact tokenized paths. For owner offer outcomes, use server-side aggregate counts rather than a browser tracker while tokenized paths remain; a safe custom event payload does not make its tracker metadata safe.
 
+For injected website analytics, removing bearer tokens from the path alone is insufficient: the observed tracker includes hashes and query strings in its automatic pageview URL. Normalize incoming owner links synchronously before the injected script executes, then navigate portal sections with token-free URLs. Custom outcome events may supplement server aggregates only with fixed non-identifying tracker metadata.
+
+**Why:** The published proxy adds an async tracker after the HTML head; a React effect or a fragment-only migration would still let it see the bearer token.
+
+**How to apply:** Preserve the early normalization order during HTML or deployment changes, check actual injected tracker behavior with synthetic tokens, and keep authoritative offer counts on the server.
+
 Reply bodies remain transient inputs and are not copied into dashboard storage. Gmail reply recognition must never send mail, including positive-reply escalation. Any separate sending workflow needs its own explicit authorization; Instantly escalation still requires ownership and message-id checks.
 
 **Why:** Raw replies may contain personal or confidential content, and caller-supplied classification requests are not evidence that a restaurant replied. The Gmail recognition request explicitly forbids sending; a trusted positive classification does not override that restriction.

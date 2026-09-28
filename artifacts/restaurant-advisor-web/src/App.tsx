@@ -68,16 +68,14 @@ function AppRoutes() {
         <Route path="/claim/:placeId" element={<ClaimRestaurant />} />
         <Route path="/claim/:candidateId/:token" element={<OsmClaimPage />} />
         <Route path="/claim/:id/success" element={<ClaimSuccessPage />} />
-        <Route path="/portal/:token" element={<PortalPage />} />
-        <Route path="/portal/:token/analytics" element={<PortalAnalyticsPage />} />
-        <Route path="/portal/:token/menu" element={<PortalMenuPage />} />
-        <Route path="/portal/:token/onboarding" element={<PortalOnboardingPage />} />
-        <Route path="/portal/:token/photos" element={<PortalPhotosPage />} />
-        <Route path="/portal/:token/upgrade" element={<PortalUpgradePage />} />
+        <Route path="/portal" element={<PortalPage />} />
+        <Route path="/portal/analytics" element={<PortalAnalyticsPage />} />
+        <Route path="/portal/menu" element={<PortalMenuPage />} />
+        <Route path="/portal/onboarding" element={<PortalOnboardingPage />} />
+        <Route path="/portal/photos" element={<PortalPhotosPage />} />
+        <Route path="/portal/upgrade" element={<PortalUpgradePage />} />
         <Route path="/portal/upgrade/success" element={<PortalUpgradePage />} />
         <Route path="/portal/upgrade/cancel" element={<PortalUpgradePage />} />
-        <Route path="/portal/:token/upgrade/success" element={<PortalUpgradePage />} />
-        <Route path="/portal/:token/upgrade/cancel" element={<PortalUpgradePage />} />
         <Route path="/trending" element={<Trending />} />
         <Route path="/city-guide" element={<CityGuide />} />
         <Route path="/highlights" element={<CityHighlights />} />

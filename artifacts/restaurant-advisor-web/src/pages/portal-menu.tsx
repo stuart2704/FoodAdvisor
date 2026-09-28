@@ -1,10 +1,11 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { portalPath, portalToken } from '@/lib/portal-access';
 import { ArrowLeft, UtensilsCrossed } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function PortalMenuPage() {
-  const { token = '' } = useParams<{ token: string }>();
+  const token = portalToken();
   const [restaurantId, setRestaurantId] = useState('');
   const [items, setItems] = useState<Array<{
     id: number;
@@ -130,7 +131,7 @@ export default function PortalMenuPage() {
   return (
     <div className="min-h-screen bg-background p-6 text-foreground md:p-12">
       <main className="mx-auto max-w-3xl">
-        <Link to={`/portal/${token}`} className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-primary">
+        <Link to={portalPath()} className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-primary">
           <ArrowLeft className="h-4 w-4" /> Back to portal
         </Link>
         <Card>
