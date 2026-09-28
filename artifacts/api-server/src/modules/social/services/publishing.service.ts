@@ -70,7 +70,9 @@ export async function publishPost(postId: string, options: { scheduledOnly?: boo
       const [settings] = await tx.select({ automation: socialSettingsTable.automation })
         .from(socialSettingsTable).where(eq(socialSettingsTable.id, SOCIAL_SETTINGS_ID))
         .limit(1).for("update");
-      if (!settings?.automation) return [];
+      if (!settings?.automation
+        || process.env.SOCIAL_AUTOMATION_ENABLED !== "true"
+        || process.env.SOCIAL_EXTERNAL_SCHEDULER_VERIFIED !== "true") return [];
       return tx.update(socialPostsTable)
         .set({ status: "publishing", attemptCount: candidate.attemptCount + 1, updatedAt: new Date() })
         .where(and(eq(socialPostsTable.id, postId), eq(socialPostsTable.status, "scheduled")))

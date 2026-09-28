@@ -8,3 +8,9 @@ Temporary PostgreSQL test clusters must configure a Unix socket directory inside
 **Why:** The PostgreSQL binary here attempts to create a socket lock file under `/run/postgresql` by default, but that directory does not exist. A cluster can therefore fail at startup after successfully binding its TCP address.
 
 **How to apply:** Pass a temporary socket directory to the server's startup options and clean it up with the test cluster. Keep tests independent of application database credentials.
+
+When fixture SQL inserts the same generated identifier into both a UUID column and a text column, use distinct PostgreSQL bind placeholders even if both values are identical.
+
+**Why:** PostgreSQL infers a single type for each placeholder. Reusing one for UUID and text produces an inconsistent-parameter-types error before the integration test reaches the behavior it means to exercise.
+
+**How to apply:** Bind the generated ID twice with separate placeholders rather than relying on an implicit or explicit cast of a shared placeholder.

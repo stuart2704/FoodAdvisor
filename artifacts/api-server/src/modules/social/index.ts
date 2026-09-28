@@ -250,7 +250,7 @@ router.post("/social/posts/schedule", async (req, res): Promise<void> => {
     const [settings] = await tx.select({ automation: socialSettingsTable.automation })
       .from(socialSettingsTable).where(eq(socialSettingsTable.id, SOCIAL_SETTINGS_ID))
       .limit(1).for("update");
-    if (!settings?.automation) return { reason: "automation-off" as const };
+    if (!settings?.automation || !verifiedRunner()) return { reason: "automation-off" as const };
     const accounts = await tx.select({ id: socialAccountsTable.id }).from(socialAccountsTable)
       .where(and(scope, eq(socialAccountsTable.platform, candidate.platform), eq(socialAccountsTable.status, "connected")))
        .limit(candidate.platform === "tiktok" ? 2 : 1).for("update");

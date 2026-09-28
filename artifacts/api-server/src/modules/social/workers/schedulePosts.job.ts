@@ -13,7 +13,9 @@ export async function schedulePostsJob(now = new Date()): Promise<void> {
       const [settings] = await tx.select({ automation: socialSettingsTable.automation })
         .from(socialSettingsTable).where(eq(socialSettingsTable.id, SOCIAL_SETTINGS_ID))
         .limit(1).for("update");
-      if (!settings?.automation) return;
+      if (!settings?.automation
+        || process.env.SOCIAL_AUTOMATION_ENABLED !== "true"
+        || process.env.SOCIAL_EXTERNAL_SCHEDULER_VERIFIED !== "true") return;
       // Share the schedule row lock with the admin OFF action; after OFF commits
       // a stale worker selection cannot turn a brand draft back into a due post.
       const [active] = await tx.select().from(socialSchedulesTable)
