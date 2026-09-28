@@ -5,7 +5,7 @@ import {
   restaurantCollectionsTable,
   restaurantsTable,
 } from "@workspace/db";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { Router, type IRouter, type Request, type Response } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
@@ -34,6 +34,7 @@ const RestaurantIds = z
   .min(1)
   .max(50)
   .refine((ids) => new Set(ids).size === ids.length, "Restaurant IDs must be unique.");
+const Version = z.number().int().positive();
 const CreateCollectionBody = z.object({
   title: z.string().trim().min(1).max(120),
   description: z.string().trim().min(1).max(1_000),
@@ -46,9 +47,14 @@ const UpdateCollectionBody = z
     description: z.string().trim().min(1).max(1_000).optional(),
     city: z.string().trim().min(1).max(100).optional(),
     restaurantIds: RestaurantIds.optional(),
+    version: Version,
   })
-  .refine((body) => Object.keys(body).length > 0, "At least one update is required.");
-const ReorderCollectionBody = z.object({ restaurantIds: RestaurantIds });
+  .refine((body) => Object.keys(body).some((key) => key !== "version"), "At least one update is required.");
+const ReorderCollectionBody = z.object({ restaurantIds: RestaurantIds, version: Version });
+const DeleteCollectionBody = z.object({ version: Version });
+
+class CollectionConflict extends Error {}
+const conflictResponse = { success: false, error: "This collection changed since you opened it. Refresh to review the latest version before saving.", code: "COLLECTION_CONFLICT" };
 
 type Database = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -108,14 +114,15 @@ async function findEditableCollection(
   return collection ?? null;
 }
 
-async function readCollections(city?: string, identity?: CuratorIdentity) {
-  const rows = await db
+async function readCollections(city?: string, identity?: CuratorIdentity, executor: typeof db | Database = db) {
+  const rows = await executor
     .select({
       id: restaurantCollectionsTable.id,
       title: restaurantCollectionsTable.title,
       description: restaurantCollectionsTable.description,
       city: restaurantCollectionsTable.city,
       curatorUserId: restaurantCollectionsTable.curatorUserId,
+      version: restaurantCollectionsTable.version,
       updatedAt: restaurantCollectionsTable.updatedAt,
       memberId: restaurantCollectionMembersTable.id,
       position: restaurantCollectionMembersTable.position,
@@ -160,6 +167,7 @@ async function readCollections(city?: string, identity?: CuratorIdentity) {
       description: string;
       city: string;
       curatorUserId?: string;
+      version: number;
       updatedAt: Date;
       restaurants: Array<{
         membershipId: string;
@@ -183,6 +191,7 @@ async function readCollections(city?: string, identity?: CuratorIdentity) {
         city: row.city,
         ...(identity ? { curatorUserId: row.curatorUserId } : {}),
         updatedAt: row.updatedAt,
+        version: row.version,
         restaurants: [],
       };
       collections.set(row.id, collection);
@@ -311,6 +320,10 @@ router.patch(
         res.status(404).json({ success: false, error: "Collection not found." });
         return;
       }
+      if (existing.version !== body.data.version) {
+        res.status(409).json(conflictResponse);
+        return;
+      }
       const city = body.data.city ?? existing.city;
       let restaurantIds = body.data.restaurantIds;
       if (!restaurantIds && body.data.city) {
@@ -332,8 +345,8 @@ router.patch(
         });
         return;
       }
-      await db.transaction(async (tx) => {
-        await tx
+      const data = await db.transaction(async (tx) => {
+        const [claimed] = await tx
           .update(restaurantCollectionsTable)
           .set({
             ...(body.data.title ? { title: body.data.title } : {}),
@@ -342,15 +355,25 @@ router.patch(
               : {}),
             ...(body.data.city ? { city: body.data.city } : {}),
             updatedAt: new Date(),
+            version: sql`${restaurantCollectionsTable.version} + 1`,
           })
-          .where(eq(restaurantCollectionsTable.id, existing.id));
+          .where(and(
+            eq(restaurantCollectionsTable.id, existing.id),
+            eq(restaurantCollectionsTable.version, body.data.version),
+          ))
+          .returning({ id: restaurantCollectionsTable.id });
+        if (!claimed) throw new CollectionConflict();
         if (body.data.restaurantIds) {
           await replaceMembers(tx, existing.id, body.data.restaurantIds);
         }
+        return (await readCollections(undefined, identity, tx)).find((item) => item.id === existing.id);
       });
-      const [data] = (await readCollections(undefined, identity)).filter((item) => item.id === existing.id);
       res.json({ success: true, data });
     } catch (error) {
+      if (error instanceof CollectionConflict) {
+        res.status(409).json(conflictResponse);
+        return;
+      }
       req.log.error({ err: error }, "Collection update failed");
       res.status(503).json({ success: false, error: "Collection could not be updated." });
     }
@@ -375,6 +398,10 @@ router.put(
         res.status(404).json({ success: false, error: "Collection not found." });
         return;
       }
+      if (existing.version !== body.data.version) {
+        res.status(409).json(conflictResponse);
+        return;
+      }
       const valid = await validateRestaurants(
         db,
         existing.city,
@@ -387,16 +414,25 @@ router.put(
         });
         return;
       }
-      await db.transaction(async (tx) => {
-        await replaceMembers(tx, existing.id, body.data.restaurantIds);
-        await tx
+      const data = await db.transaction(async (tx) => {
+        const [claimed] = await tx
           .update(restaurantCollectionsTable)
-          .set({ updatedAt: new Date() })
-          .where(eq(restaurantCollectionsTable.id, existing.id));
+          .set({ updatedAt: new Date(), version: sql`${restaurantCollectionsTable.version} + 1` })
+          .where(and(
+            eq(restaurantCollectionsTable.id, existing.id),
+            eq(restaurantCollectionsTable.version, body.data.version),
+          ))
+          .returning({ id: restaurantCollectionsTable.id });
+        if (!claimed) throw new CollectionConflict();
+        await replaceMembers(tx, existing.id, body.data.restaurantIds);
+        return (await readCollections(undefined, identity, tx)).find((item) => item.id === existing.id);
       });
-      const [data] = (await readCollections(undefined, identity)).filter((item) => item.id === existing.id);
       res.json({ success: true, data });
     } catch (error) {
+      if (error instanceof CollectionConflict) {
+        res.status(409).json(conflictResponse);
+        return;
+      }
       req.log.error({ err: error }, "Collection reorder failed");
       res.status(503).json({ success: false, error: "Collection could not be reordered." });
     }
@@ -409,8 +445,9 @@ router.delete(
   curatorOnly,
   async (req, res): Promise<void> => {
     const params = CollectionParams.safeParse(req.params);
-    if (!params.success) {
-      res.status(400).json({ success: false, error: "Invalid collection ID." });
+    const body = DeleteCollectionBody.safeParse(req.body);
+    if (!params.success || !body.success) {
+      res.status(400).json({ success: false, error: "Collection ID and version are required." });
       return;
     }
     const identity = curatorIdentity(req)!;
@@ -420,9 +457,17 @@ router.delete(
         res.status(404).json({ success: false, error: "Collection not found." });
         return;
       }
-      await db
+      const [deleted] = await db
         .delete(restaurantCollectionsTable)
-        .where(eq(restaurantCollectionsTable.id, existing.id));
+        .where(and(
+          eq(restaurantCollectionsTable.id, existing.id),
+          eq(restaurantCollectionsTable.version, body.data.version),
+        ))
+        .returning({ id: restaurantCollectionsTable.id });
+      if (!deleted) {
+        res.status(409).json(conflictResponse);
+        return;
+      }
       res.status(204).send();
     } catch (error) {
       req.log.error({ err: error }, "Collection deletion failed");

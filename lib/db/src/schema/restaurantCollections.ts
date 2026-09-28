@@ -18,6 +18,7 @@ export const restaurantCollectionsTable = pgTable(
     description: text("description").notNull(),
     city: text("city").notNull(),
     curatorUserId: text("curator_user_id").notNull(),
+    version: integer("version").notNull().default(1),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -60,7 +61,7 @@ export const restaurantCollectionMembersTable = pgTable(
 
 export const insertRestaurantCollectionSchema = createInsertSchema(
   restaurantCollectionsTable,
-).omit({ createdAt: true, updatedAt: true });
+).omit({ createdAt: true, updatedAt: true, version: true });
 
 export const insertRestaurantCollectionMemberSchema = createInsertSchema(
   restaurantCollectionMembersTable,

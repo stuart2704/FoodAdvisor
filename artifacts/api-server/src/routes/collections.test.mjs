@@ -21,6 +21,7 @@ export const restaurantOffersTable = table("offers");
 export const restaurantEventsTable = table("events");
 export const restaurantMenuItemsTable = table("menu");
 export const restaurantChefProfilesTable = table("chef");
+export const placeAmenityChecksTable = table("amenityChecks");
 
 const state = () => globalThis.__collectionTestState;
 const value = (expression, row) =>
@@ -76,23 +77,27 @@ function query(selection) {
   return chain;
 }
 function mutate(operation, table) {
-  let patch, condition;
+  let patch, condition, returned;
   const chain = {
     values(next) { patch = next; return chain; },
     set(next) { patch = next; return chain; },
     where(next) { condition = next; return chain; },
+    returning(selection) { returned = selection; return chain; },
     then(resolve, reject) {
       try {
         const rows = state()[table.source];
+        const changed = [];
         if (operation === "insert") {
           for (const item of Array.isArray(patch) ? patch : [patch]) {
-            rows.push({ ...item, updatedAt: new Date("2026-09-25T00:00:00Z") });
+            rows.push({ ...item, version: 1, updatedAt: new Date("2026-09-25T00:00:00Z") });
           }
         } else {
           const removed = [];
           for (const row of rows.filter((item) => matches(condition, { [table.source]: item }))) {
             if (operation === "delete") removed.push(row);
-            else Object.assign(row, patch);
+            else Object.assign(row, Object.fromEntries(Object.entries(patch).map(([key, val]) =>
+              [key, val?.increment ? row[key] + 1 : val])));
+            changed.push({ ...row });
           }
           if (operation === "delete") {
             state()[table.source] = rows.filter((row) => !removed.includes(row));
@@ -102,7 +107,9 @@ function mutate(operation, table) {
             }
           }
         }
-        return Promise.resolve().then(resolve, reject);
+        const result = returned ? changed.map((row) => Object.fromEntries(
+          Object.entries(returned).map(([key, column]) => [key, row[column.key]]))) : undefined;
+        return Promise.resolve(result).then(resolve, reject);
       } catch (error) { return Promise.reject(error).then(resolve, reject); }
     },
   };
@@ -128,6 +135,7 @@ export const inArray = (column, expected) => ({ op: "inArray", column, expected 
 export const asc = (column) => column;
 export const gte = (column, expected) => ({ op: "gte", column, expected });
 export const lte = (column, expected) => ({ op: "lte", column, expected });
+export const sql = (parts, column) => ({ increment: true, column });
 `;
 const expressMock = String.raw`
 export function Router() {
@@ -227,12 +235,13 @@ async function request(method, route, { auth, session, body: input, params = {},
 
 const create = (auth = curator, input = body) =>
   request("post", "/collections", { auth, body: input });
+const currentVersion = (id) => globalThis.__collectionTestState.collections.find((row) => row.id === id)?.version ?? 1;
 const edit = (id, auth, input) =>
-  request("patch", "/collections/:id", { auth, params: { id }, body: input });
-const reorder = (id, auth, restaurantIds) =>
-  request("put", "/collections/:id/restaurants", { auth, params: { id }, body: { restaurantIds } });
-const remove = (id, auth) =>
-  request("delete", "/collections/:id", { auth, params: { id } });
+  request("patch", "/collections/:id", { auth, params: { id }, body: { version: currentVersion(id), ...input } });
+const reorder = (id, auth, restaurantIds, version = currentVersion(id)) =>
+  request("put", "/collections/:id/restaurants", { auth, params: { id }, body: { restaurantIds, version } });
+const remove = (id, auth, version = currentVersion(id)) =>
+  request("delete", "/collections/:id", { auth, params: { id }, body: { version } });
 
 test("signed-out and ordinary accounts cannot create, edit, reorder or delete collections", async () => {
   const created = await create();
@@ -261,7 +270,7 @@ test("one curator cannot edit, reorder, delete or manage another's collection; a
   assert.equal((await edit(id, admin, { title: "Admin Picks" })).status, 200);
   assert.equal(globalThis.__collectionTestState.collections[0].curatorUserId, curator.userId);
   const sessionAdmin = await request("patch", "/collections/:id", {
-    session: { admin: true }, params: { id }, body: { title: "Session admin picks" },
+    session: { admin: true }, params: { id }, body: { title: "Session admin picks", version: currentVersion(id) },
   });
   assert.equal(sessionAdmin.status, 200);
   assert.equal(globalThis.__collectionTestState.collections[0].curatorUserId, curator.userId);
@@ -275,6 +284,48 @@ test("creation rejects missing, unpublished, duplicate and cross-city restaurant
   }
   assert.deepEqual(globalThis.__collectionTestState.collections, []);
   assert.deepEqual(globalThis.__collectionTestState.members, []);
+});
+
+test("stale story, lineup and delete writes return conflict without changing the newer version", async () => {
+  const created = await create();
+  const id = created.data.data.id;
+  assert.equal(created.data.data.version, 1);
+  const first = await edit(id, admin, { title: "Admin's picks", version: 1 });
+  assert.equal(first.status, 200);
+  assert.equal(first.data.data.version, 2);
+  const snapshot = structuredClone(globalThis.__collectionTestState);
+  for (const result of [
+    await edit(id, curator, { title: "Stale edit", version: 1 }),
+    await reorder(id, curator, ["paris-1"], 1),
+    await remove(id, curator, 1),
+  ]) {
+    assert.equal(result.status, 409);
+    assert.equal(result.data.code, "COLLECTION_CONFLICT");
+    assert.match(result.data.error, /changed.*refresh/i);
+    assert.deepEqual(globalThis.__collectionTestState, snapshot);
+  }
+  assert.equal((await edit(id, curator, { title: "No version", version: undefined })).status, 400);
+  const current = await reorder(id, curator, ["paris-1", "paris-2"], 2);
+  assert.equal(current.status, 200);
+  assert.equal(current.data.data.version, 3);
+  assert.equal((await remove(id, admin, 3)).status, 204);
+});
+
+test("stale lineup and story edits after a city change report a conflict, not invalid memberships", async () => {
+  const id = (await create()).data.data.id;
+  const moved = await edit(id, admin, {
+    city: "Lyon", restaurantIds: ["lyon-1"], version: 1,
+  });
+  assert.equal(moved.status, 200);
+  assert.equal(moved.data.data.version, 2);
+  const snapshot = structuredClone(globalThis.__collectionTestState);
+  const lineup = await reorder(id, curator, ["paris-1"], 1);
+  const story = await edit(id, curator, { restaurantIds: ["paris-2"], version: 1 });
+  assert.equal(lineup.status, 409);
+  assert.equal(story.status, 409);
+  assert.equal(lineup.data.code, "COLLECTION_CONFLICT");
+  assert.equal(story.data.code, "COLLECTION_CONFLICT");
+  assert.deepEqual(globalThis.__collectionTestState, snapshot);
 });
 
 test("editing and reordering reject invalid memberships without changing saved data", async () => {

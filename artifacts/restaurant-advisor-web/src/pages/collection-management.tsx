@@ -21,6 +21,7 @@ type Collection = {
   description: string;
   city: string;
   curatorUserId: string;
+  version: number;
   updatedAt: string;
   restaurants: Restaurant[];
 };
@@ -52,6 +53,11 @@ export default function CollectionManagementPage() {
   const selectedIdRef = useRef(selectedId);
   selectedIdRef.current = selectedId;
   const [draft, setDraft] = useState<Draft>(blankDraft);
+  const [baseVersion, setBaseVersion] = useState<number | null>(null);
+  const [conflict, setConflict] = useState(false);
+  const [conflictRefreshError, setConflictRefreshError] = useState("");
+  const [conflictReadyVersion, setConflictReadyVersion] = useState<number | null>(null);
+  const [conflictRefreshing, setConflictRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [citiesLoading, setCitiesLoading] = useState(true);
   const [availableLoading, setAvailableLoading] = useState(false);
@@ -104,24 +110,41 @@ export default function CollectionManagementPage() {
     return error instanceof Error ? error.message : "Something went wrong. Please try again.";
   }, []);
 
-  const loadCollections = useCallback(async () => {
-    setLoading(true);
-    setListError("");
+  const loadCollections = useCallback(async (preserveDraft = false) => {
+    if (preserveDraft) {
+      setConflictRefreshError("");
+      setConflictReadyVersion(null);
+      setConflictRefreshing(true);
+    }
+    else {
+      setLoading(true);
+      setListError("");
+    }
     try {
       const result = await request<Collection[]>("/api/collections/manage");
       if (!Array.isArray(result)) throw new Error("The collections response was not in the expected format.");
       setCollections(result);
       const active = result.find((item) => item.id === selectedIdRef.current);
+      if (preserveDraft) {
+        setConflictReadyVersion(active?.version ?? null);
+        return;
+      }
       if (selectedIdRef.current === "__new__") return;
       const next = active ?? result[0];
       setSelectedId(next?.id ?? null);
       setDraft(next ? fromCollection(next) : blankDraft());
+      setBaseVersion(next?.version ?? null);
+      setConflict(false);
+      setConflictReadyVersion(null);
+      setConflictRefreshError("");
       setFeedback(null);
       setLineupFeedback(null);
     } catch (error) {
-      setListError(handleError(error));
+      if (preserveDraft) setConflictRefreshError(handleError(error));
+      else setListError(handleError(error));
     } finally {
-      setLoading(false);
+      if (preserveDraft) setConflictRefreshing(false);
+      else setLoading(false);
     }
   }, [request, handleError]);
 
@@ -196,14 +219,43 @@ export default function CollectionManagementPage() {
     const next = collections.find((item) => item.id === id);
     setSelectedId(id);
     setDraft(next ? fromCollection(next) : blankDraft());
+    setBaseVersion(next?.version ?? null);
+    setConflict(false);
+    setConflictReadyVersion(null);
+    setConflictRefreshError("");
     setFeedback(null);
     setLineupFeedback(null);
     setSearch("");
   }
 
   function refreshCollections() {
-    if (saving || ((detailsDirty || lineupDirty) && !window.confirm("Discard your unsaved changes and refresh?"))) return;
+    if (saving || ((conflict || detailsDirty || lineupDirty) && !window.confirm("Discard your unsaved changes and refresh?"))) return;
     void loadCollections();
+  }
+
+  function handleSaveError(error: unknown, section: "details" | "lineup") {
+    if (error instanceof RequestError && error.status === 409) {
+      setConflict(true);
+      setConflictReadyVersion(null);
+      void loadCollections(true);
+      const message = "Another editor changed this collection. Your draft is still here. Review the latest saved version below before choosing what to keep.";
+      (section === "details" ? setFeedback : setLineupFeedback)({ kind: "error", text: message });
+    } else {
+      (section === "details" ? setFeedback : setLineupFeedback)({ kind: "error", text: handleError(error) });
+    }
+  }
+
+  function resolveConflict(keepDraft: boolean) {
+    if (!selected || conflictReadyVersion === null || selected.version !== conflictReadyVersion || conflictRefreshError || conflictRefreshing) return;
+    setBaseVersion(selected.version);
+    if (!keepDraft) setDraft(fromCollection(selected));
+    setConflict(false);
+    setConflictReadyVersion(null);
+    setConflictRefreshError("");
+    setFeedback({ kind: "success", text: keepDraft
+      ? "Your draft is still here. Review it against the latest saved collection before saving."
+      : "The latest saved collection is loaded." });
+    setLineupFeedback(null);
   }
 
   function updateCity(city: string) {
@@ -216,7 +268,7 @@ export default function CollectionManagementPage() {
 
   async function saveDetails(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (saving) return;
+    if (saving || conflict) return;
     const title = draft.title.trim();
     const description = draft.description.trim();
     if (!title || !description || !draft.city || draft.restaurantIds.length === 0) {
@@ -234,19 +286,22 @@ export default function CollectionManagementPage() {
         setCollections((old) => [created, ...old]);
         setSelectedId(created.id);
         setDraft(fromCollection(created));
+        setBaseVersion(created.version);
         setFeedback({ kind: "success", text: "Collection created. It is now in your editorial list." });
         setLineupFeedback(null);
-      } else if (selected) {
+      } else if (selected && baseVersion !== null) {
         const updated = await request<Collection>(`/api/collections/${encodeURIComponent(selected.id)}`, {
           method: "PATCH",
           body: JSON.stringify({
             title,
             description,
             city: draft.city,
+            version: baseVersion,
             ...(cityChanged ? { restaurantIds: draft.restaurantIds } : {}),
           }),
         });
         setCollections((old) => old.map((item) => item.id === updated.id ? updated : item));
+        setBaseVersion(updated.version);
         setDraft((old) => ({ ...old, title: updated.title, description: updated.description, city: updated.city, restaurantIds: old.restaurantIds }));
         setFeedback({
           kind: "success",
@@ -255,47 +310,51 @@ export default function CollectionManagementPage() {
         if (cityChanged) setLineupFeedback(null);
       }
     } catch (error) {
-      setFeedback({ kind: "error", text: handleError(error) });
+      handleSaveError(error, "details");
     } finally {
       setSaving(null);
     }
   }
 
   async function saveLineup() {
-    if (!selected || saving || cityChanged) return;
+    if (!selected || saving || cityChanged || conflict || baseVersion === null) return;
     setSaving("lineup");
     setLineupFeedback(null);
     try {
       const updated = await request<Collection>(`/api/collections/${encodeURIComponent(selected.id)}/restaurants`, {
         method: "PUT",
-        body: JSON.stringify({ restaurantIds: draft.restaurantIds }),
+        body: JSON.stringify({ restaurantIds: draft.restaurantIds, version: baseVersion }),
       });
       setCollections((old) => old.map((item) => item.id === updated.id ? updated : item));
+      setBaseVersion(updated.version);
       setDraft((old) => ({ ...old, restaurantIds: updated.restaurants.map((item) => item.id) }));
       setLineupFeedback({ kind: "success", text: "Restaurant selection and order saved." });
     } catch (error) {
-      setLineupFeedback({ kind: "error", text: handleError(error) });
+      handleSaveError(error, "lineup");
     } finally {
       setSaving(null);
     }
   }
 
   async function deleteCollection() {
-    if (!selected || saving) return;
+    if (!selected || saving || conflict || baseVersion === null) return;
     setSaving("delete");
     setFeedback(null);
     try {
-      await request<void>(`/api/collections/${encodeURIComponent(selected.id)}`, { method: "DELETE" });
+      await request<void>(`/api/collections/${encodeURIComponent(selected.id)}`, {
+        method: "DELETE", body: JSON.stringify({ version: baseVersion }),
+      });
       const remaining = collections.filter((item) => item.id !== selected.id);
       setCollections(remaining);
       const next = remaining[0];
       setSelectedId(next?.id ?? null);
       setDraft(next ? fromCollection(next) : blankDraft());
+      setBaseVersion(next?.version ?? null);
       setConfirmDelete(false);
       setFeedback({ kind: "success", text: `“${selected.title}” was deleted.` });
       setLineupFeedback(null);
     } catch (error) {
-      setFeedback({ kind: "error", text: handleError(error) });
+      handleSaveError(error, "details");
       setConfirmDelete(false);
     } finally {
       setSaving(null);
@@ -380,18 +439,31 @@ export default function CollectionManagementPage() {
                   <div><span className="cm-overline">{isNew ? "New collection" : `${selected?.city ?? "Collection"} / Edit collection`}</span><h2>{isNew ? "Start a collection" : "The edit desk"}</h2></div>
                   <div className="cm-actions">
                     {isNew && <button type="button" className="cm-btn cm-btn-quiet" onClick={() => choose(collections[0]?.id ?? null)} data-testid="button-cancel-new">Cancel</button>}
-                    {selected && <button type="button" className="cm-btn cm-btn-danger" onClick={() => setConfirmDelete(true)} disabled={Boolean(saving)} data-testid="button-delete-collection"><Trash2 size={13} /> Delete</button>}
+                     {selected && <button type="button" className="cm-btn cm-btn-danger" onClick={() => setConfirmDelete(true)} disabled={Boolean(saving) || conflict} data-testid="button-delete-collection"><Trash2 size={13} /> Delete</button>}
                   </div>
                 </div>
 
                 {feedback && <div className={`cm-feedback is-${feedback.kind}`} role={feedback.kind === "error" ? "alert" : "status"} data-testid="status-collection-feedback">{feedback.text}</div>}
+                 {conflict && <div className="cm-feedback is-error" role="alert" data-testid="status-collection-conflict">
+                   <strong>Someone saved a newer version.</strong> Your title, description, city and lineup draft remain in the form below; nothing was overwritten.
+                   {selected ? <p>Latest saved: “{selected.title}” — {selected.description} ({selected.city}, {selected.restaurants.map((restaurant) => restaurant.name).join(", ")}). Compare this with your draft before saving again.</p>
+                     : <p>This collection is no longer available. Copy your draft text before leaving this page.</p>}
+                   {conflictRefreshError && <p>Could not fetch the latest version: {conflictRefreshError}</p>}
+                   <div className="cm-actions">
+                     <button type="button" className="cm-btn cm-btn-quiet" onClick={() => void loadCollections(true)} disabled={Boolean(saving) || conflictRefreshing} data-testid="button-refresh-conflict">{conflictRefreshing ? "Refreshing latest…" : "Refresh latest without losing draft"}</button>
+                     {selected && conflictReadyVersion !== null && selected.version === conflictReadyVersion && !conflictRefreshError && !conflictRefreshing && <>
+                       <button type="button" className="cm-btn cm-btn-quiet" onClick={() => resolveConflict(false)} data-testid="button-use-latest">Use latest saved version (discard draft)</button>
+                       <button type="button" className="cm-btn cm-btn-primary" onClick={() => resolveConflict(true)} data-testid="button-keep-draft">Keep my draft and review before saving</button>
+                     </>}
+                   </div>
+                 </div>}
 
                 <form onSubmit={(event) => void saveDetails(event)}>
                   <section className="cm-section">
                     <div className="cm-section-header"><h3><span className="cm-section-index">01</span> The story</h3><span className="cm-section-note">The words diners see first.</span></div>
                     <div className="cm-fields">
                       <label className="cm-field">Collection title
-                        <input required maxLength={120} value={draft.title} onChange={(event) => { setDraft((old) => ({ ...old, title: event.target.value })); setFeedback(null); }} placeholder="A late dinner in the city" data-testid="input-collection-title" />
+                         <input required maxLength={120} value={draft.title} disabled={Boolean(saving)} onChange={(event) => { setDraft((old) => ({ ...old, title: event.target.value })); setFeedback(null); }} placeholder="A late dinner in the city" data-testid="input-collection-title" />
                       </label>
                       <label className="cm-field">City
                         <select required value={draft.city} onChange={(event) => updateCity(event.target.value)} disabled={citiesLoading || Boolean(saving)} data-testid="select-collection-city">
@@ -401,12 +473,12 @@ export default function CollectionManagementPage() {
                         </select>
                       </label>
                       <label className="cm-field cm-field-wide">Description
-                        <textarea required maxLength={1000} value={draft.description} onChange={(event) => { setDraft((old) => ({ ...old, description: event.target.value })); setFeedback(null); }} placeholder="What makes these tables worth seeking out?" data-testid="input-collection-description" />
+                         <textarea required maxLength={1000} value={draft.description} disabled={Boolean(saving)} onChange={(event) => { setDraft((old) => ({ ...old, description: event.target.value })); setFeedback(null); }} placeholder="What makes these tables worth seeking out?" data-testid="input-collection-description" />
                       </label>
                     </div>
                     {citiesError && <div className="cm-feedback is-error" role="alert" data-testid="status-cities-error">{citiesError} <button type="button" className="cm-btn cm-btn-quiet" onClick={() => void loadCities()} data-testid="button-retry-cities">Retry cities</button></div>}
                     {cityChanged && <p className="cm-inline-alert" role="status" data-testid="status-city-change">Changing the city clears the previous restaurant selection. Choose at least one restaurant in the new city before saving.</p>}
-                    <div className="cm-savebar"><p>{isNew ? "Creating a collection saves its story and selected restaurants together." : "Save the story separately from the restaurant order."}</p><button type="submit" className="cm-btn cm-btn-primary" disabled={Boolean(saving) || (!isNew && !detailsDirty)} data-testid="button-save-collection">{saving === "details" ? "Saving…" : isNew ? "Create collection" : "Save story"}</button></div>
+                     <div className="cm-savebar"><p>{isNew ? "Creating a collection saves its story and selected restaurants together." : "Save the story separately from the restaurant order."}</p><button type="submit" className="cm-btn cm-btn-primary" disabled={Boolean(saving) || conflict || (!isNew && !detailsDirty)} data-testid="button-save-collection">{saving === "details" ? "Saving…" : isNew ? "Create collection" : "Save story"}</button></div>
                   </section>
                 </form>
 
@@ -445,7 +517,7 @@ export default function CollectionManagementPage() {
                     </div>
                   </div>
                   {lineupFeedback && <div className={`cm-feedback is-${lineupFeedback.kind}`} role={lineupFeedback.kind === "error" ? "alert" : "status"} data-testid="status-lineup-feedback">{lineupFeedback.text}</div>}
-                  <div className="cm-savebar"><p>{isNew ? "Your lineup will be saved when you create this collection above." : cityChanged ? "Save the new city and lineup together above." : lineupDirty ? "You have unsaved changes to the restaurant selection or order." : "The saved selection and order are up to date."}</p>{!isNew && <button type="button" className="cm-btn cm-btn-primary" onClick={() => void saveLineup()} disabled={!lineupDirty || !draft.restaurantIds.length || Boolean(saving) || cityChanged} data-testid="button-save-lineup">{saving === "lineup" ? "Saving order…" : "Save selection & order"}</button>}</div>
+                   <div className="cm-savebar"><p>{isNew ? "Your lineup will be saved when you create this collection above." : cityChanged ? "Save the new city and lineup together above." : lineupDirty ? "You have unsaved changes to the restaurant selection or order." : "The saved selection and order are up to date."}</p>{!isNew && <button type="button" className="cm-btn cm-btn-primary" onClick={() => void saveLineup()} disabled={!lineupDirty || !draft.restaurantIds.length || Boolean(saving) || cityChanged || conflict} data-testid="button-save-lineup">{saving === "lineup" ? "Saving order…" : "Save selection & order"}</button>}</div>
                 </section>
               </div>
             ) : (
