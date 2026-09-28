@@ -52,3 +52,9 @@ When Meta returns an empty `/me/accounts` list, a direct Page lookup can still f
 **Why:** A real production login had all requested permission flags but no listed Pages; entering the Page ID found it, yet did not confirm its content task. Meta documents different coverage for Page roles and business-assigned users.
 
 **How to apply:** Never claim the Page is connected based on a direct lookup alone. Match the login's own identity to an explicitly reported `CREATE_CONTENT` task and require a Page token. If Meta withholds task evidence, report it as unverified rather than as proof the creator lacks Page ownership.
+
+Meta documents Page-role identities as Page-scoped person IDs, while a Facebook Login `/me` identity is app-scoped. Do not interpret a failed equality check between these IDs as “no Page role,” and do not connect on an unmatched role's task alone.
+
+**Why:** A live direct Page lookup issued a Page token but lacked tasks; the role fallback reported no matching login role. Meta's role documentation describes a different ID scope, so the fallback cannot establish whether a role exists for the login.
+
+**How to apply:** Verify an authoritative identity mapping or use a Page-specific task result tied to the authenticated login. Without one, leave posting access unverified; never demand repeated OAuth retries to resolve an inherently ambiguous comparison.
