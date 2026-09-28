@@ -114,6 +114,8 @@ export default function PrivacyPage() {
           restrict or object to processing, withdraw consent, and complain to a
           data protection authority. Send requests to{" "}
           <a href="mailto:stuart@thefoodadvisor.co.uk">stuart@thefoodadvisor.co.uk</a>.
+          {" "}For instructions on deleting information connected to this service,
+          see our <a data-testid="link-user-data-deletion" href="/data-deletion.html">User data deletion page</a>.
         </p>
 
         <h2>Changes and contact</h2>

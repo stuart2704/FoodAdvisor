@@ -23,6 +23,12 @@ For a Facebook Page OAuth app, Meta's **Other → Business app type** creation r
 
 **How to apply:** Check the app type before giving menu instructions. Don't create another Page-use-case app, don't treat the disabled Assets step as a blocker for User access tokens, and verify the actual permission list before claiming a scope is unavailable.
 
+Use a public, human-readable deletion-instructions page in Meta's **Data Deletion Instructions URL** field. Do not enter that page in the **Data Deletion Request URL** callback field: a callback must accept and verify Meta's signed POST, initiate deletion, and return a status URL and confirmation code.
+
+**Why:** A static instructions page can explain how to request deletion but cannot fulfil the signed callback protocol.
+
+**How to apply:** Keep the instructions and callback options distinct during Meta app setup. Only claim callback support after implementing and verifying the full request lifecycle.
+
 For Instagram Login, use the Instagram-specific app ID and secret shown under the Instagram API setup, not the general Meta app credentials. Add the live OAuth callback to Business Login's valid redirect URIs, not the webhook callback field. With Standard Access, the Instagram account must accept its Instagram tester invitation before signing in.
 
 **Why:** The wrong app ID produced “Invalid platform app”; the misplaced callback produced “Invalid redirect_uri”; an unaccepted Instagram tester role produced “Insufficient developer role.” The creator then confirmed the website showed “Connected” after correcting these separately.
