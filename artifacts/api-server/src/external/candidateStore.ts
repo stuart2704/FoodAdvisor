@@ -5,7 +5,8 @@ import {
 } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import type { ExternalCandidate } from "./candidateTypes";
-import { isReadyForCandidateReview } from "./candidateReviewEligibility";
+import { candidateReviewStatus } from "./candidatePromotion";
+import { validateExternalCandidates } from "./candidateValidation";
 import { logger } from "../lib/logger";
 
 /**
@@ -24,16 +25,12 @@ export async function storeExternalCandidates(
     return;
   }
 
-  for (const c of candidates) {
-    if (!c.sourceName.trim() || !c.sourceId.trim() || !c.rawName.trim()) {
-      throw new Error("External candidate requires sourceName, sourceId, and rawName.");
-    }
-  }
+  validateExternalCandidates(candidates);
 
   const inserted = await db.transaction(async (tx) => {
     let count = 0;
     for (const c of candidates) {
-      const readyForReview = isReadyForCandidateReview(c);
+      const readyForReview = candidateReviewStatus(c) === "review_ready";
       const rows = await tx
         .insert(externalCandidatesTable)
         .values({

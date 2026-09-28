@@ -6,7 +6,7 @@ import { govRegistryAdapter } from "../external/govRegistryAdapter";
 import { tourismBoardAdapter } from "../external/tourismBoardAdapter";
 import { associationAdapter } from "../external/associationAdapter";
 import { storeExternalCandidates } from "../external/candidateStore";
-import { promoteCandidates } from "../external/candidatePromotion";
+import { validateExternalCandidates } from "../external/candidateValidation";
 import { isSuppressed } from "../external/sourceSuppression";
 import { sourceQualityScore } from "../external/sourceQuality";
 
@@ -33,6 +33,10 @@ export async function runExternalCandidateIngestion(now: Date): Promise<void> {
       }
       try {
         const candidates = await adapter.fetch({ now });
+        validateExternalCandidates(candidates);
+        if (candidates.some((candidate) => candidate.sourceName !== name)) {
+          throw new Error(`Adapter ${name} returned a candidate from a different source`);
+        }
         const quality = sourceQualityScore(candidates);
         logger.info({ adapterName: name, quality, count: candidates.length }, "Source quality score");
         logger.info(
@@ -53,13 +57,12 @@ export async function runExternalCandidateIngestion(now: Date): Promise<void> {
   const unique = new Map<string, ExternalCandidate>();
 
   for (const c of allCandidates) {
-    const key = `${c.sourceName}:${c.sourceId}`;
+    const key = JSON.stringify([c.sourceName, c.sourceId]);
     if (!unique.has(key)) unique.set(key, c);
   }
 
   const dedupedCandidates = Array.from(unique.values());
   await storeExternalCandidates(dedupedCandidates, now);
-  await promoteCandidates(dedupedCandidates, now);
 
   logger.info(
     {
@@ -72,5 +75,5 @@ export async function runExternalCandidateIngestion(now: Date): Promise<void> {
     "External candidate ingestion completed (candidates stored as unverified; publication remains disabled)",
   );
 
-  // Promotion remains a no-op until validation and rights checks are implemented.
+  // Only the separate, explicit review workflow may advance a stored candidate.
 }
