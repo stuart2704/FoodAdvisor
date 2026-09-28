@@ -8,6 +8,7 @@ import type { ExternalCandidate } from "./candidateTypes";
 import { candidateReviewStatus } from "./candidatePromotion";
 import { validateExternalCandidates } from "./candidateValidation";
 import { logger } from "../lib/logger";
+import type { IngestionTransaction } from "../ingestion/lease";
 
 /**
  * Store external candidates as unpublished. High-completeness candidates
@@ -18,7 +19,8 @@ import { logger } from "../lib/logger";
  */
 export async function storeExternalCandidates(
   candidates: ExternalCandidate[],
-  now: Date
+  now: Date,
+  transaction?: IngestionTransaction,
 ): Promise<void> {
   if (candidates.length === 0) {
     logger.info({ at: now.toISOString() }, "No external candidates to store");
@@ -27,7 +29,7 @@ export async function storeExternalCandidates(
 
   validateExternalCandidates(candidates);
 
-  const inserted = await db.transaction(async (tx) => {
+  const write = async (tx: IngestionTransaction) => {
     let count = 0;
     for (const c of candidates) {
       const readyForReview = candidateReviewStatus(c) === "review_ready";
@@ -94,7 +96,8 @@ export async function storeExternalCandidates(
       }
     }
     return count;
-  });
+  };
+  const inserted = transaction ? await write(transaction) : await db.transaction(write);
 
   logger.info(
     {

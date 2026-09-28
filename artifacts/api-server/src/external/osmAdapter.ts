@@ -1,4 +1,5 @@
 import type { ExternalAdapter, ExternalCandidate } from "./candidateTypes";
+import { setTimeout as sleep } from "node:timers/promises";
 import { globalCities } from "./cityList";
 import { buildBoundingBoxQuery } from "./osmBoundingBox";
 import { regionForCountry } from "./regions";
@@ -17,12 +18,13 @@ const REQUEST_PAUSE_MS = 1_500;
 
 type City = (typeof globalCities)[number];
 
-async function fetchCities(now: Date, cities: readonly City[]): Promise<ExternalCandidate[]> {
+async function fetchCities(now: Date, cities: readonly City[], signal?: AbortSignal): Promise<ExternalCandidate[]> {
     const candidates = new Map<string, ExternalCandidate>();
     for (const [index, city] of cities.entries()) {
+      signal?.throwIfAborted();
       const region = regionForCountry(city.country);
       if (index > 0) {
-        await new Promise<void>((resolve) => setTimeout(resolve, REQUEST_PAUSE_MS));
+        await sleep(REQUEST_PAUSE_MS, undefined, { signal });
       }
       const query = buildBoundingBoxQuery(
         city.lat - HALF_BOX_DEGREES,
@@ -37,7 +39,7 @@ async function fetchCities(now: Date, cities: readonly City[]): Promise<External
           "User-Agent": "TheFoodAdvisor/1.0",
         },
         body: new URLSearchParams({ data: query }),
-        signal: AbortSignal.timeout(35_000),
+         signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(35_000)]) : AbortSignal.timeout(35_000),
       });
       if (!response.ok) {
         throw new Error(`OSM Overpass request for ${city.name} failed with status ${response.status}`);
@@ -105,10 +107,10 @@ async function fetchCities(now: Date, cities: readonly City[]): Promise<External
     return [...candidates.values()];
 }
 
-export function fetchOsmCandidatesForCity(city: City, now: Date): Promise<ExternalCandidate[]> {
-  return fetchCities(now, [city]);
+export function fetchOsmCandidatesForCity(city: City, now: Date, signal?: AbortSignal): Promise<ExternalCandidate[]> {
+  return fetchCities(now, [city], signal);
 }
 
 export const osmAdapter: ExternalAdapter = {
-  fetch: ({ now }) => fetchCities(now, globalCities),
+  fetch: ({ now, signal }) => fetchCities(now, globalCities, signal),
 };

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { mkdtemp, rm } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -79,6 +80,7 @@ test("manual city import enforces admin, allowlist, lock and independent 12-hour
       INSERT INTO external_ingestion_schedule (id, last_run_at)
         VALUES ('external_ingestion_last_run', '2026-01-01T00:00:00Z');
     `);
+    await pool.query(readFileSync(new URL("../../../../lib/db/migrations/0041_external_ingestion_lease.sql", import.meta.url), "utf8"));
 
     globalThis.fetch = async (url, init) => {
       if (String(url) === "https://overpass-api.de/api/interpreter" && init?.method === "POST") {
@@ -109,6 +111,8 @@ test("manual city import enforces admin, allowlist, lock and independent 12-hour
 
     const { pool: actualPool } = await import("@workspace/db");
     servicePool = actualPool;
+    const { runExternalIngestionIfDue } = await import("../cron/scheduler.ts");
+    const { acquireIngestionLease, IngestionLeaseLost } = await import("../ingestion/lease.ts");
     const { default: router } = await import("./ingest.ts");
     const { routingStatus } = await import("../external/globalRouter.ts");
     const beforeRouting = routingStatus();
@@ -141,9 +145,15 @@ test("manual city import enforces admin, allowlist, lock and independent 12-hour
 
     const first = post("?region=eu&city=%20CaRdIfF%20");
     await firstRequest;
-    // The first request holds the transaction advisory lock while OSM is pending.
+    // The lease excludes other processes without holding an idle transaction over OSM.
+    assert.equal((await pool.query(
+      `SELECT count(*)::int AS count FROM pg_stat_activity
+       WHERE datname = current_database() AND state = 'idle in transaction'`,
+    )).rows[0].count, 0);
     const racing = await post("?region=eu&city=Cardiff");
     assert.equal(racing.status, 409);
+    await runExternalIngestionIfDue(new Date());
+    assert.deepEqual(osmCities, ["Cardiff"]);
     assert.match(racing.body.error, /already in progress/);
     assert.deepEqual(osmCities, ["Cardiff"]);
     releaseFirst();
@@ -169,6 +179,19 @@ test("manual city import enforces admin, allowlist, lock and independent 12-hour
     assert.equal(london.body.result.city, "London");
     assert.deepEqual(osmCities, ["Cardiff", "London"]);
     assert.equal((await post("?region=eu&city=London")).status, 409);
+
+    // A crashed worker's lease can be taken over; its stale write is fenced.
+    const stale = await acquireIngestionLease();
+    assert.ok(stale);
+    await pool.query("UPDATE external_ingestion_lease SET expires_at = clock_timestamp() - interval '1 second'");
+    const successor = await acquireIngestionLease();
+    assert.ok(successor);
+    await assert.rejects(stale.commit(async () => {
+      throw new Error("stale writer reached database");
+    }), IngestionLeaseLost);
+    await stale.release();
+    assert.equal((await pool.query("SELECT count(*)::int AS count FROM external_ingestion_lease")).rows[0].count, 1);
+    await successor.release();
 
     // A failed import cannot advance its city window.
     await pool.query(

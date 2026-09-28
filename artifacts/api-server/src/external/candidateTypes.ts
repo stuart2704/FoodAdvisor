@@ -12,5 +12,5 @@ export type ExternalCandidate = {
 };
 
 export interface ExternalAdapter {
-  fetch(params: { now: Date }): Promise<ExternalCandidate[]>;
+  fetch(params: { now: Date; signal?: AbortSignal }): Promise<ExternalCandidate[]>;
 }

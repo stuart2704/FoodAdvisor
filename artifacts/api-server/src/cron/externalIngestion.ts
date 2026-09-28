@@ -19,7 +19,13 @@ const adapters: { name: string; adapter: ExternalAdapter }[] = [
   { name: "RestaurantAssociation", adapter: associationAdapter },
 ];
 
-export async function runExternalCandidateIngestion(now: Date): Promise<void> {
+export async function runExternalCandidateIngestion(
+  now: Date,
+  options?: {
+    signal?: AbortSignal;
+    save?: (candidates: ExternalCandidate[]) => Promise<void>;
+  },
+): Promise<void> {
   logger.info(
     { at: now.toISOString() },
     "External candidate ingestion started (open-data adapters)",
@@ -32,7 +38,8 @@ export async function runExternalCandidateIngestion(now: Date): Promise<void> {
         return { candidates: [] as ExternalCandidate[], error: null as unknown, skipped: name };
       }
       try {
-        const candidates = await adapter.fetch({ now });
+        const candidates = await adapter.fetch({ now, signal: options?.signal });
+        options?.signal?.throwIfAborted();
         validateExternalCandidates(candidates);
         if (candidates.some((candidate) => candidate.sourceName !== name)) {
           throw new Error(`Adapter ${name} returned a candidate from a different source`);
@@ -62,7 +69,9 @@ export async function runExternalCandidateIngestion(now: Date): Promise<void> {
   }
 
   const dedupedCandidates = Array.from(unique.values());
-  await storeExternalCandidates(dedupedCandidates, now);
+  options?.signal?.throwIfAborted();
+  if (options?.save) await options.save(dedupedCandidates);
+  else await storeExternalCandidates(dedupedCandidates, now);
 
   logger.info(
     {

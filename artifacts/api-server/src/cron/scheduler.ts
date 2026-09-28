@@ -1,50 +1,40 @@
 import { pool } from "@workspace/db";
+import { sql } from "drizzle-orm";
 import cron, { type ScheduledTask } from "node-cron";
 import { logger } from "../lib/logger";
 import { runExternalCandidateIngestion } from "./externalIngestion";
+import { acquireIngestionLease } from "../ingestion/lease";
+import { storeExternalCandidates } from "../external/candidateStore";
 
 export const EXTERNAL_INGESTION_STATE_KEY = "external_ingestion_last_run";
 export const EXTERNAL_INGESTION_INTERVAL_MS = 12 * 60 * 60 * 1000;
-export const EXTERNAL_INGESTION_LOCK_KEYS = [19068, 2026];
 let task: ScheduledTask | undefined;
 
 /** Independent of the Google grid crawl; the database records successful runs. */
 export async function runExternalIngestionIfDue(now: Date): Promise<void> {
-  const client = await pool.connect();
-  let transactionOpen = false;
+  const lease = await acquireIngestionLease();
+  if (!lease) return;
   try {
-    await client.query("BEGIN");
-    transactionOpen = true;
-    const lock = await client.query<{ locked: boolean }>(
-      "SELECT pg_try_advisory_xact_lock($1, $2) AS locked",
-      EXTERNAL_INGESTION_LOCK_KEYS,
-    );
-    if (lock.rows[0]?.locked !== true) return;
-
-    const state = await client.query<{ last_run_at: Date | null }>(
+    const state = await pool.query<{ last_run_at: Date | null }>(
       "SELECT last_run_at FROM external_ingestion_schedule WHERE id = $1",
       [EXTERNAL_INGESTION_STATE_KEY],
     );
     const lastRun = state.rows[0]?.last_run_at;
     if (lastRun && now.getTime() - lastRun.getTime() < EXTERNAL_INGESTION_INTERVAL_MS) return;
 
-    await runExternalCandidateIngestion(now);
-    await client.query(
-      `INSERT INTO external_ingestion_schedule (id, last_run_at)
-       VALUES ($1, $2)
-       ON CONFLICT (id) DO UPDATE SET last_run_at = EXCLUDED.last_run_at`,
-      [EXTERNAL_INGESTION_STATE_KEY, now],
-    );
-    await client.query("COMMIT");
-    transactionOpen = false;
+    await runExternalCandidateIngestion(now, {
+      signal: lease.signal,
+      save: async (candidates) => lease.commit(async (tx) => {
+        await storeExternalCandidates(candidates, now, tx);
+        await tx.execute(
+          sql`INSERT INTO external_ingestion_schedule (id, last_run_at)
+              VALUES (${EXTERNAL_INGESTION_STATE_KEY}, ${now})
+              ON CONFLICT (id) DO UPDATE SET last_run_at = EXCLUDED.last_run_at`,
+        );
+      }),
+    });
   } finally {
-    try {
-      if (transactionOpen) await client.query("ROLLBACK");
-      client.release();
-    } catch (error) {
-      client.release(error instanceof Error ? error : new Error("Failed to release ingestion transaction"));
-      throw error;
-    }
+    await lease.release();
   }
 }
 
