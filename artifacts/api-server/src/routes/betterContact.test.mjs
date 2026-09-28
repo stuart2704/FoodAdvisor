@@ -51,6 +51,11 @@ await build({
             state().calls.push("reconcile");
             return { id: state().id, status: "polling" };
           }
+          export async function correctBetterContactRequestId(input) {
+            state().calls.push("correct");
+            state().correction = input;
+            return { id: state().id, status: "polling", providerRequestId: input.newProviderRequestId };
+          }
         `,
       }));
     },
@@ -102,6 +107,7 @@ test("all private read and paid-write routes deny anonymous requests before serv
     [`/private-contact-enrichments/${id}`],
     ["/restaurants/place-1/private-contact-enrichments", post()],
     [`/private-contact-enrichments/${id}/reconcile`, post()],
+    [`/private-contact-enrichments/${id}/correct-request-id`, post()],
   ]) {
     const result = await request(route, options);
     assert.equal(result.status, 401, route);
@@ -144,4 +150,31 @@ test("admin cannot reserve without explicit one-credit opt-in and provenance", a
     assert.equal(result.status, 400);
   }
   assert.deepEqual(globalThis.__contactRouteState.calls, []);
+});
+
+test("correction requires admin and explicit evidence fields", async () => {
+  const route = `/private-contact-enrichments/${id}/correct-request-id`;
+  const correction = {
+    oldProviderRequestId: "old-1", newProviderRequestId: "new-2",
+    evidenceNote: "Checked both terminated provider records.", confirmedCorrection: true,
+  };
+  for (const invalid of [
+    { ...correction, confirmedCorrection: false },
+    { ...correction, evidenceNote: "brief" },
+    { ...correction, newProviderRequestId: "bad/id" },
+  ]) {
+    const result = await request(route, {
+      method: "POST", headers: { ...admin, "content-type": "application/json" },
+      body: JSON.stringify(invalid),
+    });
+    assert.equal(result.status, 400);
+  }
+  assert.deepEqual(globalThis.__contactRouteState.calls, []);
+  const result = await request(route, {
+    method: "POST", headers: { ...admin, "content-type": "application/json" },
+    body: JSON.stringify(correction),
+  });
+  assert.equal(result.status, 200);
+  assert.equal(result.body.data.providerRequestId, "new-2");
+  assert.deepEqual(globalThis.__contactRouteState.correction, { jobId: id, ...correction });
 });

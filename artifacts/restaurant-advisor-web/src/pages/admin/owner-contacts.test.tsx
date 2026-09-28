@@ -116,3 +116,40 @@ it("shows the one-credit budget and revisits pending then completed private revi
   expect(detailCalls()).toBe(reloadCount);
   third.unmount();
 });
+
+it("requires an audit note and explicit confirmation before correcting an attached provider ID", async () => {
+  let providerRequestId = "wrong-1";
+  const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+    if (url === "/auth/session") return { ok: true, json: async () => ({ authenticated: true }) };
+    if (url === "/api/private-contact-enrichments/budget") return json(budget);
+    if (url === "/api/private-contact-enrichments") return json([{ ...summary, status: "timed_out" }]);
+    if (url === `/api/private-contact-enrichments/${id}`)
+      return json({ ...review("timed_out"), job: { ...review("timed_out").job, providerRequestId } });
+    if (url === `/api/private-contact-enrichments/${id}/correct-request-id`) {
+      const body = JSON.parse(String(init?.body));
+      expect(body).toEqual({
+        oldProviderRequestId: "wrong-1", newProviderRequestId: "right-2",
+        evidenceNote: "Reviewed both terminated identity records.",
+        confirmedCorrection: true,
+      });
+      providerRequestId = "right-2";
+      return json({ id, status: "polling", providerRequestId });
+    }
+    throw new Error(`Unexpected request: ${url}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  page();
+  fireEvent.click(await screen.findByTestId(`button-review-contact-${id}`));
+  const button = await screen.findByRole("button", { name: "Verify evidence and correct ID" });
+  expect(button).toHaveProperty("disabled", true);
+  fireEvent.change(screen.getByLabelText("Replacement provider request ID"), { target: { value: "right-2" } });
+  fireEvent.change(screen.getByLabelText("Why the old ID is wrong and how the new ID was verified (audit note)"),
+    { target: { value: "Reviewed both terminated identity records." } });
+  expect(button).toHaveProperty("disabled", true);
+  fireEvent.click(screen.getByLabelText(/I reviewed both provider records/));
+  expect(button).toHaveProperty("disabled", false);
+  fireEvent.click(button);
+  expect(await screen.findByText(/Provider evidence confirmed the correction/)).toBeTruthy();
+  expect(screen.getAllByText("right-2")).toHaveLength(2);
+  expect(fetchMock.mock.calls.filter(([url]) => url === `/api/private-contact-enrichments/${id}/correct-request-id`)).toHaveLength(1);
+});

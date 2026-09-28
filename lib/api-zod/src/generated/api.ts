@@ -9,6 +9,43 @@ import * as zod from 'zod';
 
 
 /**
+ * @summary Admin-only correction of an unaccounted BetterContact request ID
+ */
+export const CorrectPrivateContactRequestIdParams = zod.object({
+  "jobId": zod.coerce.string().uuid()
+})
+
+export const correctPrivateContactRequestIdBodyOldProviderRequestIdMax = 200;
+
+
+export const correctPrivateContactRequestIdBodyOldProviderRequestIdRegExp = new RegExp('^[a-zA-Z0-9_-]+$');
+export const correctPrivateContactRequestIdBodyNewProviderRequestIdMax = 200;
+
+
+export const correctPrivateContactRequestIdBodyNewProviderRequestIdRegExp = new RegExp('^[a-zA-Z0-9_-]+$');
+export const correctPrivateContactRequestIdBodyEvidenceNoteMin = 10;
+export const correctPrivateContactRequestIdBodyEvidenceNoteMax = 1000;
+
+
+
+export const CorrectPrivateContactRequestIdBody = zod.object({
+  "oldProviderRequestId": zod.string().min(1).max(correctPrivateContactRequestIdBodyOldProviderRequestIdMax).regex(correctPrivateContactRequestIdBodyOldProviderRequestIdRegExp),
+  "newProviderRequestId": zod.string().min(1).max(correctPrivateContactRequestIdBodyNewProviderRequestIdMax).regex(correctPrivateContactRequestIdBodyNewProviderRequestIdRegExp),
+  "evidenceNote": zod.string().min(correctPrivateContactRequestIdBodyEvidenceNoteMin).max(correctPrivateContactRequestIdBodyEvidenceNoteMax),
+  "confirmedCorrection": zod.literal(true)
+})
+
+export const CorrectPrivateContactRequestIdResponse = zod.object({
+  "success": zod.boolean(),
+  "data": zod.object({
+  "id": zod.string(),
+  "status": zod.string(),
+  "providerRequestId": zod.string()
+})
+})
+
+
+/**
  * @summary Get the signed-in diner's reward balance and recent earnings
  */
 export const getRewardsResponseDataPointsMin = 0;

@@ -64,6 +64,8 @@ import type {
   OsmSuppressionInput,
   OsmVerificationCodeInput,
   OutreachRunResult,
+  PrivateContactIdCorrection,
+  PrivateContactIdCorrectionResponse,
   PubSubPushEnvelope,
   ReplyClassification,
   Restaurant,
@@ -107,6 +109,78 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getCorrectPrivateContactRequestIdUrl = (jobId: string,) => {
+
+
+
+
+  return `/api/private-contact-enrichments/${jobId}/correct-request-id`
+}
+
+/**
+ * @summary Admin-only correction of an unaccounted BetterContact request ID
+ */
+export const correctPrivateContactRequestId = async (jobId: string,
+    privateContactIdCorrection: PrivateContactIdCorrection, options?: Parameters<typeof customFetch>[1]): Promise<PrivateContactIdCorrectionResponse> => {
+
+  return customFetch<PrivateContactIdCorrectionResponse>(getCorrectPrivateContactRequestIdUrl(jobId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(privateContactIdCorrection)
+  }
+);}
+
+
+
+
+
+export const getCorrectPrivateContactRequestIdMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof correctPrivateContactRequestId>>, TError,{jobId: string;data: BodyType<PrivateContactIdCorrection>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof correctPrivateContactRequestId>>, TError,{jobId: string;data: BodyType<PrivateContactIdCorrection>}, TContext> => {
+
+const mutationKey = ['correctPrivateContactRequestId'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof correctPrivateContactRequestId>>, {jobId: string;data: BodyType<PrivateContactIdCorrection>}> = (props) => {
+          const {jobId,data} = props ?? {};
+
+          return  correctPrivateContactRequestId(jobId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CorrectPrivateContactRequestIdMutationResult = NonNullable<Awaited<ReturnType<typeof correctPrivateContactRequestId>>>
+    export type CorrectPrivateContactRequestIdMutationBody = BodyType<PrivateContactIdCorrection>
+    export type CorrectPrivateContactRequestIdMutationError = ErrorType<void>
+
+    /**
+ * @summary Admin-only correction of an unaccounted BetterContact request ID
+ */
+export const useCorrectPrivateContactRequestId = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof correctPrivateContactRequestId>>, TError,{jobId: string;data: BodyType<PrivateContactIdCorrection>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof correctPrivateContactRequestId>>,
+        TError,
+        {jobId: string;data: BodyType<PrivateContactIdCorrection>},
+        TContext
+      > => {
+      return useMutation(getCorrectPrivateContactRequestIdMutationOptions(options));
+    }
 
 export const getGetRewardsUrl = () => {
 

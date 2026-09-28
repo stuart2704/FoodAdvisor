@@ -396,6 +396,99 @@ export async function reconcileBetterContactJob(input: {
   return resumed!;
 }
 
+/**
+ * Correct only a still-unaccounted request. Both provider responses must
+ * contain explicit identity rows: an empty pending response proves nothing.
+ * This path never makes a submission or changes the credit reservation.
+ */
+export async function correctBetterContactRequestId(input: {
+  jobId: string;
+  oldProviderRequestId: string;
+  newProviderRequestId: string;
+  evidenceNote: string;
+}): Promise<typeof betterContactJobsTable.$inferSelect> {
+  const [job] = await db.select().from(betterContactJobsTable)
+    .where(eq(betterContactJobsTable.id, input.jobId)).limit(1);
+  if (!job || !job.providerRequestId || job.providerRequestId !== input.oldProviderRequestId
+    || !["polling", "on_hold", "timed_out", "submit_ambiguous"].includes(job.status)
+    || job.accountingState === "reconciled") {
+    throw new Error("Only an unaccounted job with the current provider ID can be corrected.");
+  }
+  if (input.oldProviderRequestId === input.newProviderRequestId) {
+    throw new Error("The replacement provider ID must be different.");
+  }
+  const [other] = await db.select({ id: betterContactJobsTable.id })
+    .from(betterContactJobsTable)
+    .where(eq(betterContactJobsTable.providerRequestId, input.newProviderRequestId)).limit(1);
+  if (other) throw new Error("Replacement provider ID belongs to another job.");
+
+  const getEvidence = async (id: string): Promise<ProviderRecord[]> => {
+    const response = await connectorResponse(`/api/v2/async/${encodeURIComponent(id)}`);
+    const body = await providerJson(response);
+    if (!response.ok || !body || body.id !== id || body.status !== "terminated"
+      || !Array.isArray(body.data) || !body.data.length
+      || !body.data.every((row) => row && typeof row === "object" && !Array.isArray(row))) {
+      throw new Error("Both provider IDs need confirmed, terminated identity records.");
+    }
+    return body.data as ProviderRecord[];
+  };
+  const oldRecords = await getEvidence(input.oldProviderRequestId);
+  // An incomplete row is not proof that this ID belongs to someone else.
+  if (!oldRecords.every((record) =>
+    typeof record.contact_first_name === "string" && record.contact_first_name.trim()
+    && typeof record.contact_last_name === "string" && record.contact_last_name.trim()
+    && customField(record, "context_id") && customField(record, "restaurant_id")
+    && !exactBetterContactMatch(job, record))) {
+    throw new Error("Old provider ID has no conclusive mismatched identity evidence.");
+  }
+  const newRecords = await getEvidence(input.newProviderRequestId);
+  // The context hash binds the original company and domain to the request;
+  // also demand their explicit provider fields for this exceptional correction.
+  if (!newRecords.every((record) =>
+    exactBetterContactMatch(job, record)
+    && typeof record.company === "string" && normal(record.company) === normal(job.company)
+    && typeof record.company_domain === "string"
+    && normal(record.company_domain) === normal(job.companyDomain))) {
+    throw new Error("New provider ID does not prove the original person, company, domain and restaurant.");
+  }
+
+  const now = new Date();
+  return db.transaction(async (tx) => {
+    const [updated] = await tx.update(betterContactJobsTable).set({
+      providerRequestId: input.newProviderRequestId,
+      status: "polling",
+      accountingState: job.accountingState === null && job.status === "timed_out"
+        ? "legacy_timeout" : job.accountingState,
+      pollAttempts: 0,
+      nextPollAt: now,
+      deadlineAt: new Date(now.getTime() + REQUEST_LIFETIME_MS),
+      completedAt: null,
+      lastError: null,
+      updatedAt: now,
+    }).where(and(
+      eq(betterContactJobsTable.id, job.id),
+      eq(betterContactJobsTable.status, job.status),
+      eq(betterContactJobsTable.providerRequestId, input.oldProviderRequestId),
+      job.accountingState === null
+        ? sql`${betterContactJobsTable.accountingState} is null`
+        : eq(betterContactJobsTable.accountingState, job.accountingState),
+    )).returning();
+    if (!updated) throw new Error("Job changed during correction; reload it.");
+    await tx.insert(betterContactAuditTable).values({
+      jobId: job.id, placeId: job.placeId, event: "provider_request_id_corrected",
+      detail: {
+        oldProviderRequestId: input.oldProviderRequestId,
+        newProviderRequestId: input.newProviderRequestId,
+        previousStatus: job.status,
+        oldEvidence: "terminated_identity_mismatch",
+        newEvidence: "terminated_exact_person_company_domain_restaurant",
+        evidenceNote: input.evidenceNote,
+      },
+    });
+    return updated;
+  });
+}
+
 async function poll(job: typeof betterContactJobsTable.$inferSelect): Promise<void> {
   const providerRequestId = job.providerRequestId;
   if (!providerRequestId) return;

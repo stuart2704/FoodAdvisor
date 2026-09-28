@@ -1,7 +1,13 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
+import {
+  CorrectPrivateContactRequestIdBody,
+  CorrectPrivateContactRequestIdParams,
+  CorrectPrivateContactRequestIdResponse,
+} from "@workspace/api-zod";
 import { adminOnly } from "../middleware/adminOnly";
 import {
+  correctBetterContactRequestId,
   getBetterContactBudgetForReview,
   getBetterContactJobForReview,
   listBetterContactJobsForReview,
@@ -39,6 +45,9 @@ const ReconcileBody = z.object({
   firstName: z.string().trim().min(2).max(100),
   lastName: z.string().trim().min(2).max(100),
   companyDomain: Domain,
+}).strict();
+const CorrectionBody = CorrectPrivateContactRequestIdBody.extend({
+  evidenceNote: z.string().trim().min(10).max(1000),
 }).strict();
 
 router.get("/private-contact-enrichments/budget", adminOnly, async (_req, res) => {
@@ -109,6 +118,24 @@ router.post("/private-contact-enrichments/:jobId/reconcile", adminOnly, async (r
   } catch (error) {
     req.log.warn({ err: error }, "Manual contact reconciliation rejected");
     res.status(409).json({ success: false, error: error instanceof Error ? error.message : "Reconciliation failed." });
+  }
+});
+
+router.post("/private-contact-enrichments/:jobId/correct-request-id", adminOnly, async (req, res): Promise<void> => {
+  const params = CorrectPrivateContactRequestIdParams.safeParse(req.params);
+  const body = CorrectionBody.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ success: false, error: "Both IDs, an evidence note, and explicit confirmation are required." });
+    return;
+  }
+  try {
+    const job = await correctBetterContactRequestId({ jobId: params.data.jobId, ...body.data });
+    res.json(CorrectPrivateContactRequestIdResponse.parse({
+      success: true, data: { id: job.id, status: job.status, providerRequestId: job.providerRequestId },
+    }));
+  } catch (error) {
+    req.log.warn({ err: error }, "Provider request ID correction rejected");
+    res.status(409).json({ success: false, error: error instanceof Error ? error.message : "Correction failed." });
   }
 });
 

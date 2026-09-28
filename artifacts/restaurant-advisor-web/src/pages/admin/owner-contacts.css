@@ -9,12 +9,13 @@
 .owner-contacts small { display: block; color: #b5ada7; line-height: 1.5; }
 .owner-contacts .contact-form { display: grid; gap: 16px; }
 .owner-contacts .contact-field { display: grid; gap: 5px; font-weight: 600; }
-.owner-contacts .contact-field input { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #625a54; border-radius: 7px; background: #101010; color: white; font: inherit; }
+.owner-contacts .contact-field input, .owner-contacts .contact-field textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #625a54; border-radius: 7px; background: #101010; color: white; font: inherit; }
+.owner-contacts .contact-field textarea { min-height: 84px; resize: vertical; }
 .owner-contacts .contact-consent { display: flex; gap: 10px; line-height: 1.5; align-items: flex-start; }
 .owner-contacts .contact-consent input { margin-top: 5px; }
 .owner-contacts button { border: 1px solid #a65a32; border-radius: 7px; background: #a93f0a; color: #fff; padding: 10px 14px; font: inherit; font-weight: 650; cursor: pointer; }
 .owner-contacts button:hover:not(:disabled) { background: #d4510d; }
-.owner-contacts button:focus-visible, .owner-contacts input:focus-visible { outline: 2px solid #ff9c62; outline-offset: 2px; }
+.owner-contacts button:focus-visible, .owner-contacts input:focus-visible, .owner-contacts textarea:focus-visible { outline: 2px solid #ff9c62; outline-offset: 2px; }
 .owner-contacts button:disabled { opacity: .5; cursor: not-allowed; }
 .owner-contacts .contact-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .owner-contacts .contact-heading button { background: #302823; }

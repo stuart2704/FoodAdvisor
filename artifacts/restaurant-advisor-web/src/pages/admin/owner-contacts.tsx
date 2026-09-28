@@ -97,6 +97,10 @@ function OwnerContactsContent() {
   const [providerId, setProviderId] = useState("");
   const [reconciling, setReconciling] = useState(false);
   const [identityConfirmed, setIdentityConfirmed] = useState(false);
+  const [replacementId, setReplacementId] = useState("");
+  const [correctionNote, setCorrectionNote] = useState("");
+  const [correctionConfirmed, setCorrectionConfirmed] = useState(false);
+  const [correcting, setCorrecting] = useState(false);
   const [reviewVersion, setReviewVersion] = useState(0);
 
   const refreshOverview = useCallback(async () => {
@@ -235,6 +239,36 @@ function OwnerContactsContent() {
     }
   };
 
+  const correctRequestId = async () => {
+    if (!review || !selectedId || !review.job.providerRequestId) return;
+    setCorrecting(true);
+    setError("");
+    setNotice("");
+    try {
+      await privateApi(`/private-contact-enrichments/${encodeURIComponent(selectedId)}/correct-request-id`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          oldProviderRequestId: review.job.providerRequestId,
+          newProviderRequestId: replacementId.trim(),
+          evidenceNote: correctionNote.trim(),
+          confirmedCorrection: correctionConfirmed,
+        }),
+      });
+      setReview(await privateApi<Review>(`/private-contact-enrichments/${encodeURIComponent(selectedId)}`));
+      setReviewVersion((version) => version + 1);
+      await refreshOverview();
+      setReplacementId("");
+      setCorrectionNote("");
+      setCorrectionConfirmed(false);
+      setNotice("Provider evidence confirmed the correction. Polling resumed; no new paid request was submitted.");
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Provider request ID could not be corrected.");
+    } finally {
+      setCorrecting(false);
+    }
+  };
+
   return (
     <AdminLayout>
       <div className="owner-contacts">
@@ -303,7 +337,7 @@ function OwnerContactsContent() {
           <ul className="contact-history">
             {jobs.map((job) => (
               <li key={job.id}>
-                <button type="button" className={selectedId === job.id ? "selected" : ""} data-testid={`button-review-contact-${job.id}`} onClick={() => { setSelectedId(job.id); setProviderId(""); setIdentityConfirmed(false); }}>
+                <button type="button" className={selectedId === job.id ? "selected" : ""} data-testid={`button-review-contact-${job.id}`} onClick={() => { setSelectedId(job.id); setProviderId(""); setIdentityConfirmed(false); setReplacementId(""); setCorrectionNote(""); setCorrectionConfirmed(false); }}>
                   <strong>{job.firstName} {job.lastName}</strong> · {job.company}
                   <span>{job.placeId} · {statusText[job.status] ?? job.status} · {new Date(job.createdAt).toLocaleString()}</span>
                 </button>
@@ -347,6 +381,25 @@ function OwnerContactsContent() {
                     <button type="button" disabled={reconciling || !identityConfirmed || (!review.job.providerRequestId && !providerId.trim())}
                       onClick={() => { void reconcile(); }}>
                       {reconciling ? "Confirming…" : "Confirm identity and resume polling"}
+                    </button>
+                  </div>
+                )}
+                {review.job.providerRequestId && ["polling", "on_hold", "timed_out", "submit_ambiguous"].includes(review.job.status) && (
+                  <div className="contact-result">
+                    <h3>Correct a mistaken provider request ID</h3>
+                    <p>Only use this if BetterContact has terminated records proving the current ID belongs to a different identity and the replacement ID matches this person, company, domain, and restaurant. Pending or incomplete records are not enough. The existing credit reservation remains in place; no new paid lookup is sent.</p>
+                    <p><strong>Current ID:</strong> {review.job.providerRequestId}</p>
+                    <label className="contact-field"><span>Replacement provider request ID</span>
+                      <input value={replacementId} onChange={(event) => setReplacementId(event.target.value)} maxLength={200} autoComplete="off" disabled={correcting} />
+                    </label>
+                    <label className="contact-field"><span>Why the old ID is wrong and how the new ID was verified (audit note)</span>
+                      <textarea value={correctionNote} onChange={(event) => setCorrectionNote(event.target.value)} maxLength={1000} disabled={correcting} />
+                    </label>
+                    <label className="contact-consent"><input type="checkbox" checked={correctionConfirmed} onChange={(event) => setCorrectionConfirmed(event.target.checked)} disabled={correcting} />
+                      <span>I reviewed both provider records and confirm this is a correction, not a new lookup.</span></label>
+                    <button type="button" disabled={correcting || !correctionConfirmed || !replacementId.trim() || correctionNote.trim().length < 10 || replacementId.trim() === review.job.providerRequestId}
+                      onClick={() => { void correctRequestId(); }}>
+                      {correcting ? "Checking provider evidence…" : "Verify evidence and correct ID"}
                     </button>
                   </div>
                 )}

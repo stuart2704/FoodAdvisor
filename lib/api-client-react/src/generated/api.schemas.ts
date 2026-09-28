@@ -5,6 +5,38 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface PrivateContactIdCorrection {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     * @pattern ^[a-zA-Z0-9_-]+$
+     */
+  oldProviderRequestId: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     * @pattern ^[a-zA-Z0-9_-]+$
+     */
+  newProviderRequestId: string;
+  /**
+     * @minLength 10
+     * @maxLength 1000
+     */
+  evidenceNote: string;
+  confirmedCorrection: true;
+}
+
+export type PrivateContactIdCorrectionResponseData = {
+  id: string;
+  status: string;
+  providerRequestId: string;
+};
+
+export interface PrivateContactIdCorrectionResponse {
+  success: boolean;
+  data: PrivateContactIdCorrectionResponseData;
+}
+
 export type OsmCandidateState = typeof OsmCandidateState[keyof typeof OsmCandidateState];
 
 

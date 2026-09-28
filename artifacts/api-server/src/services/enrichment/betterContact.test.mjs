@@ -402,6 +402,89 @@ const confirmation = () => ({
   firstName: input.firstName, lastName: input.lastName, companyDomain: input.companyDomain,
 });
 
+const correction = () => ({
+  jobId: job().id, oldProviderRequestId: "wrong-1",
+  newProviderRequestId: "right-2",
+  evidenceNote: "Checked both terminated provider identity records.",
+});
+const wrongResult = () => response(200, {
+  id: "wrong-1", status: "terminated",
+  data: [{
+    contact_first_name: "Other", contact_last_name: "Person",
+    custom_fields: [
+      { name: "context_id", value: "different-context" },
+      { name: "restaurant_id", value: "other-restaurant" },
+    ],
+  }],
+});
+const correctedResult = () => response(200, {
+  id: "right-2", status: "terminated",
+  data: [{
+    contact_first_name: input.firstName, contact_last_name: input.lastName,
+    company: input.company, company_domain: input.companyDomain,
+    custom_fields: [
+      { name: "context_id", value: job().contextHash },
+      { name: "restaurant_id", value: input.placeId },
+    ],
+  }],
+});
+
+test("correcting a wrong ID requires two provider records, audits the change and keeps the reservation", async () => {
+  await service.reserveBetterContactJob(input);
+  job().status = "timed_out";
+  job().providerRequestId = "wrong-1";
+  current().responses.push(wrongResult(), correctedResult());
+  await service.correctBetterContactRequestId(correction());
+  assert.equal(job().providerRequestId, "right-2");
+  assert.equal(job().status, "polling");
+  assert.deepEqual([budget().reservedCredits, budget().consumedCredits], [1, 0]);
+  assert.deepEqual(current().proxyCalls.map((call) => call.path),
+    ["/api/v2/async/wrong-1", "/api/v2/async/right-2"]);
+  assert.ok(current().proxyCalls.every((call) => !call.options?.method));
+  assert.deepEqual(current().audits.find((item) => item.event === "provider_request_id_corrected").detail, {
+    oldProviderRequestId: "wrong-1", newProviderRequestId: "right-2",
+    previousStatus: "timed_out", oldEvidence: "terminated_identity_mismatch",
+    newEvidence: "terminated_exact_person_company_domain_restaurant",
+    evidenceNote: correction().evidenceNote,
+  });
+});
+
+test("correction refuses missing, pending, partial, matching, reused or inconsistent provider evidence", async () => {
+  await service.reserveBetterContactJob(input);
+  job().status = "timed_out";
+  job().providerRequestId = "wrong-1";
+  const check = async (responses, pattern) => {
+    current().responses.push(...responses);
+    await assert.rejects(() => service.correctBetterContactRequestId(correction()), pattern);
+    assert.equal(job().providerRequestId, "wrong-1");
+    assert.deepEqual([budget().reservedCredits, budget().consumedCredits], [1, 0]);
+    assert.equal(current().audits.filter((row) => row.event === "provider_request_id_corrected").length, 0);
+  };
+  await check([response(404, {})], /confirmed, terminated/);
+  await check([response(200, { id: "wrong-1", status: "processing", data: [] })], /confirmed, terminated/);
+  await check([matchedResult("wrong-1")], /mismatched identity/);
+  await check([response(200, { id: "wrong-1", status: "terminated",
+    data: [{ contact_first_name: "Other", contact_last_name: "Person" }] })], /mismatched identity/);
+  await check([wrongResult(), matchedResult("right-2")], /original person, company/);
+  current().jobs.push({ ...job(), id: "other-job", placeId: "different", contextHash: "other",
+    providerRequestId: "right-2" });
+  await assert.rejects(() => service.correctBetterContactRequestId(correction()), /another job/);
+  assert.equal(current().proxyCalls.every((call) => !call.options?.method), true);
+});
+
+test("a completed job or stale old ID cannot have its request ID corrected", async () => {
+  await service.reserveBetterContactJob(input);
+  job().providerRequestId = "wrong-1";
+  job().status = "completed";
+  job().accountingState = "reconciled";
+  await assert.rejects(() => service.correctBetterContactRequestId(correction()), /unaccounted/);
+  job().status = "polling";
+  job().accountingState = "reserved";
+  job().providerRequestId = "another-id";
+  await assert.rejects(() => service.correctBetterContactRequestId(correction()), /current provider ID/);
+  assert.equal(current().audits.filter((row) => row.event === "provider_request_id_corrected").length, 0);
+});
+
 test("ambiguous submission can attach confirmed ID and reconcile zero credits without POST", async () => {
   await service.reserveBetterContactJob(input);
   current().responses.push(new Error("POST outcome unknown"));

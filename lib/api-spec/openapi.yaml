@@ -23,6 +23,35 @@ tags:
   - name: osm-candidates
     description: Admin-controlled OSM candidate review, claim, rights, and publication workflow
 paths:
+  /private-contact-enrichments/{jobId}/correct-request-id:
+    post:
+      operationId: correctPrivateContactRequestId
+      summary: Admin-only correction of an unaccounted BetterContact request ID
+      security: [{ adminSession: [] }]
+      parameters:
+        - in: path
+          name: jobId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PrivateContactIdCorrection"
+      responses:
+        "200":
+          description: Provider identity evidence verified and polling resumed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrivateContactIdCorrectionResponse"
+        "400":
+          description: Invalid request
+        "401":
+          description: Admin authentication required
+        "409":
+          description: Provider evidence or job state does not permit correction
   /rewards:
     get:
       operationId: getRewards
@@ -1468,6 +1497,27 @@ components:
         minLength: 1
         maxLength: 512
   schemas:
+    PrivateContactIdCorrection:
+      type: object
+      additionalProperties: false
+      required: [oldProviderRequestId, newProviderRequestId, evidenceNote, confirmedCorrection]
+      properties:
+        oldProviderRequestId: { type: string, minLength: 1, maxLength: 200, pattern: "^[a-zA-Z0-9_-]+$" }
+        newProviderRequestId: { type: string, minLength: 1, maxLength: 200, pattern: "^[a-zA-Z0-9_-]+$" }
+        evidenceNote: { type: string, minLength: 10, maxLength: 1000 }
+        confirmedCorrection: { type: boolean, enum: [true] }
+    PrivateContactIdCorrectionResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success: { type: boolean }
+        data:
+          type: object
+          required: [id, status, providerRequestId]
+          properties:
+            id: { type: string }
+            status: { type: string }
+            providerRequestId: { type: string }
     OsmCandidateState:
       type: string
       enum: [unverified, reviewed, claim_invited, claim_verified, activated, published, suppressed]

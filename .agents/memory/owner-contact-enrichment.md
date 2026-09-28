@@ -20,3 +20,9 @@ Legacy polling timeouts were booked as consumed before provider confirmation; ne
 **Why:** Treating an old provisional debit like a new reservation can debit twice, while releasing an uncertain new request can make a duplicate paid lookup appear affordable.
 
 **How to apply:** When changing reconciliation/accounting, handle both historical timeout accounting and current reserved timeouts; a missing or mismatched provider result is not evidence of zero credits.
+
+Corrections to an already linked provider request must require conclusive identity evidence from both the old and replacement provider records. Empty or pending results are not evidence that the old link was wrong. Keep the existing reservation and use GET only.
+
+**Why:** An admin can mistype a request ID; replacing it on a manual assertion alone could attach another person's private contact or incorrectly settle the credit balance.
+
+**How to apply:** Require an explicit mismatched old identity and a replacement identity bound to the original person, company, domain, and restaurant; reject incomplete records and changes after accounting is settled.
