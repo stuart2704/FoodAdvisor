@@ -29,6 +29,12 @@ When Facebook Login for Business uses a configuration ID, let that dashboard con
 
 **How to apply:** Diagnose the token exchange and Page-list stages separately, logging only safe numeric provider error identifiers. Never log OAuth codes, app secrets, tokens or provider response bodies.
 
+Meta OAuth error code 1 alone is ambiguous. A separate `client_credentials` token request can check whether the configured Facebook app ID and secret are a valid pair without requiring a user login code; inspect only a narrow allowlisted result, never print the response or request URL.
+
+**Why:** The production code exchange returned code 1, while the workspace's independent credential check returned the same code and Meta's exact “Error validating client secret” response. That points to mismatched app credentials, but does not prove production and development hold identical secret values.
+
+**How to apply:** Ask for a corrected ID/secret pair from the same Business app through the secrets flow; don't mistake a Replit Facebook connector for the product's own app credentials. Retry production login only after the corrected pair is published.
+
 Use a public, human-readable deletion-instructions page in Meta's **Data Deletion Instructions URL** field. Do not enter that page in the **Data Deletion Request URL** callback field: a callback must accept and verify Meta's signed POST, initiate deletion, and return a status URL and confirmation code.
 
 **Why:** A static instructions page can explain how to request deletion but cannot fulfil the signed callback protocol.
