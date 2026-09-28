@@ -41,7 +41,7 @@ export default function RestaurantCard({
   useEffect(() => {
     setVisible(false);
     const element = cardRef.current;
-    if (!element || typeof id !== "string" || id.startsWith("osm:")) return;
+    if (!element || typeof id !== "string") return;
     if (!("IntersectionObserver" in window)) {
       setVisible(true);
       return;
@@ -58,7 +58,7 @@ export default function RestaurantCard({
 
   useEffect(() => {
     setPhoto(null);
-    if (!visible || typeof id !== "string" || id.startsWith("osm:")) return;
+    if (!visible || typeof id !== "string") return;
     const controller = new AbortController();
     fetch(`/api/photo/${encodeURIComponent(id)}`, { signal: controller.signal })
       .then(res => {

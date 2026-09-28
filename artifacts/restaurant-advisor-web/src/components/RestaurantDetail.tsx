@@ -169,7 +169,7 @@ export default function RestaurantDetail() {
     setPrimaryPhoto(null);
     setGallery([]);
     setGalleryOpen(false);
-    if (!id || id.startsWith("osm:")) return;
+    if (!id) return;
     const controller = new AbortController();
     fetch(`/api/photo/${encodeURIComponent(id)}`, { signal: controller.signal })
       .then(res => {
@@ -185,7 +185,7 @@ export default function RestaurantDetail() {
   }, [id]);
 
   useEffect(() => {
-    if (!galleryOpen || !id || id.startsWith("osm:")) return;
+    if (!galleryOpen || !id) return;
     const controller = new AbortController();
     setGalleryLoading(true);
     fetch(`/api/photos/${encodeURIComponent(id)}`, { signal: controller.signal })

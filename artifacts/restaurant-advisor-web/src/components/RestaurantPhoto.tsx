@@ -10,7 +10,7 @@ interface RestaurantPhotoProps {
 
 export default function RestaurantPhoto({ src, name, style }: RestaurantPhotoProps) {
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
-  const photoSrc = typeof src === "string" && src.startsWith("https://") ? src : null;
+  const photoSrc = typeof src === "string" && (src.startsWith("https://") || src.startsWith("/api/storage/objects/restaurant/")) ? src : null;
   const illustrative = !photoSrc || failedSrc === photoSrc;
 
   return (

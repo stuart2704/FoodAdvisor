@@ -13,6 +13,7 @@ import { startBetterContactScheduler } from "./cron/betterContact";
 import { startExternalIngestionScheduler } from "./cron/scheduler";
 import { startDailyOrchestrationScheduler } from "./scheduler/dailyOrchestration";
 import { startChefPhotoCleanup } from "./cron/chefPhotoCleanup";
+import { startRestaurantPhotoCleanup } from "./cron/restaurantPhotoCleanup";
 
 const rawPort = process.env["PORT"];
 
@@ -51,6 +52,7 @@ async function initializeAfterListen(): Promise<void> {
   startExternalIngestionScheduler();
   startDailyOrchestrationScheduler();
   startChefPhotoCleanup();
+  startRestaurantPhotoCleanup();
 
   try {
     await initializeStripe();

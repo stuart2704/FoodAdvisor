@@ -21,6 +21,7 @@
 - [Grid crawl activation](grid-crawl-activation.md) — the first paid Places crawl is explicitly manual; automatic runs begin only after a confirmed point completes.
 - [Google Maps billing limits](google-maps-billing-limits.md) — app-side request reservations are not a guaranteed £30 Google invoice cap; budgets alert, and Maps lacks spend caps.
 - [Google photo cache boundaries](google-photo-cache-boundaries.md) — keep temporary photo metadata server-side and avoid browser TTLs that extend provider content lifetime.
+- [Reviewed object uploads](reviewed-object-uploads.md) — a signed PUT link survives finalization; pin reviewed images to their verified storage generation.
 - [Social publishing safety](social-publishing-safety.md) — keep scheduled publishing opt-in and treat ambiguous provider outcomes as non-retriable until reviewed.
 - [Social photo fetch policy](social-photo-fetch-policy.md) — Facebook needs a stable unauthenticated fetch URL, but chef images stay private until explicit per-post approval.
 - [Meta social connection boundary](instagram-connection-boundary.md) — workspace or Meta dashboard setup does not connect Facebook/Instagram inside The Food Advisor.

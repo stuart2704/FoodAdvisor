@@ -11,6 +11,7 @@ const sections = [
   { to: "/admin/candidates", label: "Candidate claims" },
   { to: "/admin/ingestion", label: "External ingestion" },
   { to: "/admin/chef-review", label: "Chef review" },
+  { to: "/admin/restaurant-photos", label: "Restaurant photos" },
   { to: "/admin/logs", label: "Logs" },
   { to: "/admin/queue", label: "Queue" },
   { to: "/admin/engines", label: "Engines" },

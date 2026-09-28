@@ -21,6 +21,7 @@ import AdminPerformance from "./pages/admin/performance";
 import AdminIngestion from "./pages/admin/ingestion";
 import ManageRestaurantsPage from "./pages/admin-restaurants";
 import AdminChefReviewPage from "./pages/admin-chef-review";
+import AdminRestaurantPhotosPage from "./pages/admin-restaurant-photos";
 import ClaimRestaurant from "./pages/claim";
 import ClaimSuccessPage from "./pages/claim-success";
 import PortalPage from "./pages/portal";
@@ -103,6 +104,7 @@ function AppRoutes() {
         <Route path="/admin/restaurants" element={<ManageRestaurantsPage />} />
         <Route path="/admin/candidates" element={<RequireAdmin><AdminCandidatesPage /></RequireAdmin>} />
         <Route path="/admin/chef-review" element={<AdminChefReviewPage />} />
+        <Route path="/admin/restaurant-photos" element={<AdminRestaurantPhotosPage />} />
         <Route path="/admin/logs" element={<AdminLogs />} />
         <Route path="/admin/automation/social" element={<SocialAutomationPage />} />
         <Route path="/admin/automation/social/logs" element={<SocialAutomationPage />} />

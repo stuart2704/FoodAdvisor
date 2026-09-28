@@ -32,10 +32,10 @@ export function checkGooglePhotoAccess(
       allowed: false,
       status: 409,
       body: {
-        error: "Google Places photos are not available for this source. OSM photo uploads are not supported yet.",
+        error: "Google Places photos are not available for this source.",
         sourceName: restaurant.sourceName,
         sourceAttribution: restaurant.sourceAttribution,
-        uploadSupported: false,
+        uploadSupported: true,
       },
     };
   }

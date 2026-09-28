@@ -4,7 +4,7 @@ import { Storage } from "@google-cloud/storage";
 export const CHEF_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 export const CHEF_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
-function hasExpectedImageSignature(
+export function hasExpectedImageSignature(
   bytes: Buffer,
   contentType: (typeof CHEF_IMAGE_TYPES)[number],
 ): boolean {
@@ -26,7 +26,7 @@ function hasExpectedImageSignature(
   );
 }
 
-const storage = new Storage({
+export const storage = new Storage({
   credentials: {
     audience: "replit",
     subject_token_type: "access_token",
@@ -41,7 +41,7 @@ const storage = new Storage({
   projectId: "",
 });
 
-function configuredPath(): { bucket: string; prefix: string } {
+export function configuredPath(): { bucket: string; prefix: string } {
   const raw = process.env.PRIVATE_OBJECT_DIR?.trim();
   if (!raw) throw new Error("PRIVATE_OBJECT_DIR is not configured.");
   const parts = raw.replace(/^\/+/, "").split("/");

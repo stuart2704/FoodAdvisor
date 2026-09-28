@@ -21,7 +21,7 @@ test("unpublished OSM IDs cannot reach Google Places photo lookup", () => {
   }).allowed, false);
 });
 
-test("published OSM profiles return attribution and explicitly disable uploads", () => {
+test("published OSM profiles do not call Google but allow owner uploads", () => {
   assert.deepEqual(checkGooglePhotoAccess("osm:node/123", {
     sourceName: "OSM",
     sourceAttribution: "© OpenStreetMap contributors, ODbL",
@@ -30,10 +30,10 @@ test("published OSM profiles return attribution and explicitly disable uploads",
     allowed: false,
     status: 409,
     body: {
-      error: "Google Places photos are not available for this source. OSM photo uploads are not supported yet.",
+      error: "Google Places photos are not available for this source.",
       sourceName: "OSM",
       sourceAttribution: "© OpenStreetMap contributors, ODbL",
-      uploadSupported: false,
+      uploadSupported: true,
     },
   });
 });

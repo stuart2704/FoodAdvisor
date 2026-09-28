@@ -29,6 +29,7 @@ export * from "./restaurantCollections";
 export * from "./restaurantChef";
 export * from "./chefPhotoUploadIntents";
 export * from "./chefPhotoDeletionQueue";
+export * from "./restaurantPhotos";
 export * from "./crawlerProgress";
 export * from "./cityProgress";
 export * from "./regionProgress";
