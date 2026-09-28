@@ -6,13 +6,13 @@ const CLEANUP_BATCH_SIZE = 200;
 let task: ReturnType<typeof cron.schedule> | undefined;
 let running = false;
 
-/** One indexed, bounded batch. Null descriptions are generation reservations. */
+/** One indexed, bounded batch. Active reservations renew their expiration. */
 export async function cleanupExpiredAiDescriptions(now = new Date()): Promise<number> {
   const result = await pool.query(
     `WITH expired AS (
        SELECT cache_key
        FROM ai_description_cache
-       WHERE expires_at <= $1 AND description IS NOT NULL
+       WHERE expires_at <= $1
        ORDER BY expires_at, cache_key
        LIMIT $2
        FOR UPDATE SKIP LOCKED

@@ -25,6 +25,8 @@ const matches = (condition, row) => {
   if (condition.kind === "and") return condition.conditions.every((item) => matches(item, row));
   if (condition.kind === "eq") return row[condition.column.name] === condition.value;
   if (condition.kind === "lte") return row[condition.column.name] <= condition.value;
+  if (condition.kind === "gt") return row[condition.column.name] > condition.value;
+  if (condition.kind === "isNull") return row[condition.column.name] == null;
   return false;
 };
 const project = (selection, row) => Object.fromEntries(
@@ -53,6 +55,7 @@ export const db = {
         for (const [key, row] of state().rows) {
           if (matches(condition, row)) state().rows.delete(key);
         }
+        return [];
       },
     };
   },
@@ -69,7 +72,7 @@ export const db = {
                   updatedAt: new Date(),
                   ...values,
                 });
-                return [{ cacheKey: values.cacheKey }];
+                return [{ createdAt: values.createdAt }];
               },
             };
           },
@@ -81,10 +84,22 @@ export const db = {
     return {
       set(values) {
         return {
-          async where(condition) {
-            for (const row of state().rows.values()) {
-              if (matches(condition, row)) Object.assign(row, values);
-            }
+          where(condition) {
+            return {
+              async returning(selection) {
+                const changed = [];
+                for (const row of state().rows.values()) {
+                  if (matches(condition, row)) {
+                    Object.assign(row, values);
+                    changed.push(project(selection, row));
+                  }
+                }
+                return changed;
+              },
+              then(resolve, reject) {
+                return this.returning({}).then(resolve, reject);
+              },
+            };
           },
         };
       },
@@ -96,6 +111,8 @@ export const db = {
 const ormMock = String.raw`
 export const eq = (column, value) => ({ kind: "eq", column, value });
 export const lte = (column, value) => ({ kind: "lte", column, value });
+export const gt = (column, value) => ({ kind: "gt", column, value });
+export const isNull = (column) => ({ kind: "isNull", column });
 export const and = (...conditions) => ({ kind: "and", conditions });
 `;
 
@@ -130,6 +147,7 @@ export default class OpenAI {
       create: async () => {
         const state = globalThis.__aiRouteState;
         state.openAiCalls += 1;
+        if (state.generate) return state.generate();
         if (state.generationError) throw state.generationError;
         return {
           choices: [{ message: { content: state.nextDescription } }],
@@ -202,6 +220,17 @@ async function loadRouter() {
 }
 
 const bundled = await loadRouter();
+const realSetInterval = globalThis.setInterval;
+const realClearInterval = globalThis.clearInterval;
+globalThis.setInterval = (callback) => {
+  const timer = { callback, unref() {} };
+  globalThis.__aiRouteState.timers.push(timer);
+  return timer;
+};
+globalThis.clearInterval = (timer) => {
+  const timers = globalThis.__aiRouteState.timers;
+  timers.splice(timers.indexOf(timer), 1);
+};
 
 function resetState() {
   globalThis.__aiRouteState = {
@@ -209,6 +238,8 @@ function resetState() {
     openAiCalls: 0,
     nextDescription: "Generated restaurant description.",
     generationError: null,
+    generate: null,
+    timers: [],
   };
   process.env.OPENAI_API_KEY = "test-key";
 }
@@ -290,6 +321,65 @@ test("failed generations clear their reservation and are never cached as content
   assert.equal(globalThis.__aiRouteState.openAiCalls, 2);
 });
 
+test("a slow generation renews its lease and keeps its own result", async () => {
+  resetState();
+  let complete;
+  globalThis.__aiRouteState.generate = () => new Promise((resolve) => { complete = resolve; });
+  const pending = post("/describe", descriptionBody);
+  // Wait until insertion and the provider call have begun.
+  while (!complete) await new Promise((resolve) => setImmediate(resolve));
+  const [row] = globalThis.__aiRouteState.rows.values();
+  // An active reservation nearing expiration is renewed by the timer.
+  row.expiresAt = new Date(Date.now() + 1000);
+  // Exercise the same timer callback without waiting 30 seconds.
+  const timer = globalThis.__aiRouteState.timers.at(-1);
+  await timer.callback();
+  assert.ok(row.expiresAt.getTime() > Date.now() + 100_000);
+  assert.ok(row.createdAt instanceof Date);
+  complete({ choices: [{ message: { content: "Slow description" } }] });
+  const result = await pending;
+  assert.equal(result.statusCode, 200);
+  assert.equal(row.description, "Slow description");
+  assert.ok(row.createdAt instanceof Date);
+});
+
+test("a reclaimed reservation cannot overwrite or delete a replacement", async () => {
+  resetState();
+  let complete;
+  globalThis.__aiRouteState.generate = () => new Promise((resolve) => { complete = resolve; });
+  const pending = post("/describe", descriptionBody);
+  while (!complete) await new Promise((resolve) => setImmediate(resolve));
+  const state = globalThis.__aiRouteState;
+  const [key, oldRow] = [...state.rows.entries()][0];
+  const replacement = {
+    ...oldRow,
+    createdAt: new Date(oldRow.createdAt.getTime() + 120_001),
+    description: null,
+  };
+  state.rows.set(key, replacement);
+  complete({ choices: [{ message: { content: "Old result" } }] });
+  const result = await pending;
+  assert.equal(result.statusCode, 503);
+  assert.equal(state.rows.get(key), replacement);
+  assert.equal(replacement.description, null);
+});
+
+test("an expired hold is not renewed or published by its late generation", async () => {
+  resetState();
+  let complete;
+  globalThis.__aiRouteState.generate = () => new Promise((resolve) => { complete = resolve; });
+  const pending = post("/describe", descriptionBody);
+  while (!complete) await new Promise((resolve) => setImmediate(resolve));
+  const [row] = globalThis.__aiRouteState.rows.values();
+  row.expiresAt = new Date(Date.now() - 1000);
+  await globalThis.__aiRouteState.timers.at(-1).callback();
+  assert.ok(row.expiresAt.getTime() < Date.now());
+  complete({ choices: [{ message: { content: "Too late" } }] });
+  const result = await pending;
+  assert.equal(result.statusCode, 503);
+  assert.equal(row.description, null);
+});
+
 test("owner marketing generation is not exposed on the public AI router", () => {
   assert.equal(
     bundled.router.stack.some((entry) =>
@@ -300,5 +390,7 @@ test("owner marketing generation is not exposed on the public AI router", () => 
 });
 
 test.after(async () => {
+  globalThis.setInterval = realSetInterval;
+  globalThis.clearInterval = realClearInterval;
   await bundled.cleanup();
 });

@@ -63,14 +63,15 @@ const { cleanupExpiredAiDescriptions, startAiDescriptionCacheCleanup } =
 const state = globalThis.__aiCacheCleanup;
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
-test("deletes at most one batch of expired completed descriptions", async () => {
+test("deletes at most one batch of expired descriptions and abandoned reservations", async () => {
   state.rowCount = 17;
   const now = new Date("2026-09-25T12:00:00Z");
   assert.equal(await cleanupExpiredAiDescriptions(now), 17);
   assert.equal(state.queries.length, 1);
   const { text, values } = state.queries[0];
   assert.deepEqual(values, [now, 200]);
-  assert.match(text, /expires_at <= \$1 AND description IS NOT NULL/);
+  assert.match(text, /expires_at <= \$1/);
+  assert.doesNotMatch(text, /description IS NOT NULL/);
   assert.match(text, /ORDER BY expires_at, cache_key\s+LIMIT \$2\s+FOR UPDATE SKIP LOCKED/);
   assert.match(text, /DELETE FROM ai_description_cache AS cache\s+USING expired/);
 });

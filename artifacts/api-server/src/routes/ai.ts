@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { aiDescriptionCacheTable, db } from "@workspace/db";
-import { and, eq, lte } from "drizzle-orm";
+import { and, eq, gt, isNull, lte } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import rateLimit from "express-rate-limit";
 import OpenAI from "openai";
@@ -97,6 +97,7 @@ const descriptionRequestSchema = restaurantDetailsRequestSchema.extend({
 const DESCRIPTION_CACHE_VERSION = 1;
 const DESCRIPTION_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1_000;
 const DESCRIPTION_RESERVATION_TTL_MS = 2 * 60 * 1_000;
+const DESCRIPTION_LEASE_RENEWAL_MS = 30 * 1_000;
 const DESCRIPTION_WAIT_ATTEMPTS = 20;
 const DESCRIPTION_WAIT_MS = 250;
 
@@ -310,7 +311,6 @@ router.post(
 
     const { restaurantId, name, city, cuisine, rating } = input.data;
     const cacheKey = descriptionCacheKey(input.data);
-    const now = new Date();
 
     const cachedDescription = await findFreshDescription(cacheKey);
     if (cachedDescription) {
@@ -318,6 +318,7 @@ router.post(
       return;
     }
 
+    const now = new Date();
     await db
       .delete(aiDescriptionCacheTable)
       .where(
@@ -327,16 +328,20 @@ router.post(
         ),
       );
 
+    const reservationAt = new Date();
     const [reservation] = await db
       .insert(aiDescriptionCacheTable)
       .values({
         cacheKey,
         restaurantId,
         description: null,
-        expiresAt: new Date(now.getTime() + DESCRIPTION_RESERVATION_TTL_MS),
+        // Supply millisecond precision so the returned Date compares exactly
+        // with PostgreSQL (default now() has sub-millisecond precision).
+        createdAt: reservationAt,
+        expiresAt: new Date(reservationAt.getTime() + DESCRIPTION_RESERVATION_TTL_MS),
       })
       .onConflictDoNothing({ target: aiDescriptionCacheTable.cacheKey })
-      .returning({ cacheKey: aiDescriptionCacheTable.cacheKey });
+      .returning({ createdAt: aiDescriptionCacheTable.createdAt });
 
     if (!reservation) {
       const concurrentDescription = await waitForDescription(cacheKey);
@@ -348,14 +353,32 @@ router.post(
       return;
     }
 
+    // A replacement can only be inserted after this lease expires, so its
+    // creation time differs even at millisecond precision.
+    const ownedReservation = and(
+      eq(aiDescriptionCacheTable.cacheKey, cacheKey),
+      eq(aiDescriptionCacheTable.createdAt, reservation.createdAt),
+      isNull(aiDescriptionCacheTable.description),
+    );
+    // Keep a slow provider call leased. An expired lease is never revived:
+    // another worker may already have claimed the same cache key.
+    const renewLease = async () => {
+      try {
+        await db
+          .update(aiDescriptionCacheTable)
+          .set({
+            expiresAt: new Date(Date.now() + DESCRIPTION_RESERVATION_TTL_MS),
+            updatedAt: new Date(),
+          })
+          .where(and(ownedReservation, gt(aiDescriptionCacheTable.expiresAt, new Date())));
+      } catch (error) {
+        req.log.warn({ err: error }, "AI description lease renewal failed");
+      }
+    };
+    const renewal = setInterval(() => void renewLease(), DESCRIPTION_LEASE_RENEWAL_MS);
+    renewal.unref();
+
     const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      await db
-        .delete(aiDescriptionCacheTable)
-        .where(eq(aiDescriptionCacheTable.cacheKey, cacheKey));
-      res.status(503).json({ error: "AI descriptions are not configured." });
-      return;
-    }
 
     const prompt = `
 Write a premium restaurant description for:
@@ -374,6 +397,11 @@ Include:
 `;
 
     try {
+      if (!apiKey) {
+        await db.delete(aiDescriptionCacheTable).where(ownedReservation);
+        res.status(503).json({ error: "AI descriptions are not configured." });
+        return;
+      }
       const model = "gpt-4o-mini";
       const client = new OpenAI({ apiKey });
       const completion = await client.chat.completions.create({
@@ -399,26 +427,31 @@ Include:
       if (!description) {
         await db
           .delete(aiDescriptionCacheTable)
-          .where(eq(aiDescriptionCacheTable.cacheKey, cacheKey));
+          .where(ownedReservation);
         res.status(502).json({ error: "AI description returned no content." });
         return;
       }
 
-      await db
+      const [saved] = await db
         .update(aiDescriptionCacheTable)
         .set({
           description,
           expiresAt: new Date(Date.now() + DESCRIPTION_CACHE_TTL_MS),
           updatedAt: new Date(),
         })
-        .where(eq(aiDescriptionCacheTable.cacheKey, cacheKey));
+        .where(and(ownedReservation, gt(aiDescriptionCacheTable.expiresAt, new Date())))
+        .returning({ cacheKey: aiDescriptionCacheTable.cacheKey });
 
+      if (!saved) {
+        res.status(503).json({ error: "AI description generation is no longer reserved." });
+        return;
+      }
       res.json({ description });
     } catch (error) {
       try {
         await db
           .delete(aiDescriptionCacheTable)
-          .where(eq(aiDescriptionCacheTable.cacheKey, cacheKey));
+          .where(ownedReservation);
       } catch (cacheError) {
         req.log.warn(
           { err: cacheError },
@@ -427,6 +460,8 @@ Include:
       }
       req.log.warn({ err: error }, "AI restaurant description failed");
       res.status(502).json({ error: "AI description is temporarily unavailable." });
+    } finally {
+      clearInterval(renewal);
     }
   },
 );
