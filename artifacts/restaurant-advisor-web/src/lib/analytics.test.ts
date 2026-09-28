@@ -42,4 +42,14 @@ describe("booking analytics", () => {
       website: "site", url: "/offers", title: "Offers", name: "owner_offer_published", data: undefined,
     });
   });
+
+  it("sends calendar clicks without event details or tracker-inferred restaurant URLs", () => {
+    const track = vi.fn((payload: (props: { website: string }) => Record<string, unknown>) =>
+      payload({ website: "site", url: "/restaurant/private-id", title: "Event title", referrer: "/restaurant/private-id" } as { website: string }));
+    vi.stubGlobal("window", { umami: { track } });
+    trackEvent("restaurant_event_calendar_clicked", undefined, "/events");
+    expect(track.mock.results[0].value).toEqual({
+      website: "site", url: "/events", title: "Events", name: "restaurant_event_calendar_clicked", data: undefined,
+    });
+  });
 });

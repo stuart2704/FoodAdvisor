@@ -23,7 +23,7 @@ export function trackEvent(name: string, data?: AnalyticsData, safePath?: string
       window.umami?.track(({ website }) => ({
         website,
         url: safePath,
-        title: safePath === "/offers" ? "Offers" : "Booking",
+        title: safePath === "/offers" ? "Offers" : safePath === "/events" ? "Events" : "Booking",
         name,
         data,
       }));
@@ -31,6 +31,6 @@ export function trackEvent(name: string, data?: AnalyticsData, safePath?: string
       window.umami?.track(name, data);
     }
   } catch {
-    // Analytics must never break booking management or navigation.
+    // Analytics must never break downloads, booking management or navigation.
   }
 }

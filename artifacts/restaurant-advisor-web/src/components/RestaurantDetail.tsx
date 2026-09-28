@@ -540,6 +540,7 @@ export default function RestaurantDetail() {
               <a
                 href={`/api/restaurant/${encodeURIComponent(restaurant.id)}/events/${event.id}/calendar`}
                 download
+                onClick={() => trackEvent("restaurant_event_calendar_clicked", undefined, "/events")}
                 style={{ display: "inline-block", marginTop: "12px", color: "#6b4a28", fontWeight: 600 }}
                 aria-label={`Add ${event.title} to calendar`}
               >
