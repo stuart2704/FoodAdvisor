@@ -17,6 +17,12 @@ When helping someone link an Instagram profile to a Facebook Page in Meta, disti
 
 **How to apply:** Ground the next click in the user's visible Meta interface. For Page-to-Instagram linking, use Meta's mobile instructions and check asset/portfolio permissions if linking reports insufficient access. For product OAuth, be explicit that a Meta-side link does not authorize The Food Advisor.
 
+For a Facebook Page OAuth app, Meta's **Other → Business app type** creation route exposed **Add Product → Facebook Login for Business**, whereas the Page-use-case app did not expose that menu. A User access token configuration disables the Assets step, but offers Page permissions by scrolling the alphabetical permissions dropdown; its search did not find them in this dashboard.
+
+**Why:** Repeatedly looking for Add Product in a Page-use-case app led nowhere; the Business-type app route and scrolling the dropdown reached the required configuration.
+
+**How to apply:** Check the app type before giving menu instructions. Don't create another Page-use-case app, don't treat the disabled Assets step as a blocker for User access tokens, and verify the actual permission list before claiming a scope is unavailable.
+
 For Instagram Login, use the Instagram-specific app ID and secret shown under the Instagram API setup, not the general Meta app credentials. Add the live OAuth callback to Business Login's valid redirect URIs, not the webhook callback field. With Standard Access, the Instagram account must accept its Instagram tester invitation before signing in.
 
 **Why:** The wrong app ID produced “Invalid platform app”; the misplaced callback produced “Invalid redirect_uri”; an unaccepted Instagram tester role produced “Insufficient developer role.” The creator then confirmed the website showed “Connected” after correcting these separately.
