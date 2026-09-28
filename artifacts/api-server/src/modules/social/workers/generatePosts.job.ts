@@ -11,7 +11,8 @@ export async function generatePostsJob(now = new Date()): Promise<void> {
   const schedules = await db.select().from(socialSchedulesTable).where(eq(socialSchedulesTable.enabled, true));
   for (const schedule of schedules) {
     if (schedule.frequency !== "daily" || !dueSlotToday(schedule.timeOfDay, now)
-      || assignedToday(schedule.lastAssignedAt, now) || schedule.platform !== "facebook") continue;
+      || assignedToday(schedule.lastAssignedAt, now) || !["facebook", "instagram", "tiktok"].includes(schedule.platform)
+      || (!schedule.restaurantId && schedule.platform !== "facebook")) continue;
     const existing = schedule.restaurantId === null
       ? await db.select().from(socialPostsTable).where(and(isNull(socialPostsTable.restaurantId), eq(socialPostsTable.platform, schedule.platform), eq(socialPostsTable.status, "draft")))
       : await db.select().from(socialPostsTable).where(and(eq(socialPostsTable.restaurantId, schedule.restaurantId), eq(socialPostsTable.platform, schedule.platform), eq(socialPostsTable.status, "draft")));

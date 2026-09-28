@@ -14,3 +14,9 @@ The external scheduler may arrive late, so catch up on due slots within the curr
 **Why:** Social copy can become stale after a long scheduler outage; automatic catch-up of every missed day risks publishing a burst of irrelevant posts. The job runner is best-effort, not a promise of exact-minute delivery.
 
 **How to apply:** Verify the external runner against the published host while master automation is OFF, explicitly confirm the production gate before turning master ON, and send whole-day misses to human review.
+
+TikTok Direct Post's initial `publish_id` is only a tracking ID, not proof that the post is live. A status query must confirm `PUBLISH_COMPLETE` before displaying it as published; if status is unknown, do not submit again.
+
+**Why:** TikTok processes media asynchronously after accepting the initiation request, and a retry can create a duplicate even if no public post is visible yet.
+
+**How to apply:** Preserve the ID and pending status through restarts, expose safe status reconciliation, and use a private-only creator setting when testing with an unaudited app.

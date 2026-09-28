@@ -27,22 +27,20 @@ instagramRouter.post("/start", async (req, res): Promise<void> => {
     res.status(503).json({ error: "Instagram app ID, app secret, and HTTPS redirect URI must be configured." });
     return;
   }
-  const restaurantId = req.body?.restaurantId ?? null;
-  if (restaurantId !== null && (typeof restaurantId !== "string" || !restaurantId.trim())) {
+  const restaurantId = req.body?.restaurantId;
+  if (typeof restaurantId !== "string" || !restaurantId.trim()) {
     res.status(400).json({ error: "A valid restaurant Place ID is required." });
     return;
   }
-  if (restaurantId !== null) {
-    const [restaurant] = await db.select({ id: restaurantsTable.placeId }).from(restaurantsTable)
-      .where(eq(restaurantsTable.placeId, restaurantId)).limit(1);
-    if (!restaurant) { res.status(404).json({ error: "Restaurant not found." }); return; }
-  }
+  const [restaurant] = await db.select({ id: restaurantsTable.placeId }).from(restaurantsTable)
+    .where(eq(restaurantsTable.placeId, restaurantId)).limit(1);
+  if (!restaurant) { res.status(404).json({ error: "Restaurant not found." }); return; }
   const state = beginInstagramLogin(res, restaurantId);
   const url = new URL("https://www.instagram.com/oauth/authorize");
   url.searchParams.set("client_id", config.appId);
   url.searchParams.set("redirect_uri", config.redirectUri);
   url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", "instagram_business_basic");
+  url.searchParams.set("scope", "instagram_business_basic,instagram_business_content_publish");
   url.searchParams.set("state", state);
   res.set("Referrer-Policy", "no-referrer");
   res.json({ authorizationUrl: url.toString() });

@@ -81,8 +81,8 @@ export async function exchangeInstagramCode(code: string, config: NonNullable<Re
   });
   const result = Array.isArray(short.data) ? short.data[0] : short;
   if (typeof result?.access_token !== "string" || !result.access_token
-    || (result.permissions && !String(result.permissions).split(",").map((permission: string) => permission.trim()).includes("instagram_business_basic"))) {
-    throw new Error("Instagram did not grant the required profile permission.");
+     || (result.permissions && !["instagram_business_basic", "instagram_business_content_publish"].every(permission => String(result.permissions).split(",").map((value: string) => value.trim()).includes(permission)))) {
+     throw new Error("Instagram did not grant profile and publishing permissions. Reconnect the account.");
   }
   const url = new URL("https://graph.instagram.com/access_token");
   url.searchParams.set("grant_type", "ig_exchange_token");

@@ -32,6 +32,8 @@ import PortalUpgradePage from "./pages/portal-upgrade";
 import RewardsPage from "./pages/rewards";
 import AboutPage from "./pages/AboutPage";
 import ContactPage from "./pages/ContactPage";
+import TermsPage from "./pages/TermsPage";
+import PrivacyPage from "./pages/PrivacyPage";
 import OwnerPage from "./pages/OwnerPage";
 import RestaurantsPage from "./pages/RestaurantsPage";
 import NotFoundPage from "./pages/NotFoundPage";
@@ -57,6 +59,8 @@ function AppRoutes() {
         <Route path="/restaurants" element={<RestaurantsPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/contact" element={<ContactPage />} />
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/owner" element={<OwnerPage />} />
         <Route path="/owner/claim" element={<OsmOwnerPage />} />
         <Route path="/restaurant/:id" element={<RestaurantDetail />} />

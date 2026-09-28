@@ -110,6 +110,8 @@ export function Schedules() {
             <label>Platform</label>
             <select value={platform} onChange={(e) => setPlatform(e.target.value)}>
               <option value="facebook">Facebook</option>
+              <option value="instagram" disabled={!restaurantId.trim()}>Instagram (restaurant photo required)</option>
+              <option value="tiktok" disabled={!restaurantId.trim()}>TikTok (restaurant photo and privacy choice required)</option>
             </select>
           </div>
           <div className="social-form-group">

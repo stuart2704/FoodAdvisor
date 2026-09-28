@@ -38,7 +38,7 @@ export function PublishingLogs() {
   return (
     <div className="social-card">
       <h2>Recent Social Events</h2>
-      <p style={{ color: "#aaa", fontSize: "0.85rem" }}>Recorded publishing events. Draft generation and token refresh are not logged here yet.</p>
+        <p style={{ color: "#aaa", fontSize: "0.85rem" }}>Publishing events include provider request IDs and TikTok processing results. Draft generation and token refresh are not logged here.</p>
       {loading ? <p>Loading logs...</p> : error ? <div className="social-alert">{error}</div> : (
         logs.length === 0 ? <p className="social-empty">{automation === false ? "No social publishing events (automation OFF)." : "No events recorded yet."}</p> : (
           <div className="social-table-wrap">
@@ -48,7 +48,7 @@ export function PublishingLogs() {
                   <th>Time</th>
                   <th>Platform</th>
                   <th>Status</th>
-                  <th>Error</th>
+                  <th>Details / provider ID</th>
                 </tr>
               </thead>
               <tbody>
@@ -61,9 +61,7 @@ export function PublishingLogs() {
                         {log.status === "failed" ? "failure" : log.status}
                       </span>
                     </td>
-                    <td style={{ color: log.status === "failed" || log.status === "failure" ? "#ff9b8d" : "inherit" }}>
-                      {(log.status === "failed" || log.status === "failure") ? (log.message || "—") : "—"}
-                    </td>
+                    <td style={{ color: log.status === "failed" || log.status === "failure" ? "#ff9b8d" : "inherit" }}>{log.message || "—"}</td>
                   </tr>
                 ))}
               </tbody>

@@ -9,6 +9,8 @@ interface Post {
   mediaUrl?: string;
   mediaObjectPath?: string | null;
   mediaApprovedAt?: string | null;
+  privacyLevel?: string | null;
+  providerPostId?: string | null;
   status: string;
   scheduledFor?: string;
   publishedAt?: string;
@@ -26,6 +28,8 @@ export function PostQueue() {
   const [showGenerate, setShowGenerate] = useState(false);
   const [draftScope, setDraftScope] = useState<"brand" | "restaurant">("brand");
   const [restaurantId, setRestaurantId] = useState("");
+  const [platform, setPlatform] = useState("facebook");
+  const [privacyOptions, setPrivacyOptions] = useState<Record<string, { accountId: string; displayName: string; options: string[] }>>({});
   const [restaurantAccounts, setRestaurantAccounts] = useState<{ restaurantId: string; displayName?: string }[]>([]);
   const [generating, setGenerating] = useState(false);
 
@@ -51,14 +55,14 @@ export function PostQueue() {
       .then(data => {
         const unique = new Map<string, { restaurantId: string; displayName?: string }>();
         for (const account of data.accounts) {
-          if (account.restaurantId && account.platform === "facebook" && account.status === "connected") {
+          if (account.restaurantId && account.platform === platform && account.status === "connected") {
             unique.set(account.restaurantId, { restaurantId: account.restaurantId, displayName: account.displayName });
           }
         }
         setRestaurantAccounts([...unique.values()]);
       })
       .catch(() => setRestaurantAccounts([]));
-  }, [filterTab]);
+  }, [filterTab, platform]);
 
   const handleGenerate = async () => {
     if (draftScope === "restaurant" && !restaurantId) {
@@ -71,7 +75,7 @@ export function PostQueue() {
       await fetchSocial("/posts/generate", {
         method: "POST",
         body: JSON.stringify({
-          scope: draftScope, platform: "facebook",
+           scope: draftScope, platform,
           ...(draftScope === "restaurant" ? { restaurantId } : {}),
         }),
       });
@@ -84,16 +88,41 @@ export function PostQueue() {
       setGenerating(false);
     }
   };
+  const loadPrivacy = async (postId: string) => {
+    try {
+      const data = await fetchSocial<{ accountId: string; displayName: string; privacyOptions: string[] }>(`/posts/${postId}/tiktok-options`);
+      setPrivacyOptions(previous => ({ ...previous, [postId]: { accountId: data.accountId, displayName: data.displayName, options: data.privacyOptions } }));
+    } catch (err) { setActionMessage(`Failed: ${err instanceof Error ? err.message : "Could not read TikTok privacy options."}`); }
+  };
+  const setPrivacy = async (postId: string, privacyLevel: string) => {
+    try {
+      const accountId = privacyOptions[postId]?.accountId;
+      if (!accountId) throw new Error("Load the TikTok creator options before approving privacy.");
+      await fetchSocial(`/posts/${postId}/tiktok-privacy`, { method: "POST", body: JSON.stringify({ privacyLevel, accountId }) });
+      setActionMessage(`TikTok privacy approved: ${privacyLevel}.`);
+      await loadPosts();
+    } catch (err) { setActionMessage(`Failed: ${err instanceof Error ? err.message : "Could not approve privacy."}`); }
+  };
+  const checkStatus = async (postId: string) => {
+    try {
+      const result = await fetchSocial<{ providerStatus: string }>(`/posts/${postId}/status`, { method: "POST" });
+      setActionMessage(`TikTok status: ${result.providerStatus}. Do not resend while processing.`);
+      await loadPosts();
+    } catch (err) { setActionMessage(`Failed: ${err instanceof Error ? err.message : "Could not check TikTok status."}`); }
+  };
 
   const handlePublish = async (postId: string) => {
-    if (!window.confirm("Publish this post immediately?")) return;
+    const post = posts.find(p => p.id === postId);
+    if (!window.confirm(post?.platform === "tiktok"
+      ? `Submit this photo as a TikTok post with ${post.privacyLevel} privacy and comments disabled? TikTok may process it asynchronously.`
+      : `Publish this ${post?.platform ?? "social"} post immediately?`)) return;
     try {
       setActionMessage("Publishing...");
       await fetchSocial("/posts/publish", {
         method: "POST",
         body: JSON.stringify({ postId })
       });
-      setActionMessage("Post published successfully!");
+      setActionMessage("Submission recorded. Check the post status; TikTok may still be processing.");
       loadPosts();
     } catch (err: any) {
       setActionMessage(`Failed: ${err.message}`);
@@ -102,14 +131,14 @@ export function PostQueue() {
 
   const handlePhotoApproval = async (post: Post) => {
     const approved = !post.mediaApprovedAt;
-    if (approved && !window.confirm("Make this approved chef photo publicly accessible for this Facebook post? Anyone with the image URL can view it while approval remains active.")) return;
-    if (!approved && post.status === "published" && !window.confirm("Revoke access to this image URL? This will not remove any photo Facebook has already copied. Remove the Facebook post separately if needed.")) return;
+    if (approved && !window.confirm(`Make this approved chef photo publicly accessible for this ${post.platform} post? Anyone with the image URL can view it while approval remains active.`)) return;
+    if (!approved && post.status === "published" && !window.confirm(`Revoke access to this image URL? This will not remove any photo ${post.platform} has already copied. Remove the provider post separately if needed.`)) return;
     try {
       setActionMessage("");
       await fetchSocial(`/posts/${post.id}/photo-approval`, {
         method: "POST", body: JSON.stringify({ approved }),
       });
-      setActionMessage(approved ? "Photo approved for this post. Review the draft before publishing." : "Image URL access revoked. Any copy already on Facebook remains there.");
+      setActionMessage(approved ? "Photo approved for this post. Review the draft before publishing." : "Image URL access revoked. Any copy already on the provider remains there.");
       await loadPosts();
     } catch (err) {
       setActionMessage(`Failed: ${err instanceof Error ? err.message : "Could not update photo approval."}`);
@@ -179,9 +208,15 @@ export function PostQueue() {
               <div style={{ display: "grid", gap: 10, maxWidth: 400, marginTop: 14 }}>
                 <label htmlFor="draft-scope">Draft for</label>
                 <select id="draft-scope" value={draftScope}
-                  onChange={e => setDraftScope(e.target.value as "brand" | "restaurant")}>
+                  onChange={e => { setDraftScope(e.target.value as "brand" | "restaurant"); if (e.target.value === "brand") setPlatform("facebook"); }}>
                   <option value="brand">The Food Advisor brand</option>
                   <option value="restaurant">Connected restaurant</option>
+                </select>
+                <label htmlFor="draft-platform">Platform</label>
+                <select id="draft-platform" value={platform} onChange={e => { setPlatform(e.target.value); setRestaurantId(""); }}>
+                  <option value="facebook">Facebook</option>
+                  <option value="instagram" disabled={draftScope === "brand"}>Instagram</option>
+                  <option value="tiktok" disabled={draftScope === "brand"}>TikTok</option>
                 </select>
                 {draftScope === "restaurant" && (
                   <>
@@ -194,10 +229,10 @@ export function PostQueue() {
                         </option>
                       ))}
                     </select>
-                    {restaurantAccounts.length === 0 && <p>Connect a restaurant Facebook Page in Connected Accounts first.</p>}
+                    {restaurantAccounts.length === 0 && <p>Connect a restaurant {platform} account in Connected Accounts first.</p>}
                   </>
                 )}
-                <p style={{ color: "#aaa", fontSize: "0.85rem", margin: 0 }}>Facebook only. Generated drafts require review before publishing.</p>
+                <p style={{ color: "#aaa", fontSize: "0.85rem", margin: 0 }}>Generated drafts require review. Instagram and TikTok require a restaurant with an approved chef photo; brand text-only drafts cannot publish there.</p>
                 <button type="button" className="social-btn" disabled={generating || (draftScope === "restaurant" && !restaurantId)}
                   onClick={() => void handleGenerate()}>{generating ? "Generating..." : "Generate Draft"}</button>
               </div>
@@ -252,18 +287,35 @@ export function PostQueue() {
                         </span>
                         {p.scheduledFor && <div style={{ fontSize: "0.75rem", marginTop: "4px", color: "#aaa" }}>Scheduled: {new Date(p.scheduledFor).toLocaleString()}</div>}
                         {p.publishedAt && <div style={{ fontSize: "0.75rem", marginTop: "4px", color: "#aaa" }}>Published: {new Date(p.publishedAt).toLocaleString()}</div>}
+                        {p.providerPostId && <div style={{ fontSize: "0.75rem", overflowWrap: "anywhere" }}>Provider ID: {p.providerPostId}</div>}
                         {p.errorMessage && <div style={{ fontSize: "0.75rem", marginTop: "4px", color: "#ff9b8d" }}>{p.errorMessage}</div>}
                       </td>
                       <td>
                         {p.mediaObjectPath && (p.status === "draft" || (p.mediaApprovedAt && p.status !== "publishing")) &&
                           <button type="button" className="social-btn social-btn-secondary"
                             onClick={() => void handlePhotoApproval(p)}>
-                            {p.mediaApprovedAt ? "Revoke photo approval" : "Approve chef photo for Facebook"}
+                             {p.mediaApprovedAt ? "Revoke photo approval" : `Approve chef photo for ${p.platform}`}
                           </button>}
-                        {(p.status === 'draft' || p.status === 'pending' || p.status === 'scheduled') && (
+                        {p.platform === "tiktok" && p.status === "draft" && (
+                          <div style={{ display: "grid", gap: 6 }}>
+                            <button type="button" className="social-btn social-btn-secondary" onClick={() => void loadPrivacy(p.id)}>Load TikTok privacy choices</button>
+                            {privacyOptions[p.id] && <>
+                              <span>Posting as {privacyOptions[p.id].displayName}</span>
+                              <select aria-label={`Privacy for ${p.id}`} value={p.privacyLevel ?? ""}
+                                onChange={e => { if (e.target.value) void setPrivacy(p.id, e.target.value); }}>
+                                <option value="">Choose privacy and approve</option>
+                                {privacyOptions[p.id].options.map(option => <option key={option} value={option}>{option}</option>)}
+                              </select>
+                            </>}
+                          </div>
+                        )}
+                        {p.platform === "tiktok" && p.status === "publishing" && p.providerPostId &&
+                          <button type="button" className="social-btn social-btn-secondary" onClick={() => void checkStatus(p.id)}>Check TikTok status</button>}
+                         {(p.status === 'draft' || p.status === 'pending' || p.status === 'scheduled') && (
                           <button 
                             className="social-btn social-btn-secondary" 
-                            onClick={() => handlePublish(p.id)}
+                             disabled={p.platform !== "facebook" && (!p.mediaApprovedAt || !p.mediaUrl || (p.platform === "tiktok" && !p.privacyLevel))}
+                             onClick={() => handlePublish(p.id)}
                             style={{ padding: "6px 12px", fontSize: "0.8rem" }}
                           >
                             Publish Now

@@ -61,7 +61,7 @@ test("Instagram Login accepts documented token envelopes and verifies profession
       globalThis.fetch = async (url, init) => {
         requests.push({ url: String(url), init });
         if (String(url) === "https://api.instagram.com/oauth/access_token") {
-          const token = { access_token: "short-token", permissions: "instagram_business_basic" };
+          const token = { access_token: "short-token", permissions: "instagram_business_basic,instagram_business_content_publish" };
           return Response.json(dataEnvelope ? { data: [token] } : token);
         }
         if (String(url).startsWith("https://graph.instagram.com/access_token?")) {

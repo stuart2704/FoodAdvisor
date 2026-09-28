@@ -18,7 +18,7 @@ export async function publishPostsJob(now = new Date()): Promise<void> {
     if (post.scheduledFor && missedUtcDay(post.scheduledFor, now)) {
       // Old content must not be swept into a new day's automatic run.
       // Failed rows stay visible for review and cannot be reassigned as drafts.
-      const message = "Missed its UTC publishing day. Review this post and the Facebook Page before creating a new schedule.";
+      const message = "Missed its UTC publishing day. Review this post and its provider account before creating a new schedule.";
       await db.transaction(async (tx) => {
         const [missed] = await tx.update(socialPostsTable)
           .set({ status: "failed", errorMessage: message, updatedAt: new Date() })
@@ -38,8 +38,10 @@ export async function publishPostsJob(now = new Date()): Promise<void> {
     } catch (error) {
       const message = error instanceof Error && (
         error.message === "No connected social account for this post."
-        || error.message === "Publishing to this platform is not supported yet."
+        || error.message === "Unsupported platform."
         || error.message === "Approved chef photo is no longer available. Review this draft before publishing."
+        || error.message === "An approved chef photo is required for this platform."
+        || error.message === "Choose a TikTok privacy level before publishing."
       ) ? error.message : null;
       if (!message) {
         // The publishing service records provider failures and leaves uncertain

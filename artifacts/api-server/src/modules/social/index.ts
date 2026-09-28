@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { randomUUID } from "node:crypto";
-import { and, count, desc, eq, isNotNull, isNull, lte, ne } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNotNull, isNull, lte, ne } from "drizzle-orm";
 import { z } from "zod";
 import { db, restaurantsTable, socialAccountsTable, socialLogsTable, socialPostsTable, socialSchedulesTable, socialSettingsTable } from "@workspace/db";
 import { adminOnly } from "../../middleware/adminOnly";
@@ -12,6 +12,10 @@ import { getSocialSettings, SOCIAL_SETTINGS_ID } from "./settings";
 import { instagramRouter } from "./instagram.routes";
 import { approvedPhotoPath, photoUrl, validatePhotoObject } from "./media";
 import { facebookRouter } from "./facebook.routes";
+import { tiktokRouter } from "./tiktok.routes";
+import { tiktokAdapter } from "./adapters/tiktok.adapter";
+import { decryptToken } from "./crypto";
+import { reviewedTikTokAccount, pendingTikTokAccount } from "./tiktok-account";
 
 const router: IRouter = Router();
 const verifiedRunner = () => process.env.SOCIAL_AUTOMATION_ENABLED === "true"
@@ -19,8 +23,9 @@ const verifiedRunner = () => process.env.SOCIAL_AUTOMATION_ENABLED === "true"
 router.use(adminOnly);
 router.use("/social/instagram", instagramRouter);
 router.use("/social/facebook", facebookRouter);
+router.use("/social/tiktok", tiktokRouter);
 const publicAccount = (a: any) => ({ id: a.id, restaurantId: a.restaurantId, platform: a.platform, displayName: a.displayName, createdAt: a.createdAt, status: a.status === "connected" && a.tokenExpiresAt && a.tokenExpiresAt <= new Date() ? "expired" : a.status, tokenExpiresAt: a.tokenExpiresAt });
-const validPlatform = (p: unknown) => p === "facebook";
+const validPlatform = (p: unknown) => p === "facebook" || p === "instagram" || p === "tiktok";
 const isUuid = (value: string) => z.string().uuid().safeParse(value).success;
 function dailyTime(value: unknown): boolean { return typeof value === "string" && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value); }
 async function restaurant(id: string) {
@@ -30,7 +35,7 @@ async function restaurant(id: string) {
 
 router.post("/social/accounts/connect", async (req, res): Promise<void> => {
   const { restaurantId = null, platform, accessToken } = req.body ?? {};
-  if ((restaurantId !== null && typeof restaurantId !== "string") || !validPlatform(platform) || typeof accessToken !== "string" || !accessToken) { res.status(400).json({ error: "platform facebook and accessToken are required." }); return; }
+  if ((restaurantId !== null && typeof restaurantId !== "string") || platform !== "facebook" || typeof accessToken !== "string" || !accessToken) { res.status(400).json({ error: "A Facebook Page accessToken is required." }); return; }
   if (restaurantId !== null && !(await restaurant(restaurantId))) { res.status(404).json({ error: "Restaurant not found." }); return; }
   try {
     const connection = await facebookAdapter.validateConnection(accessToken);
@@ -43,6 +48,46 @@ router.get("/social/accounts", async (_req, res): Promise<void> => {
   const accounts = await db.select().from(socialAccountsTable).orderBy(desc(socialAccountsTable.createdAt));
   res.json({ accounts: accounts.map(publicAccount) });
 });
+router.get("/social/posts/:postId/tiktok-options", async (req, res): Promise<void> => {
+  const id = z.string().uuid().safeParse(req.params.postId);
+  if (!id.success) { res.status(400).json({ error: "Invalid post ID." }); return; }
+  const [post] = await db.select().from(socialPostsTable).where(eq(socialPostsTable.id, id.data)).limit(1);
+  if (!post || post.platform !== "tiktok" || post.status !== "draft") {
+    res.status(409).json({ error: "Only TikTok drafts can select privacy." }); return;
+  }
+  const scope = post.restaurantId === null ? isNull(socialAccountsTable.restaurantId) : eq(socialAccountsTable.restaurantId, post.restaurantId);
+  const accounts = await db.select().from(socialAccountsTable)
+    .where(and(scope, eq(socialAccountsTable.platform, "tiktok"), eq(socialAccountsTable.status, "connected"))).limit(2);
+  const account = reviewedTikTokAccount(accounts);
+  if (!account) { res.status(409).json({ error: accounts.length ? "Disconnect extra TikTok accounts before approving privacy." : "Connect a TikTok account first." }); return; }
+  try {
+    const creator = await tiktokAdapter.creatorInfo(decryptToken(account.accessToken, account.accessTokenIv, account.accessTokenTag));
+    res.json({ accountId: account.id, displayName: creator.creator_nickname, privacyOptions: creator.privacy_level_options });
+  } catch { res.status(502).json({ error: "Could not read TikTok creator settings. Reconnect if the token expired." }); }
+});
+router.post("/social/posts/:postId/tiktok-privacy", async (req, res): Promise<void> => {
+  const id = z.string().uuid().safeParse(req.params.postId);
+  const privacy = z.enum(["PUBLIC_TO_EVERYONE", "MUTUAL_FOLLOW_FRIENDS", "FOLLOWER_OF_CREATOR", "SELF_ONLY"]).safeParse(req.body?.privacyLevel);
+  const selectedAccountId = z.string().uuid().safeParse(req.body?.accountId);
+  if (!id.success || !privacy.success || !selectedAccountId.success) { res.status(400).json({ error: "A valid TikTok post, creator account, and privacy level are required." }); return; }
+  const [post] = await db.select().from(socialPostsTable).where(eq(socialPostsTable.id, id.data)).limit(1);
+  if (!post || post.platform !== "tiktok" || post.status !== "draft") { res.status(409).json({ error: "Only TikTok drafts can change privacy." }); return; }
+  const scope = post.restaurantId === null ? isNull(socialAccountsTable.restaurantId) : eq(socialAccountsTable.restaurantId, post.restaurantId);
+  const accounts = await db.select().from(socialAccountsTable)
+    .where(and(scope, eq(socialAccountsTable.platform, "tiktok"), eq(socialAccountsTable.status, "connected"))).limit(2);
+  const account = reviewedTikTokAccount(accounts, selectedAccountId.data);
+  if (!account) {
+    res.status(409).json({ error: "TikTok account changed. Review the creator and privacy options again." }); return;
+  }
+  try {
+    const creator = await tiktokAdapter.creatorInfo(decryptToken(account.accessToken, account.accessTokenIv, account.accessTokenTag));
+    if (!creator.privacy_level_options.includes(privacy.data)) { res.status(409).json({ error: "This privacy setting is not available for this account." }); return; }
+    const [updated] = await db.update(socialPostsTable).set({ accountId: account.id, privacyLevel: privacy.data, updatedAt: new Date() })
+      .where(and(eq(socialPostsTable.id, post.id), eq(socialPostsTable.status, "draft"))).returning();
+    if (!updated) { res.status(409).json({ error: "Post changed. Refresh and try again." }); return; }
+    res.json({ post: updated });
+  } catch { res.status(502).json({ error: "Could not confirm TikTok privacy settings." }); }
+});
 router.post("/social/accounts/disconnect", async (req, res): Promise<void> => {
   const { accountId } = req.body ?? {};
   if (typeof accountId !== "string" || !isUuid(accountId)) {
@@ -51,6 +96,10 @@ router.post("/social/accounts/disconnect", async (req, res): Promise<void> => {
   }
   try {
     const result = await db.transaction(async (tx) => {
+      const [pending] = await tx.select({ id: socialPostsTable.id }).from(socialPostsTable)
+        .where(and(eq(socialPostsTable.accountId, accountId), eq(socialPostsTable.status, "publishing")))
+        .limit(1);
+      if (pending) return { pending: true as const };
       // Removing the row also removes its encrypted publishing credential.
       const [removed] = await tx.delete(socialAccountsTable)
         .where(eq(socialAccountsTable.id, accountId))
@@ -60,6 +109,11 @@ router.post("/social/accounts/disconnect", async (req, res): Promise<void> => {
           restaurantId: socialAccountsTable.restaurantId,
         });
       if (!removed) return null;
+      if (removed.platform === "tiktok") {
+        await tx.update(socialPostsTable)
+          .set({ accountId: null, privacyLevel: null, status: "draft", scheduledFor: null, updatedAt: new Date() })
+          .where(and(eq(socialPostsTable.accountId, accountId), inArray(socialPostsTable.status, ["draft", "scheduled"])));
+      }
       const accountScope = removed.restaurantId === null
         ? isNull(socialAccountsTable.restaurantId)
         : eq(socialAccountsTable.restaurantId, removed.restaurantId);
@@ -88,6 +142,9 @@ router.post("/social/accounts/disconnect", async (req, res): Promise<void> => {
       res.status(404).json({ error: "Connected account not found." });
       return;
     }
+    if ("pending" in result) {
+      res.status(409).json({ error: "Check pending TikTok post status before disconnecting this account." }); return;
+    }
     res.json({ success: true, ...result });
   } catch {
     res.status(500).json({ error: "Could not disconnect the account." });
@@ -95,7 +152,8 @@ router.post("/social/accounts/disconnect", async (req, res): Promise<void> => {
 });
 router.post("/social/schedules", async (req, res): Promise<void> => {
   const { id, restaurantId = null, platform, frequency, timeOfDay, enabled = true } = req.body ?? {};
-  if ((restaurantId !== null && typeof restaurantId !== "string") || !validPlatform(platform) || frequency !== "daily" || !dailyTime(timeOfDay) || typeof enabled !== "boolean" || (id !== undefined && (typeof id !== "string" || !isUuid(id)))) { res.status(400).json({ error: "A valid ID, Facebook platform, daily frequency, and UTC timeOfDay HH:mm are required." }); return; }
+  if ((restaurantId !== null && typeof restaurantId !== "string") || !validPlatform(platform) || frequency !== "daily" || !dailyTime(timeOfDay) || typeof enabled !== "boolean" || (id !== undefined && (typeof id !== "string" || !isUuid(id)))) { res.status(400).json({ error: "A valid ID, platform, daily frequency, and UTC timeOfDay HH:mm are required." }); return; }
+  if (restaurantId === null && platform !== "facebook") { res.status(409).json({ error: "Instagram and TikTok schedules require a restaurant with approved photo media." }); return; }
   if (restaurantId !== null && !(await restaurant(restaurantId))) { res.status(404).json({ error: "Restaurant not found." }); return; }
   if (typeof id === "string") {
     const [updated] = await db.update(socialSchedulesTable).set({ restaurantId, platform, frequency, timeOfDay, enabled, updatedAt: new Date() }).where(eq(socialSchedulesTable.id, id)).returning();
@@ -116,7 +174,10 @@ router.post("/social/schedules", async (req, res): Promise<void> => {
 router.get("/social/schedules", async (_req, res): Promise<void> => { res.json({ schedules: await db.select().from(socialSchedulesTable).orderBy(desc(socialSchedulesTable.createdAt)) }); });
 router.post("/social/posts/generate", async (req, res): Promise<void> => {
   const { restaurantId, platform, scope = "restaurant" } = req.body ?? {};
-  if (!validPlatform(platform) || (scope !== "brand" && typeof restaurantId !== "string")) { res.status(400).json({ error: "restaurantId and platform facebook are required." }); return; }
+  if (!validPlatform(platform) || !["brand", "restaurant"].includes(scope) || (scope !== "brand" && typeof restaurantId !== "string")) { res.status(400).json({ error: "restaurantId and a supported platform are required." }); return; }
+  if (scope === "brand" && platform !== "facebook") {
+    res.status(409).json({ error: `${platform} requires approved photo media; brand text-only drafts are not supported.` }); return;
+  }
   const r = typeof restaurantId === "string" ? await restaurant(restaurantId) : undefined;
   if (scope !== "brand" && (!r || !r.published)) { res.status(404).json({ error: "Published restaurant not found." }); return; }
   try {
@@ -172,8 +233,14 @@ router.post("/social/posts/schedule", async (req, res): Promise<void> => {
   const [candidate] = await db.select().from(socialPostsTable).where(eq(socialPostsTable.id, postId)).limit(1);
   if (!candidate) { res.status(404).json({ error: "Post not found." }); return; }
   if (candidate.status !== "draft" || !validPlatform(candidate.platform)) {
-    res.status(409).json({ error: "Only Facebook drafts can be scheduled." });
+    res.status(409).json({ error: "Only supported platform drafts can be scheduled." });
     return;
+  }
+  if (candidate.platform !== "facebook" && (!candidate.mediaApprovedAt || !await approvedPhotoPath(candidate) || !candidate.mediaUrl)) {
+    res.status(409).json({ error: `${candidate.platform} requires an approved chef photo before scheduling.` }); return;
+  }
+  if (candidate.platform === "tiktok" && (!candidate.privacyLevel || !candidate.accountId)) {
+    res.status(409).json({ error: "Review the TikTok account and privacy setting before scheduling." }); return;
   }
   const scope = candidate.restaurantId === null
     ? isNull(socialAccountsTable.restaurantId)
@@ -184,10 +251,10 @@ router.post("/social/posts/schedule", async (req, res): Promise<void> => {
       .from(socialSettingsTable).where(eq(socialSettingsTable.id, SOCIAL_SETTINGS_ID))
       .limit(1).for("update");
     if (!settings?.automation) return { reason: "automation-off" as const };
-    const [account] = await tx.select({ id: socialAccountsTable.id }).from(socialAccountsTable)
+    const accounts = await tx.select({ id: socialAccountsTable.id }).from(socialAccountsTable)
       .where(and(scope, eq(socialAccountsTable.platform, candidate.platform), eq(socialAccountsTable.status, "connected")))
-      .limit(1).for("update");
-    if (!account) return { reason: "no-account" as const };
+       .limit(candidate.platform === "tiktok" ? 2 : 1).for("update");
+    if (!accounts.length || (candidate.platform === "tiktok" && !reviewedTikTokAccount(accounts, candidate.accountId))) return { reason: "no-account" as const };
     if (candidate.restaurantId === null) {
       const [brandSchedule] = await tx.select({ id: socialSchedulesTable.id }).from(socialSchedulesTable)
         .where(and(isNull(socialSchedulesTable.restaurantId), eq(socialSchedulesTable.platform, candidate.platform), eq(socialSchedulesTable.enabled, true)))
@@ -205,7 +272,7 @@ router.post("/social/posts/schedule", async (req, res): Promise<void> => {
     return;
   }
   if (result.reason === "no-account") {
-    res.status(409).json({ error: "Connect a Facebook Page for this post before scheduling it." });
+    res.status(409).json({ error: `Connect and review exactly one ${candidate.platform} account for this post before scheduling it.` });
     return;
   }
   if (result.reason === "no-brand-schedule") {
@@ -226,11 +293,41 @@ router.post("/social/posts/publish", async (req, res): Promise<void> => {
     if (!updated) { res.status(409).json({ error: "Post is already claimed or is not ready to publish." }); return; }
     res.json({ post: updated });
   } catch (error) {
-    if (error instanceof Error && error.message === "No connected social account for this post.") {
+    if (error instanceof Error && (error.message === "No connected social account for this post." || error.message === "TikTok account changed. Review its privacy setting again.")) {
       res.status(409).json({ error: error.message }); return;
     }
     res.status(502).json({ error: "Social provider rejected the post." });
   }
+});
+router.post("/social/posts/:postId/status", async (req, res): Promise<void> => {
+  const id = z.string().uuid().safeParse(req.params.postId);
+  if (!id.success) { res.status(400).json({ error: "Invalid post ID." }); return; }
+  const [post] = await db.select().from(socialPostsTable).where(eq(socialPostsTable.id, id.data)).limit(1);
+  if (!post || post.platform !== "tiktok" || post.status !== "publishing" || !post.providerPostId) {
+    res.status(409).json({ error: "No pending TikTok publish to check." }); return;
+  }
+  if (!post.accountId) { res.status(409).json({ error: "This post has no recorded TikTok account; check TikTok directly." }); return; }
+  const accounts = await db.select().from(socialAccountsTable)
+    .where(and(eq(socialAccountsTable.id, post.accountId), eq(socialAccountsTable.platform, "tiktok"), eq(socialAccountsTable.status, "connected"))).limit(1);
+  const account = pendingTikTokAccount(accounts, post.accountId);
+  if (!account) { res.status(409).json({ error: "Original TikTok account disconnected; check TikTok directly." }); return; }
+  try {
+    const status = await tiktokAdapter.status(decryptToken(account.accessToken, account.accessTokenIv, account.accessTokenTag), post.providerPostId);
+    if (!["PUBLISH_COMPLETE", "FAILED"].includes(status.status)) { res.json({ post, providerStatus: status.status }); return; }
+    const success = status.status === "PUBLISH_COMPLETE";
+    const [updated] = await db.update(socialPostsTable).set({
+      status: success ? "published" : "failed", publishedAt: success ? new Date() : null,
+      errorMessage: success ? null : "TikTok reports publishing failed. Check the account before retrying.",
+      updatedAt: new Date(),
+    }).where(and(eq(socialPostsTable.id, post.id), eq(socialPostsTable.status, "publishing"))).returning();
+    if (updated) await db.insert(socialLogsTable).values({
+      id: randomUUID(), postId: post.id, accountId: account.id, restaurantId: post.restaurantId,
+      platform: "tiktok", event: "status", status: success ? "success" : "failed",
+      message: success ? `Publish ID: ${post.providerPostId}; Post ID: ${status.publicaly_available_post_id?.join(",") || "not returned"}` : "TikTok reports publishing failed.",
+      attemptCount: post.attemptCount,
+    });
+    res.json({ post: updated ?? post, providerStatus: status.status });
+  } catch { res.status(502).json({ error: "TikTok status is unavailable. Do not resend; check again later." }); }
 });
 router.get("/social/posts", async (_req, res): Promise<void> => { res.json({ posts: await db.select().from(socialPostsTable).orderBy(desc(socialPostsTable.createdAt)) }); });
 router.get("/social/logs", async (_req, res): Promise<void> => { res.json({ logs: await db.select().from(socialLogsTable).orderBy(desc(socialLogsTable.createdAt)) }); });
@@ -273,7 +370,7 @@ router.post("/social/settings", async (req, res): Promise<void> => {
   const body = req.body;
   if (!body || typeof body !== "object" || Array.isArray(body)
     || Object.keys(body).length !== 1
-    || !(typeof body.automation === "boolean" || typeof body.brandAutomation === "boolean")) {
+     || !(typeof body.automation === "boolean" || typeof body.brandAutomation === "boolean")) {
     res.status(400).json({ error: "Send either automation or brandAutomation as a boolean." });
     return;
   }

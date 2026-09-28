@@ -1,0 +1,1 @@
+ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS privacy_level TEXT;

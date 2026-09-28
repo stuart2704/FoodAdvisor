@@ -39,3 +39,31 @@ external caller, also set `SOCIAL_SCHEDULER_ENABLED=false`. A provider request
 already in flight may still finish. The API's `workerConfigured` field only
 reports the operator-confirmed gates and does not dynamically verify that
 GitHub Actions is still running.
+
+## Instagram and TikTok account setup
+
+Instagram uses the existing Instagram Login callback and Instagram-specific app
+ID/secret. Grant both `instagram_business_basic` and
+`instagram_business_content_publish`; accounts linked before publishing
+permission was added must reconnect. Long-lived tokens are encrypted and
+refreshed before a publish when close to expiry. Professional accounts must
+have the access level needed by the Meta app.
+
+For TikTok, enable Login Kit and Content Posting API Direct Post in the TikTok
+developer app. Configure `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET` (secrets)
+and `TIKTOK_REDIRECT_URI` (HTTPS, path
+`/admin/social/tiktok/callback`) for the API. Grant `user.info.basic` and
+`video.publish`, and have TikTok verify the publicly reachable domain serving
+the media URL (`PUBLIC_APP_URL`) for PULL_FROM_URL. TikTok access and rotating
+refresh tokens are encrypted. Unreviewed TikTok clients may post only privately.
+
+Both platforms require a moderated chef photo explicitly approved on each
+restaurant draft. Brand text-only posts remain Facebook-only. TikTok drafts
+require a creator-specific privacy choice before scheduling or submitting.
+TikTok returns a publish ID when it accepts the request, not proof that a
+post is live. The queue shows `publishing` until an admin clicks **Check TikTok
+status**. Never submit a second copy while status is pending or uncertain.
+
+Validate against authorized test accounts with TikTok privacy `SELF_ONLY` and
+Meta test accounts before turning on schedules; no public test post is needed.
+Do not enable master automation for this check.

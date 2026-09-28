@@ -26,7 +26,7 @@ packages = ["glib", "nss", "nspr", "atk", "at-spi2-atk", "cups", "dbus", "expat"
 [userenv]
 
 [userenv.shared]
-PUBLIC_APP_URL = "https://thefoodadvisor.co.uk"
+PUBLIC_APP_URL = "https://www.thefoodadvisor.co.uk"
 GMAIL_PUBSUB_SUBSCRIPTION = "projects/the-food-advisor/subscriptions/gmail-replies-sub-2"
 GMAIL_PUBSUB_TOPIC = "projects/the-food-advisor/topics/gmail-replies"
 GMAIL_PUBSUB_PUSH_SERVICE_ACCOUNT = "gmail-listener@the-food-advisor.iam.gserviceaccount.com"
@@ -40,10 +40,12 @@ OUTREACH_ENABLED = "true"
 [userenv.development]
 STRIPE_PREMIUM_PRICE_ID = "price_1UGcbNLlQZ1xACZup6fdLSok"
 INSTAGRAM_REDIRECT_URI = "https://c0df53f2-83a9-4aa9-b71c-d948900574e9-00-261t9n7vhk1ls.worf.replit.dev/admin/social/instagram/callback"
+TIKTOK_REDIRECT_URI = "https://c0df53f2-83a9-4aa9-b71c-d948900574e9-00-261t9n7vhk1ls.worf.replit.dev/admin/social/tiktok/callback"
 
 [userenv.production]
 INSTAGRAM_REDIRECT_URI = "https://www.thefoodadvisor.co.uk/admin/social/instagram/callback"
 STRIPE_PREMIUM_PRICE_ID = "price_1UE8sKGeEn25QPrrBWsjoZSy"
+TIKTOK_REDIRECT_URI = "https://www.thefoodadvisor.co.uk/admin/social/tiktok/callback"
 
 [[ports]]
 localPort = 8080

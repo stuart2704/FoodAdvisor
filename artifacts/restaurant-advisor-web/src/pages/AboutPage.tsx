@@ -26,6 +26,9 @@ export default function AboutPage() {
           <Link to="/owner">Visit the owner area</Link>
         </article>
       </section>
+      <p style={{ marginTop: 32 }}>
+        <Link to="/terms">Terms of Service</Link> · <Link to="/privacy">Privacy Policy</Link>
+      </p>
     </PublicPage>
   );
 }

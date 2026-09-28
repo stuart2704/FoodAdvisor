@@ -393,6 +393,28 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 700;
 }
 
+.terms-content {
+  max-width: 760px;
+  margin: 0 auto;
+  color: #d6cec8;
+  line-height: 1.75;
+}
+
+.terms-content h2 {
+  margin: 36px 0 8px;
+  color: #fff;
+  font-size: 1.4rem;
+}
+
+.terms-content a,
+.public-page__content > p a {
+  color: #ff9a5d;
+}
+
+.terms-content li {
+  margin-bottom: 14px;
+}
+
 .not-found__links {
   display: flex;
   justify-content: center;

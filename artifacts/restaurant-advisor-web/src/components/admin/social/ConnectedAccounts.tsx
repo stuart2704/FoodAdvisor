@@ -27,6 +27,10 @@ export function ConnectedAccounts() {
   const [facebookConnecting, setFacebookConnecting] = useState(false);
   const [facebookSelecting, setFacebookSelecting] = useState(false);
   const [instagramConfig, setInstagramConfig] = useState<OAuthConfig | null>(null);
+  const [tiktokConfig, setTiktokConfig] = useState<OAuthConfig | null>(null);
+  const [tiktokRestaurantId, setTiktokRestaurantId] = useState("");
+  const [tiktokConnecting, setTiktokConnecting] = useState(false);
+  const [tiktokError, setTiktokError] = useState("");
   const [instagramRestaurantId, setInstagramRestaurantId] = useState("");
   const [instagramConnecting, setInstagramConnecting] = useState(false);
   const [instagramError, setInstagramError] = useState("");
@@ -38,14 +42,16 @@ export function ConnectedAccounts() {
   const loadAccounts = async () => {
     try {
       setLoading(true);
-      const [data, config, fbConfig] = await Promise.all([
+      const [data, config, fbConfig, ttConfig] = await Promise.all([
         fetchSocial<{ accounts: Account[] }>("/accounts"),
         fetchSocial<OAuthConfig>("/instagram/config").catch(() => null),
         fetchSocial<OAuthConfig>("/facebook/config").catch(() => null),
+        fetchSocial<OAuthConfig>("/tiktok/config").catch(() => null),
       ]);
       setAccounts(data.accounts);
       setInstagramConfig(config);
       setFacebookConfig(fbConfig);
+      setTiktokConfig(ttConfig);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -58,7 +64,7 @@ export function ConnectedAccounts() {
     const params = new URLSearchParams(window.location.search);
     const result = params.get("instagram");
     if (result) {
-      if (result === "connected") setConnectSuccess("Instagram account connected. Publishing and automation remain unavailable.");
+      if (result === "connected") setConnectSuccess("Instagram account connected for photo publishing.");
       else {
         const messages: Record<string, string> = {
           denied: "Instagram authorization was cancelled or denied.",
@@ -87,6 +93,15 @@ export function ConnectedAccounts() {
           .catch(err => setFacebookError(err instanceof Error ? err.message : "Could not load Facebook Pages."));
       } else setFacebookError(messages[facebookResult] ?? "Facebook connection failed.");
       params.delete("facebook");
+      window.history.replaceState(window.history.state, "", `${window.location.pathname}${params.size ? `?${params}` : ""}`);
+    }
+    const tiktokResult = params.get("tiktok");
+    if (tiktokResult) {
+      if (tiktokResult === "connected") setConnectSuccess("TikTok account connected. Photo posting requires approval and a privacy choice per draft.");
+      else setTiktokError(({ denied: "TikTok authorization was denied.", state_error: "TikTok connection expired. Try again.",
+        already_used: "This TikTok profile is linked to another restaurant or brand.",
+        authorization_error: "TikTok connection failed. Check Login Kit, redirect URI and video.publish permission." } as Record<string, string>)[tiktokResult] ?? "TikTok connection failed.");
+      params.delete("tiktok");
       window.history.replaceState(window.history.state, "", `${window.location.pathname}${params.size ? `?${params}` : ""}`);
     }
   }, []);
@@ -141,10 +156,22 @@ export function ConnectedAccounts() {
       setInstagramConnecting(false);
     }
   };
+  const handleTikTokConnect = async () => {
+    setTiktokConnecting(true); setTiktokError("");
+    try {
+      const result = await fetchSocial<{ authorizationUrl: string }>("/tiktok/start", {
+        method: "POST", body: JSON.stringify(tiktokRestaurantId.trim() ? { restaurantId: tiktokRestaurantId.trim() } : {}),
+      });
+      window.location.assign(result.authorizationUrl);
+    } catch (err) {
+      setTiktokError(err instanceof Error ? err.message : "Could not start TikTok connection.");
+      setTiktokConnecting(false);
+    }
+  };
 
   const handleDisconnect = async (account: Account) => {
     if (!window.confirm(
-      `Disconnect ${account.displayName || account.platform}? This removes its saved token. If this is the last connected account for its scope, schedules will be paused and scheduled posts returned to drafts. Publishing requests already in progress may still complete. This does not revoke the token at Meta.`
+      `Disconnect ${account.displayName || account.platform}? This removes its saved tokens. If this is the last connected account for its scope, schedules will be paused and scheduled posts returned to drafts. Publishing requests already in progress may still complete. This does not revoke access at the provider.`
     )) return;
     setDisconnectingId(account.id);
     setDisconnectMessage("");
@@ -164,11 +191,11 @@ export function ConnectedAccounts() {
 
   return (
     <div>
+      {connectSuccess && <div className="social-success">{connectSuccess}</div>}
       <div className="social-card">
         <h2>Connect Instagram</h2>
         <p style={{ color: "#aaa", fontSize: "0.9rem" }}>
-          Sign in with a Business or Creator Instagram account. This only connects the account;
-          Instagram publishing and automated posts are not available yet.
+           Sign in with a Business or Creator Instagram account and grant publishing permission. Instagram posts require an approved restaurant photo.
         </p>
         <p>Instagram: <strong>{loading ? "Loading..." : accounts.some(account => account.platform === "instagram" && account.status === "connected") ? "Connected" : "Not Connected"}</strong></p>
         {instagramError && <div className="social-alert" role="alert">{instagramError}</div>}
@@ -178,13 +205,28 @@ export function ConnectedAccounts() {
           Add this exact OAuth redirect URI in Meta App Dashboard → Instagram → API setup with Instagram login: {instagramConfig.redirectUri}
         </p>}
         <div className="social-form-group">
-          <label htmlFor="instagram-restaurant">Restaurant Place ID (optional)</label>
+          <label htmlFor="instagram-restaurant">Restaurant Place ID (required)</label>
           <input id="instagram-restaurant" type="text" value={instagramRestaurantId}
-            onChange={e => setInstagramRestaurantId(e.target.value)} placeholder="Leave blank for The Food Advisor brand" />
+            onChange={e => setInstagramRestaurantId(e.target.value)} placeholder="Restaurant Place ID" />
         </div>
-        <button type="button" className="social-btn" disabled={!instagramConfig?.configured || instagramConnecting}
+        <button type="button" className="social-btn" disabled={!instagramConfig?.configured || instagramConnecting || !instagramRestaurantId.trim()}
           onClick={() => void handleInstagramConnect()}>
           {instagramConnecting ? "Opening Instagram..." : "Connect Instagram"}
+        </button>
+      </div>
+      <div className="social-card">
+        <h2>Connect TikTok</h2>
+        <p>Connect a TikTok creator through Login Kit. Direct photo posting requires the Content Posting API and video.publish permission. Unreviewed apps may be limited to private posts.</p>
+        {tiktokError && <div className="social-alert" role="alert">{tiktokError}</div>}
+        <p>TikTok: <strong>{accounts.some(a => a.platform === "tiktok" && a.status === "connected") ? "Connected" : "Not Connected"}</strong></p>
+        {!tiktokConfig?.configured && <p>Configure TikTok client key, secret and HTTPS redirect URI before connecting.</p>}
+        {tiktokConfig?.redirectUri && <p style={{ overflowWrap: "anywhere" }}>Add this Login Kit redirect URI: {tiktokConfig.redirectUri}</p>}
+        <div className="social-form-group">
+          <label htmlFor="tiktok-restaurant">Restaurant Place ID (required)</label>
+          <input id="tiktok-restaurant" value={tiktokRestaurantId} onChange={e => setTiktokRestaurantId(e.target.value)} placeholder="Restaurant Place ID" />
+        </div>
+        <button type="button" className="social-btn" disabled={!tiktokConfig?.configured || tiktokConnecting || !tiktokRestaurantId.trim()} onClick={() => void handleTikTokConnect()}>
+          {tiktokConnecting ? "Opening TikTok..." : "Connect TikTok"}
         </button>
       </div>
       <div className="social-card">
@@ -194,7 +236,6 @@ export function ConnectedAccounts() {
         </p>
         <p>Facebook: <strong>{loading ? "Loading..." : accounts.some(account => account.platform === "facebook" && account.status === "connected") ? "Connected" : "Not Connected"}</strong></p>
         {facebookError && <div className="social-alert" role="alert">{facebookError}</div>}
-        {connectSuccess && <div className="social-success">{connectSuccess}</div>}
         {facebookConfig === null ? <p>Facebook configuration could not be loaded.</p>
           : !facebookConfig.configured && <p>Facebook app credentials and an HTTPS redirect URI must be configured before connecting.</p>}
         {facebookConfig?.redirectUri && <p style={{ color: "#aaa", fontSize: "0.8rem", overflowWrap: "anywhere" }}>
