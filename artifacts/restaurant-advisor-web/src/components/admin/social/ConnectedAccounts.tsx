@@ -84,7 +84,7 @@ export function ConnectedAccounts() {
         denied: "Facebook authorization was cancelled or denied.",
         state_error: "Facebook connection expired or could not be verified. Try connecting again.",
         configuration_error: "Facebook app settings are missing or invalid.",
-        no_pages: "Meta returned no Pages to the app. During Facebook login, allow access to the Page you want to connect and check that pages_show_list is granted.",
+        no_pages: "Meta returned no Pages for this login. The features listed under Business Integrations do not confirm which Page Meta granted to the app. If this persists after reconnecting, share the time of your attempt so we can check the login grant.",
         no_content_access: "Meta returned Pages, but did not report permission to create content on them for this login. Check the account's Page content access.",
         no_page_token: "Meta returned a Page with content access but did not provide a Page token. Reconnect and grant the requested Page permissions.",
         missing_code: "Facebook did not return a login code. Check your Facebook Login for Business configuration and try again.",

@@ -184,3 +184,33 @@ export async function fetchFacebookPagesWithSummary(userToken: string): Promise<
 export async function fetchFacebookPages(userToken: string): Promise<FacebookPage[]> {
   return (await fetchFacebookPagesWithSummary(userToken)).pages;
 }
+
+// Return only fixed permission flags and aggregate asset counts. Never expose
+// the token debugger's user ID, Page IDs, or the raw provider response.
+export async function inspectFacebookPageGrant(
+  userToken: string,
+  config: NonNullable<ReturnType<typeof facebookConfig>>,
+) {
+  const url = new URL(`${GRAPH}/debug_token`);
+  url.searchParams.set("input_token", userToken);
+  const result = await graphRequest(url.toString(), {
+    headers: { Authorization: `Bearer ${config.appId}|${config.appSecret}` },
+  });
+  const data = result.data;
+  if (!data || !Array.isArray(data.scopes)) throw new Error("Facebook token permissions unavailable.");
+  const scopeGranted = (scope: string) => data.scopes.includes(scope);
+  const targetCount = (scope: string): number | null => {
+    if (!Array.isArray(data.granular_scopes)) return null;
+    const granular = data.granular_scopes.find((entry: any) => entry?.scope === scope);
+    return Array.isArray(granular?.target_ids) ? granular.target_ids.length : null;
+  };
+  return {
+    tokenValid: data.is_valid === true,
+    showListGranted: scopeGranted("pages_show_list"),
+    showListTargetCount: targetCount("pages_show_list"),
+    managePostsGranted: scopeGranted("pages_manage_posts"),
+    managePostsTargetCount: targetCount("pages_manage_posts"),
+    readEngagementGranted: scopeGranted("pages_read_engagement"),
+    manageMetadataGranted: scopeGranted("pages_manage_metadata"),
+  };
+}

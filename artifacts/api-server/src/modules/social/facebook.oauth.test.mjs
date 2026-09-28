@@ -3,7 +3,7 @@ import { test } from "node:test";
 import {
   beginFacebookLogin, consumeFacebookLogin, savePendingPages, pendingPages,
   facebookAuthorizationUrl, facebookConfig, exchangeFacebookCode, fetchFacebookPages,
-  fetchFacebookPagesWithSummary,
+  fetchFacebookPagesWithSummary, inspectFacebookPageGrant,
 } from "./facebook.oauth.ts";
 
 function response() {
@@ -126,5 +126,33 @@ test("Page selection distinguishes no Pages, missing content task, and missing P
       globalThis.fetch = async () => Response.json({ data });
       assert.deepEqual(await fetchFacebookPagesWithSummary("test-token"), expected);
     }
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("token diagnostics return only fixed permission flags and Page counts", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    let called;
+    globalThis.fetch = async (url, init) => {
+      called = { url: new URL(url), init };
+      return Response.json({ data: {
+        is_valid: true, user_id: "private-user-id",
+        scopes: ["pages_show_list", "pages_manage_posts", "pages_read_engagement"],
+        granular_scopes: [
+          { scope: "pages_show_list", target_ids: ["private-page-1", "private-page-2"] },
+          { scope: "pages_manage_posts", target_ids: [] },
+        ],
+      } });
+    };
+    const summary = await inspectFacebookPageGrant("private-user-token", { appId: "test-app", appSecret: "test-secret", redirectUri: "https://example.test/callback" });
+    assert.deepEqual(summary, {
+      tokenValid: true, showListGranted: true, showListTargetCount: 2,
+      managePostsGranted: true, managePostsTargetCount: 0,
+      readEngagementGranted: true, manageMetadataGranted: false,
+    });
+    assert.equal(called.url.pathname, "/v26.0/debug_token");
+    assert.equal(called.url.searchParams.get("input_token"), "private-user-token");
+    assert.equal(called.init.headers.Authorization, "Bearer test-app|test-secret");
+    assert.equal(JSON.stringify(summary).includes("private-"), false);
   } finally { globalThis.fetch = originalFetch; }
 });
