@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build --config vite.config.ts && node scripts/generate-route-entrypoints.mjs",
-    "test:routes": "vitest run src/public-navigation.test.tsx src/pages/admin-chef-review.test.tsx",
+    "test:routes": "vitest run src/public-navigation.test.tsx src/pages/admin-chef-review.test.tsx src/pages/admin/owner-contacts.test.tsx",
     "test:route-entrypoints": "node --test scripts/route-entrypoints.test.mjs",
     "check:public-navigation": "pnpm run test:routes && pnpm run build && pnpm run test:route-entrypoints",
     "preview": "vite preview --config vite.config.ts --host 0.0.0.0",

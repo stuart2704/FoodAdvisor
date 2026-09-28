@@ -38,3 +38,4 @@
 - [Temporary ESM test bundles](temporary-esm-test-bundles.md) — external dependencies in bundles under /tmp must resolve from the project, not from the temporary directory.
 - [Stripe sandbox reruns](stripe-sandbox-reruns.md) — rapid full-journey reruns share the development preview's checkout rate limit even with fresh test identities.
 - [External database schema pushes](external-db-schema-pushes.md) — a broad schema push can attempt unrelated constraint drops; use a targeted additive change only after confirming the database target.
+- [UI polling tests](ui-polling-tests.md) — testing-library waits also schedule intervals; capture only the application's polling interval when simulating ticks.

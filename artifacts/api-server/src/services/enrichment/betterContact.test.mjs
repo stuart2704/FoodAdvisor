@@ -252,6 +252,9 @@ test("private review budget shows configured and effective caps and recent job s
   assert.equal(jobs.length, 1);
   assert.equal(jobs[0].id, job().id);
   assert.equal("email" in jobs[0], false);
+  const pendingReview = await service.getBetterContactJobForReview(job().id);
+  assert.equal(pendingReview.job.status, "reserved");
+  assert.equal(pendingReview.privateReviewContact, null);
 
   process.env.BETTERCONTACT_MONTHLY_CREDIT_CAP = "3";
   assert.equal((await service.getBetterContactBudgetForReview()).effectiveCap, 2);
@@ -354,6 +357,12 @@ test("202 remains pending; terminated exact identity moves reserved credit to co
   assert.equal(current().contacts.length, 1);
   assert.equal(current().contacts[0].reviewOnly, true);
   assert.equal(current().contacts[0].outreachEligible, false);
+  const privateReview = await service.getBetterContactJobForReview(job().id);
+  assert.equal(privateReview.job.status, "completed");
+  assert.equal(privateReview.privateReviewContact.email, "jane@janes.example");
+  assert.equal(privateReview.privateReviewContact.providerEmailStatus, "deliverable");
+  assert.equal(privateReview.privateReviewContact.reviewOnly, true);
+  assert.equal(privateReview.privateReviewContact.outreachEligible, false);
 });
 
 test("terminated mismatched identity retains reservation for manual investigation", async () => {
