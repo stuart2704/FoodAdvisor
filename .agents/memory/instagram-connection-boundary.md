@@ -64,3 +64,9 @@ Meta's `auth_type=rerequest` re-asks for declined permissions; it is not documen
 **Why:** Meta support suggested rerequest and a business permission after identifying a portfolio-owned Page, but its public login documentation describes a narrower rerequest guarantee, and this app's Business Login takes permission choices from Meta's configuration.
 
 **How to apply:** Inspect the actual authorization URL and Meta configuration separately, and confirm Page-scoped tasks from the new login response before enabling publishing. Do not infer a missing selection solely from debugger target IDs.
+
+For the creator's portfolio-owned Facebook Page, adding `business_management` to the active Facebook Login for Business configuration and completing a fresh login led to a confirmed in-app connection. Connection alone does not prove a live post succeeded.
+
+**Why:** Meta support identified Business Portfolio ownership despite the Page being personally managed; the creator then reported that Facebook connected after updating the configuration.
+
+**How to apply:** When a portfolio-owned Page is missing from `/me/accounts`, check the active configuration's business permission before diagnosing Page access as absent. Keep actual publishing verification separate and opt-in.
