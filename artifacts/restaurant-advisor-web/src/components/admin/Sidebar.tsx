@@ -17,6 +17,7 @@ const sections = [
   { to: "/admin/queue", label: "Queue" },
   { to: "/admin/engines", label: "Engines" },
   { to: "/admin/health", label: "Health" },
+  { to: "/admin/places", label: "Places allowance" },
 ] as const;
 const automation = [
   { to: "/admin/automation/social", label: "Social Media", nested: false },

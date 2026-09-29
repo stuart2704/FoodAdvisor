@@ -25,7 +25,7 @@ function fixture(overrides = {}, regionUsed = 0, cityUsed = 0) {
         return { rows: [{ ...state }], rowCount: 1 };
       }
       if (sql.includes("count(*)") && sql.includes("restaurant_import_runs")) return { rows: [{ count: "0" }] };
-      if (sql.includes("sum(estimated_cost_cents)")) return { rows: [{ spent: "0", calls: "0" }] };
+      if (sql.includes("sum(estimated_cost_cents)")) return { rows: [{ spent: state.test_spent ?? "0", calls: state.test_calls ?? "0" }] };
       if (sql.includes("INSERT INTO region_progress")) {
         return { rows: [{ region_budget: 4, region_budget_used: regionUsed, next_region_run: null }] };
       }
@@ -116,4 +116,15 @@ test("UTC attempt limit and saved monthly cap stop without charging after restar
   const changedBudget = fixture({ grid_hash: "stable-grid", monthly_budget_cents: 500 });
   await assert.rejects(reserve(changedBudget), /saved limit/);
   assert.equal(changedBudget.calls.at(-1).sql, "ROLLBACK");
+});
+
+test("monthly grid denial is counted without charging or moving the cursor", async () => {
+  const f = fixture({ grid_hash: "stable-grid", monthly_budget_cents: 1000, test_spent: "1000", test_calls: "20" });
+  const result = await reserve(f);
+  assert.equal(result.status, "monthly");
+  const entries = f.calls.filter(({ sql }) => sql.includes("INSERT INTO restaurant_import_runs"));
+  assert.equal(entries.length, 1);
+  assert.match(entries[0].sql, /0, 0, \$2, 'Grid request denied: monthly budget'/);
+  assert.equal(f.state.pending_index, null);
+  assert.equal(f.calls.at(-1).sql, "COMMIT");
 });

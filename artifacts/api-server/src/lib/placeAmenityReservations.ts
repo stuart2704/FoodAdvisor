@@ -94,6 +94,13 @@ async function reserveCheck(
       Number(usage.rows[0]?.spent), Number(usage.rows[0]?.calls),
       options.estimatedRequestCents, Math.min(options.monthlyBudgetCents, state.rows[0].monthly_budget_cents),
     )) {
+      // Record only the fixed category under the shared lock, never the venue ID.
+      await client.query(`
+        INSERT INTO restaurant_import_runs
+          (cities, requested, imported, skipped_duplicates, api_calls, estimated_cost_cents,
+           monthly_budget_cents, stopped_because)
+        VALUES (ARRAY['Place Details amenities'], 1, 0, 0, 0, 0, $1, 'Place Details amenities denied: monthly budget')
+      `, [Math.min(options.monthlyBudgetCents, state.rows[0].monthly_budget_cents)]);
       await client.query("COMMIT");
       return "budget";
     }

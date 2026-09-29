@@ -87,6 +87,15 @@ export async function pauseGridAutomation(): Promise<void> {
   if (result.rowCount !== 1) throw new Error("Crawler progress row is missing.");
 }
 
+/** Reporting labels are fixed categories, never identifiers from a request. */
+function placesUsageLabel(label: string): string {
+  if (label === "Place photo details" || label === "Place photo media" ||
+      label === "Place reviews" || label === "Place price" ||
+      label === "Place opening status" || label === "Place opening hours") return label;
+  if (label.startsWith("Search Text for ")) return "Search Text";
+  return "Other Places requests";
+}
+
 /** Reserve before every non-grid Places request, under the same lock as the grid. */
 export async function reservePaidPlacesCall(input: {
   label: string;
@@ -119,6 +128,15 @@ export async function reservePaidPlacesCall(input: {
     const spent = Number(usage.rows[0].spent);
     const calls = Number(usage.rows[0].calls);
     if (paidPlacesBudgetReached(spent, calls, costCents, effectiveBudget)) {
+      // A denied request never contacts Google and must not consume the shared cap.
+      // Keep only a fixed category: callers may put a city in their label.
+      const category = placesUsageLabel(label);
+      await client.query(`
+        INSERT INTO restaurant_import_runs
+          (cities, requested, imported, skipped_duplicates, api_calls, estimated_cost_cents,
+           monthly_budget_cents, stopped_because)
+        VALUES ($1, 1, 0, 0, 0, 0, $2, $3)
+      `, [[category], effectiveBudget, `Places request denied: ${category}`]);
       await client.query("COMMIT");
       return null;
     }
@@ -294,6 +312,14 @@ export async function reserveGridPoint(
     const spent = Number(usage.rows[0].spent);
     const calls = Number(usage.rows[0].calls);
     if (paidGridBudgetReached(spent, calls, monthlyBudgetCents)) {
+      if (!simulate) {
+        await client.query(`
+          INSERT INTO restaurant_import_runs
+            (cities, requested, imported, skipped_duplicates, api_calls, estimated_cost_cents,
+             monthly_budget_cents, stopped_because)
+          VALUES ($1, 1, 0, 0, 0, 0, $2, 'Grid request denied: monthly budget')
+        `, [[point.city], monthlyBudgetCents]);
+      }
       await finish();
       return { status: "monthly", attemptedToday: attempts };
     }

@@ -37,12 +37,18 @@ test("duplicate and uncertain attempts are not charged or retried", async () => 
   assert.equal(calls.some(({ sql }) => sql === "COMMIT"), true);
 });
 
-test("quota or shared budget exhaustion stops before the provider and ledger", async () => {
+test("quota stops without a ledger entry; monthly exhaustion records a zero-cost denial", async () => {
   for (const config of [{ daily: 10, expected: "quota" }, { minute: 1, expected: "quota" },
     { spent: 2990, expected: "budget" }]) {
     const { pool, calls } = fakePool((sql) => responses(sql, config));
     assert.equal(await reserveAmenityDetails("abc", options, pool), config.expected);
-    assert.equal(calls.some(({ sql }) => sql.includes("INSERT INTO restaurant_import_runs")), false);
+    const entries = calls.filter(({ sql }) => sql.includes("INSERT INTO restaurant_import_runs"));
+    if (config.expected === "budget") {
+      assert.equal(entries.length, 1);
+      assert.match(entries[0].sql, /0, 0, \$1, 'Place Details amenities denied: monthly budget'/);
+      assert.deepEqual(entries[0].params, [3000]);
+      assert.equal(calls.at(-2).sql, "COMMIT");
+    } else assert.equal(entries.length, 0);
   }
 });
 

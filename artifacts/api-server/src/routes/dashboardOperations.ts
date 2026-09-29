@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { getPlacesAllowanceUsage } from "../lib/placesAllowanceUsage";
 import { getRecentHealth, computeDailyHealthScore } from "../health/scraperHealth";
 import { adminOnly } from "../middleware/adminOnly";
 import { getInsertionQueueStatus } from "../pipeline/insertService";
@@ -10,6 +11,18 @@ const router: IRouter = Router();
 const services = ["ai", "automation", "queue", "api", "database"] as const;
 
 router.use(adminOnly);
+
+router.get("/operations/places", async (req, res): Promise<void> => {
+  try {
+    res.json({
+      success: true,
+      ...await getPlacesAllowanceUsage(),
+    });
+  } catch (error) {
+    req.log.error({ err: error }, "Places allowance usage unavailable.");
+    res.status(503).json({ success: false, error: "Places allowance usage is unavailable." });
+  }
+});
 
 router.get("/operations/queue", (_req, res) => {
   const snapshot = getInsertionQueueStatus(50);

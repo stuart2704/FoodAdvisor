@@ -10,6 +10,13 @@ const require = createRequire(import.meta.url);
 
 async function loadRoute() {
   const mocks = {
+    "@workspace/db": `export const pool = { async query(sql) {
+      if (sql.includes("FROM crawler_progress")) return {rowCount:1,rows:[{monthly_budget_cents:3000}]};
+      return {rows:[
+        {label:"Grid crawl",requests:"2",denied:"1",estimated_cents:"100"},
+        {label:"Place photo media",requests:"3",denied:"4",estimated_cents:"150"}
+      ]};
+    }};`,
     "middleware/adminOnly": `export function adminOnly(req,res,next){res.set("Cache-Control","no-store");if(req.header("authorization")==="test-admin")return next();res.status(401).json({success:false,error:"Admin login required"});}`,
     "pipeline/insertService": `export function getInsertionQueueStatus(){return {pending:1,capacity:1000,draining:false,scope:"current_process",resetsOnRestart:true,secret:"do-not-send",items:[{jobId:"place-1",kind:"restaurant_insertion",label:"Safe name",city:"London",queuedAt:"2026-01-01T00:00:00.000Z",payload:{password:"hidden"},messageBody:"hidden"}]}}`,
     "services/engineHeartbeat": `export async function recordHeartbeat(){} export async function getEngineStatuses(){return {api:"online",ai:"offline",secret:"hidden"}}`,
@@ -47,7 +54,7 @@ test("operations routes require admin access and never expose source payload fie
   await new Promise((resolve) => server.once("listening", resolve));
   const base = `http://127.0.0.1:${server.address().port}/dashboard/operations`;
   try {
-    for (const view of ["queue", "engines", "health"]) {
+    for (const view of ["queue", "engines", "health", "places"]) {
       const denied = await fetch(`${base}/${view}`);
       assert.equal(denied.status, 401);
       assert.equal(denied.headers.get("cache-control"), "no-store");
@@ -73,6 +80,15 @@ test("operations routes require admin access and never expose source payload fie
           alert: { status: "insufficient_data", thresholdMs: 2000, measuredMinutes: 0, requiredMinutes: 5, minimumSamplesPerMinute: 3 },
         });
         assert.equal(services.find((item) => item.id === "ai").latency.samples, 0);
+      }
+      if (view === "places") {
+        const usage = JSON.parse(body);
+        assert.equal(usage.budgetCents, 3000);
+        assert.deepEqual([usage.requests, usage.denied, usage.estimatedCents], [5, 5, 250]);
+        assert.deepEqual(usage.labels[1], {
+          label: "Place photo media", requests: 3, denied: 4, estimatedCents: 150,
+        });
+        assert.match(usage.monthStart, /^\d{4}-\d\d-01T00:00:00.000Z$/);
       }
     }
   } finally {

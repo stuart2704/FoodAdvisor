@@ -112,6 +112,7 @@ function AppRoutes() {
         <Route path="/admin/queue" element={<AdminOperations view="queue" />} />
         <Route path="/admin/engines" element={<AdminOperations view="engines" />} />
         <Route path="/admin/health" element={<AdminOperations view="health" />} />
+        <Route path="/admin/places" element={<AdminOperations view="places" />} />
         <Route path="/admin/*" element={null} />
         <Route path="/portal/*" element={null} />
         <Route path="*" element={<NotFoundPage />} />

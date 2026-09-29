@@ -4,10 +4,14 @@ import { RequireAdmin } from "../../components/admin/RequireAdmin";
 import "../../styles/log-viewer.css";
 import "../../styles/admin-operations.css";
 
-type ViewKind = "queue" | "engines" | "health";
+type ViewKind = "queue" | "engines" | "health" | "places";
 type LoadState = "loading" | "ready" | "stale" | "error";
 
 const titles: Record<ViewKind, { title: string; description: string }> = {
+  places: {
+    title: "Places allowance",
+    description: "Estimated Google Places reservations and blocked requests by category for the current UTC month.",
+  },
   queue: {
     title: "Queue",
     description: "Bounded queue totals and safe job identifiers. Job payloads are never returned.",
@@ -88,6 +92,30 @@ function HealthView({ data }: { data: any }) {
   </>;
 }
 
+type PlacesUsage = {
+  budgetCents: number;
+  estimatedCents: number;
+  requests: number;
+  denied: number;
+  monthStart: string;
+  labels: { label: string; requests: number; denied: number; estimatedCents: number }[];
+};
+
+function PlacesView({ data }: { data: PlacesUsage }) {
+  const pounds = (cents: number) => `£${(cents / 100).toFixed(2)}`;
+  return <>
+    <div className="ops-summary-grid">
+      <article><span>Estimated reserved</span><strong>{pounds(data.estimatedCents)} / {pounds(data.budgetCents)}</strong></article>
+      <article><span>Reserved requests</span><strong>{data.requests}</strong></article>
+      <article><span>Blocked requests</span><strong>{data.denied}</strong></article>
+    </div>
+    <p className="ops-scope">Since {new Date(data.monthStart).toLocaleDateString(undefined, { timeZone: "UTC", year: "numeric", month: "long", day: "numeric" })} (UTC) · Durable reservation ledger. Blocked requests cost nothing and never contact Google. Estimates are not a Google billing total or a guaranteed invoice cap. Cached photos do not make a request.</p>
+    {data.labels.length === 0 ? <div className="ops-empty">No Places requests have been recorded this month.</div> :
+      <div className="ops-table-wrap"><table><thead><tr><th>Category</th><th>Reserved requests</th><th>Estimated cost</th><th>Blocked requests</th></tr></thead>
+        <tbody>{data.labels.map((row) => <tr key={row.label}><td>{row.label}</td><td>{row.requests}</td><td>{pounds(row.estimatedCents)}</td><td>{row.denied}</td></tr>)}</tbody></table></div>}
+  </>;
+}
+
 export default function AdminOperations({ view }: { view: ViewKind }) {
   const [data, setData] = useState<any>(null);
   const [state, setState] = useState<LoadState>("loading");
@@ -122,7 +150,7 @@ export default function AdminOperations({ view }: { view: ViewKind }) {
     {state === "loading" && <div className="ops-state">Loading {titles[view].title.toLowerCase()} status…</div>}
     {(state === "error" || state === "stale") && <div className={`ops-state ops-state-${state}`}>{state === "stale" ? "Showing stale data. " : ""}{message}</div>}
     {data && <section className={state === "stale" ? "ops-content is-stale" : "ops-content"}>
-      {view === "queue" ? <QueueView data={data} /> : view === "engines" ? <EnginesView data={data} stale={state === "stale"} /> : <HealthView data={data} />}
+      {view === "queue" ? <QueueView data={data} /> : view === "engines" ? <EnginesView data={data} stale={state === "stale"} /> : view === "places" ? <PlacesView data={data} /> : <HealthView data={data} />}
       <p className="ops-updated">Checked {new Date(data.checkedAt).toLocaleTimeString()}</p>
     </section>}
   </AdminLayout></RequireAdmin>;

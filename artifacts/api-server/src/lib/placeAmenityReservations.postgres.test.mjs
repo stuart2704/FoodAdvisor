@@ -143,7 +143,16 @@ test("concurrent claims, exhausted budget and failed provider response persist o
     assert.deepEqual((await pool.query(`
       SELECT count(*)::integer AS attempts, sum(api_calls)::integer AS calls,
         sum(estimated_cost_cents)::integer AS cents FROM restaurant_import_runs
-    `)).rows, [{ attempts: 2, calls: 2, cents: 160 }]);
+    `)).rows, [{ attempts: 3, calls: 2, cents: 160 }]);
+    const { getPlacesAllowanceUsage } = await import("./placesAllowanceUsage.ts");
+    const allowance = await getPlacesAllowanceUsage();
+    assert.equal(allowance.requests, 2);
+    assert.equal(allowance.denied, 1);
+    assert.equal(allowance.estimatedCents, 160);
+    assert.deepEqual(allowance.labels, [
+      { label: "Place Details amenities", requests: 2, denied: 1, estimatedCents: 160 },
+    ]);
+    assert.ok(!JSON.stringify(allowance).includes(rejectedPlace));
   } finally {
     if (lock) { await lock.query("ROLLBACK"); lock.release(); }
     if (pool) await pool.end();
