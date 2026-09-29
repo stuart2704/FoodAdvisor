@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; form-action 'none'; connect-src 'none'">
+  <title>Social automation token generator</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; color: #182332; background: #f4f7fa; }
+    body { max-width: 620px; margin: 8vh auto; padding: 0 18px; }
+    main { background: #fff; border: 1px solid #dce4ea; border-radius: 16px; padding: 28px; box-shadow: 0 8px 28px #1d355113; }
+    h1 { margin: 0 0 10px; font-size: 1.6rem; }
+    p, li { line-height: 1.55; }
+    .muted { color: #526173; }
+    label { display: block; font-weight: 650; margin: 22px 0 8px; }
+    input { box-sizing: border-box; width: 100%; font: 16px ui-monospace, monospace; border: 1px solid #9aaebe; border-radius: 8px; padding: 12px; background: #f7fafc; color: #182332; }
+    .buttons { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+    button { cursor: pointer; border: 1px solid #114f9b; border-radius: 8px; background: #1159a7; color: #fff; padding: 11px 16px; font: inherit; font-weight: 600; }
+    button.secondary { background: #fff; color: #114f9b; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid #f0a42a; outline-offset: 2px; }
+    #status { min-height: 1.5em; margin: 14px 0 0; }
+    a { color: #1159a7; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Make a new social automation token</h1>
+    <p class="muted">Generated on this device using your browser's secure random-number generator. This page makes no network requests and does not store the token. Close the page to clear it.</p>
+    <button id="generate" type="button">Generate token</button>
+    <label for="token">Your new token</label>
+    <input id="token" type="text" readonly autocomplete="off" spellcheck="false" placeholder="Click Generate token">
+    <div class="buttons">
+      <button id="copy" type="button" class="secondary" disabled>Copy token</button>
+      <button id="clear" type="button" class="secondary" disabled>Clear</button>
+    </div>
+    <p id="status" role="status" aria-live="polite"></p>
+    <ol>
+      <li>Generate and copy the token. Keep a private copy until you have saved it in both places. Do not paste it into chat.</li>
+      <li>In Replit, add a secret named <strong>SOCIAL_AUTOMATION_TOKEN</strong> with this value.</li>
+      <li>In the <a href="https://github.com/stuart2704/FoodAdvisor/settings/secrets/actions" target="_blank" rel="noopener noreferrer">FoodAdvisor GitHub Actions secrets</a>, add a repository secret with the <strong>same name and value</strong>.</li>
+    </ol>
+    <p class="muted">Leave the GitHub scheduler disabled for now. Tell the agent “both saved” once you've finished; never send the token itself.</p>
+  </main>
+  <script>
+    const token = document.getElementById("token");
+    const status = document.getElementById("status");
+    const copy = document.getElementById("copy");
+    const clear = document.getElementById("clear");
+    document.getElementById("generate").addEventListener("click", () => {
+      if (!globalThis.crypto?.getRandomValues) {
+        status.textContent = "This browser cannot generate a secure token here. Do not use a manually chosen value.";
+        return;
+      }
+      const bytes = new Uint8Array(32);
+      crypto.getRandomValues(bytes);
+      token.value = Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
+      bytes.fill(0);
+      copy.disabled = false;
+      clear.disabled = false;
+      status.textContent = "Token generated. Copy it and save it privately before closing this page.";
+    });
+    copy.addEventListener("click", async () => {
+      if (!token.value) return;
+      try {
+        await navigator.clipboard.writeText(token.value);
+        status.textContent = "Copied. Save this same value in Replit Secrets and GitHub Actions.";
+      } catch {
+        token.select();
+        status.textContent = "Automatic copying is unavailable. The token is selected; use your device's Copy command.";
+      }
+    });
+    clear.addEventListener("click", () => {
+      token.value = "";
+      copy.disabled = true;
+      clear.disabled = true;
+      status.textContent = "Cleared from this page.";
+    });
+  </script>
+</body>
+</html>

@@ -574,3 +574,17 @@ mtime_ms = 1789550050116
 storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/2de1192c-0837-4473-8f75-d55db3d2caa4/b031539b-4902-4df2-831f-f82ecaebb6d6"
 storage_version_token = "1789550063733596"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "CZHSbaaysNRyrJXvH7Mbj"
+uri = "file://tools/social-token-generator.html"
+type = "html"
+title = "Generate your social automation token"
+description = "Open this page and click Generate token. It creates a random token in your browser only; copy it privately for Replit Secrets and GitHub Actions."
+logical_id = "368ab429-6b8f-49dc-a574-e4d9bb7d51aa"
+content_hash = "sha256:24eb56b804ecfdab0b1ff47d7209003a2441603fdfd5cde46b7f8b906d33a9c7"
+size = 4490
+mtime_ms = 1790681066706
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:c0df53f2-83a9-4aa9-b71c-d948900574e9/368ab429-6b8f-49dc-a574-e4d9bb7d51aa/5cfc8d2d-69db-42c7-821b-1edac2e324c8"
+storage_version_token = "1790681120576224"
+content_type = "text/html"
