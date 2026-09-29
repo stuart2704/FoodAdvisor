@@ -234,7 +234,7 @@ export function PostQueue() {
           </div>
         </div>
 
-        <div style={{ display: "grid", gap: 10, maxWidth: 560, marginBottom: 22 }}>
+        <div className="social-post-composer" style={{ display: "grid", gap: 10, maxWidth: 560, marginBottom: 22 }}>
           <h3 style={{ margin: 0 }}>Write a Facebook post</h3>
           {accountsLoading ? <p>Checking connected Facebook Page...</p>
             : accountsError ? <p className="social-alert" role="alert">Could not check the connected Page: {accountsError}</p>

@@ -41,7 +41,28 @@
   border: 1px solid #303030;
   border-radius: 12px;
   background: #171717;
+  color: #eee;
   margin-bottom: 24px;
+}
+.social-post-composer textarea,
+.social-post-composer select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  background: #0d0d0d;
+  border: 1px solid #555;
+  border-radius: 6px;
+  color: #f5f5f5;
+  caret-color: #f5f5f5;
+  font: inherit;
+}
+.social-post-composer textarea::placeholder {
+  color: #aaa;
+}
+.social-post-composer textarea:focus-visible,
+.social-post-composer select:focus-visible {
+  outline: 2px solid #ff8b47;
+  outline-offset: 2px;
 }
 .social-card h2 {
   margin-top: 0;
