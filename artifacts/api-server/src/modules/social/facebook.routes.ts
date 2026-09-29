@@ -83,10 +83,28 @@ facebookRouter.get("/callback", async (req, res): Promise<void> => {
           ...(checked.status === "unverified_content" ? { reason: checked.reason } : {}),
         }, "Facebook direct Page check completed");
         if (checked.status !== "ready") {
+          let pageGrant: "not_targeted" | "targeted" | "unknown" = "unknown";
+          try {
+            const grant = await inspectFacebookPageGrant(userToken, config, login.pageId);
+            // Fixed flags only: no Page IDs, tokens, or raw Meta responses.
+            req.log.info(grant, "Facebook selected Page token grant summary");
+            if (grant.showListTargetsPage === false || grant.managePostsTargetsPage === false
+              || !grant.showListGranted || !grant.managePostsGranted) pageGrant = "not_targeted";
+            else if (grant.showListTargetsPage === true && grant.managePostsTargetsPage === true) pageGrant = "targeted";
+          } catch (error) {
+            req.log.warn({
+              phase: "selected_page_grant_diagnostic",
+              ...(error instanceof FacebookGraphFailure ? {
+                httpStatus: error.httpStatus,
+                providerCode: error.providerCode,
+                providerSubcode: error.providerSubcode,
+              } : {}),
+            }, "Facebook selected Page grant diagnostic unavailable");
+          }
           const reason = checked.status === "page_mismatch" ? "direct_page_error"
             : checked.status === "unverified_content"
-              ? checked.reason === "roles_denied" ? "direct_roles_denied"
-                : checked.reason === "role_not_returned" ? "direct_role_missing"
+              ? pageGrant === "not_targeted" ? "direct_page_not_granted"
+                : pageGrant === "targeted" ? "direct_tasks_unavailable"
                   : "direct_unverified"
             : checked.status === "no_page_token" ? "direct_no_token" : "direct_no_content";
           res.redirect(303, finish(reason));

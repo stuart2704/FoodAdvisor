@@ -194,42 +194,7 @@ export async function fetchFacebookPages(userToken: string): Promise<FacebookPag
 export type FacebookPageCheck =
   | { status: "ready"; page: FacebookPage }
   | { status: "no_content_access" | "no_page_token" | "page_mismatch" }
-  | { status: "unverified_content"; reason:
-      "identity_unavailable" | "roles_denied" | "roles_unavailable" | "role_not_returned" | "role_tasks_unavailable" };
-
-// The Page node does not always expose tasks. The roles edge can verify the
-// current login's task for non-business Page users; an absent row or an
-// inaccessible edge is not evidence of publishing access.
-async function checkFacebookPageRole(userToken: string, pageToken: string, pageId: string): Promise<
-  { tasks: string[] } | Extract<FacebookPageCheck, { status: "unverified_content" }>
-> {
-  let me: any;
-  try {
-    me = await graphRequest(`${GRAPH}/me?fields=id`, {
-      headers: { Authorization: `Bearer ${userToken}` },
-    });
-  } catch {
-    return { status: "unverified_content", reason: "identity_unavailable" };
-  }
-  if (typeof me.id !== "string" || !/^\d+$/.test(me.id)) {
-    return { status: "unverified_content", reason: "identity_unavailable" };
-  }
-  try {
-    const url = new URL(`${GRAPH}/${pageId}/roles`);
-    url.searchParams.set("uid", me.id);
-    const roles = await graphRequest(url.toString(), {
-      headers: { Authorization: `Bearer ${pageToken}` },
-    });
-    const ownRole = Array.isArray(roles.data)
-      ? roles.data.find((role: any) => role.id === me.id) : null;
-    if (!ownRole) return { status: "unverified_content", reason: "role_not_returned" };
-    if (!Array.isArray(ownRole.tasks)) return { status: "unverified_content", reason: "role_tasks_unavailable" };
-    return { tasks: ownRole.tasks };
-  } catch (error) {
-    const denied = error instanceof FacebookGraphFailure && [10, 200, 283].includes(error.providerCode ?? -1);
-    return { status: "unverified_content", reason: denied ? "roles_denied" : "roles_unavailable" };
-  }
-}
+  | { status: "unverified_content"; reason: "tasks_unavailable" };
 
 // A direct Page lookup is only a candidate: do not connect it unless Meta also
 // reports CREATE_CONTENT and a Page token for this same login and Page ID.
@@ -249,13 +214,10 @@ export async function checkFacebookPageById(userToken: string, pageId: string): 
   }
   if (data.id !== pageId || typeof data.name !== "string") return { status: "page_mismatch" };
   if (typeof data.access_token !== "string" || !data.access_token) return { status: "no_page_token" };
-  let tasks = data.tasks;
-  if (!Array.isArray(tasks)) {
-    const role = await checkFacebookPageRole(userToken, data.access_token, pageId);
-    if ("status" in role) return role;
-    tasks = role.tasks;
-  }
-  if (!tasks.includes("CREATE_CONTENT")) return { status: "no_content_access" };
+  // Role entries have Page-scoped person IDs, unlike /me's app-scoped ID.
+  // Without a verified mapping, a role entry cannot authorize this login.
+  if (!Array.isArray(data.tasks)) return { status: "unverified_content", reason: "tasks_unavailable" };
+  if (!data.tasks.includes("CREATE_CONTENT")) return { status: "no_content_access" };
   return { status: "ready", page: { id: data.id, name: data.name, accessToken: data.access_token } };
 }
 
@@ -273,6 +235,7 @@ export async function fetchConnectableFacebookPages(userToken: string, pageId: s
 export async function inspectFacebookPageGrant(
   userToken: string,
   config: NonNullable<ReturnType<typeof facebookConfig>>,
+  pageId?: string,
 ) {
   const url = new URL(`${GRAPH}/debug_token`);
   url.searchParams.set("input_token", userToken);
@@ -287,6 +250,11 @@ export async function inspectFacebookPageGrant(
     const granular = data.granular_scopes.find((entry: any) => entry?.scope === scope);
     return Array.isArray(granular?.target_ids) ? granular.target_ids.length : null;
   };
+  const targetsPage = (scope: string): boolean | null => {
+    if (!pageId || !isFacebookPageId(pageId) || !Array.isArray(data.granular_scopes)) return null;
+    const granular = data.granular_scopes.find((entry: any) => entry?.scope === scope);
+    return Array.isArray(granular?.target_ids) ? granular.target_ids.includes(pageId) : null;
+  };
   return {
     tokenValid: data.is_valid === true,
     showListGranted: scopeGranted("pages_show_list"),
@@ -295,5 +263,9 @@ export async function inspectFacebookPageGrant(
     managePostsTargetCount: targetCount("pages_manage_posts"),
     readEngagementGranted: scopeGranted("pages_read_engagement"),
     manageMetadataGranted: scopeGranted("pages_manage_metadata"),
+    ...(pageId ? {
+      showListTargetsPage: targetsPage("pages_show_list"),
+      managePostsTargetsPage: targetsPage("pages_manage_posts"),
+    } : {}),
   };
 }

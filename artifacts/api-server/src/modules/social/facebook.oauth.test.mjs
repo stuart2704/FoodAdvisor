@@ -98,13 +98,13 @@ test("unsupported direct Page tasks field cannot bypass content verification", a
       ? Response.json({ error: { code: 100 } }, { status: 400 })
       : Response.json({ id: "123", name: "Page", access_token: "page-token" }));
     assert.deepEqual(await checkFacebookPageById("user-token", "123"), {
-      status: "unverified_content", reason: "role_not_returned",
+      status: "unverified_content", reason: "tasks_unavailable",
     });
-    assert.equal(calls, 4);
+    assert.equal(calls, 2);
   } finally { globalThis.fetch = originalFetch; }
 });
 
-test("Page roles fallback verifies only the current login's CREATE_CONTENT task", async () => {
+test("Page-scoped roles cannot be mistaken for the app-scoped login identity", async () => {
   const originalFetch = globalThis.fetch;
   try {
     const calls = [];
@@ -112,39 +112,12 @@ test("Page roles fallback verifies only the current login's CREATE_CONTENT task"
       const path = new URL(url).pathname;
       calls.push({ path, url: String(url), authorization: init.headers.Authorization });
       if (path === "/v26.0/123") return Response.json({ id: "123", name: "Page", access_token: "page-token" });
-      if (path === "/v26.0/me") return Response.json({ id: "456" });
-      return Response.json({ data: [{ id: "456", tasks: ["CREATE_CONTENT"] }] });
+      throw new Error("No identity or roles lookup should be attempted");
     };
     assert.deepEqual(await checkFacebookPageById("user-token", "123"), {
-      status: "ready", page: { id: "123", name: "Page", accessToken: "page-token" },
+      status: "unverified_content", reason: "tasks_unavailable",
     });
-    assert.equal(new URL(calls[2].url).searchParams.get("uid"), "456");
-    assert.equal(calls[2].authorization, "Bearer page-token");
-    globalThis.fetch = async (url) => {
-      const path = new URL(url).pathname;
-      if (path === "/v26.0/123") return Response.json({ id: "123", name: "Page", access_token: "page-token" });
-      if (path === "/v26.0/me") return Response.json({ id: "456" });
-      return Response.json({ data: [{ id: "789", tasks: ["CREATE_CONTENT"] }] });
-    };
-    assert.deepEqual(await checkFacebookPageById("user-token", "123"), {
-      status: "unverified_content", reason: "role_not_returned",
-    });
-    globalThis.fetch = async (url) => {
-      const path = new URL(url).pathname;
-      if (path === "/v26.0/123") return Response.json({ id: "123", name: "Page", access_token: "page-token" });
-      if (path === "/v26.0/me") return Response.json({ id: "456" });
-      return Response.json({ data: [{ id: "456", tasks: ["ANALYZE"] }] });
-    };
-    assert.deepEqual(await checkFacebookPageById("user-token", "123"), { status: "no_content_access" });
-    globalThis.fetch = async (url) => {
-      const path = new URL(url).pathname;
-      if (path === "/v26.0/123") return Response.json({ id: "123", name: "Page", access_token: "page-token" });
-      if (path === "/v26.0/me") return Response.json({ id: "456" });
-      return Response.json({ error: { code: 200 } }, { status: 403 });
-    };
-    assert.deepEqual(await checkFacebookPageById("user-token", "123"), {
-      status: "unverified_content", reason: "roles_denied",
-    });
+    assert.deepEqual(calls.map(call => call.path), ["/v26.0/123"]);
   } finally { globalThis.fetch = originalFetch; }
 });
 
@@ -238,7 +211,8 @@ test("token diagnostics return only fixed permission flags and Page counts", asy
         ],
       } });
     };
-    const summary = await inspectFacebookPageGrant("private-user-token", { appId: "test-app", appSecret: "test-secret", redirectUri: "https://example.test/callback" });
+    const config = { appId: "test-app", appSecret: "test-secret", redirectUri: "https://example.test/callback" };
+    const summary = await inspectFacebookPageGrant("private-user-token", config);
     assert.deepEqual(summary, {
       tokenValid: true, showListGranted: true, showListTargetCount: 2,
       managePostsGranted: true, managePostsTargetCount: 0,
@@ -248,5 +222,23 @@ test("token diagnostics return only fixed permission flags and Page counts", asy
     assert.equal(called.url.searchParams.get("input_token"), "private-user-token");
     assert.equal(called.init.headers.Authorization, "Bearer test-app|test-secret");
     assert.equal(JSON.stringify(summary).includes("private-"), false);
+    const selected = await inspectFacebookPageGrant("private-user-token", config, "123");
+    assert.equal(selected.showListTargetsPage, false);
+    assert.equal(selected.managePostsTargetsPage, false);
+    assert.equal(JSON.stringify(selected).includes("123"), false);
+    globalThis.fetch = async () => Response.json({ data: {
+      scopes: ["pages_show_list", "pages_manage_posts"],
+      granular_scopes: [
+        { scope: "pages_show_list", target_ids: ["123"] },
+        { scope: "pages_manage_posts", target_ids: ["123"] },
+      ],
+    } });
+    const targeted = await inspectFacebookPageGrant("private-user-token", config, "123");
+    assert.equal(targeted.showListTargetsPage, true);
+    assert.equal(targeted.managePostsTargetsPage, true);
+    globalThis.fetch = async () => Response.json({ data: { scopes: ["pages_show_list", "pages_manage_posts"] } });
+    const unknown = await inspectFacebookPageGrant("private-user-token", config, "123");
+    assert.equal(unknown.showListTargetsPage, null);
+    assert.equal(unknown.managePostsTargetsPage, null);
   } finally { globalThis.fetch = originalFetch; }
 });
