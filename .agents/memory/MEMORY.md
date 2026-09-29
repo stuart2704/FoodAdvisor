@@ -13,7 +13,7 @@
 - [Stripe environment separation](stripe-environment-separation.md) — keep sandbox prices development-only; production Stripe setup must create and configure its own live price.
 - [Stripe sync lifecycle](stripe-sync-lifecycle.md) — close fresh sync pools, scope signing secrets to endpoints, and retry entitlement reconciliation independently of sync deduplication.
 - [GitHub push authentication](github-push-authentication.md) — OAuth may work through the connector while Git CLI stays unauthorized; never force-push as a workaround.
-- [External hosting connectors](external-hosting-connectors.md) — Replit connector clients need direct provider-credential fallbacks on non-Replit hosts.
+- [Provider credential boundaries](external-hosting-connectors.md) — external hosts need direct credentials; Instantly uses a user-approved direct key on Replit after a connector scope issue.
 - [Clerk OAuth preview hosts](clerk-oauth-preview-hosts.md) — verify provider redirects on the actual preview host; injected test hosts can resolve a different Clerk context.
 - [Owner contact enrichment](owner-contact-enrichment.md) — explicit paid lookups stay private and outside outreach; ambiguous BetterContact submissions must not be retried.
 - [Proxy billing boundary](proxy-billing-boundary.md) — local byte caps are not invoice caps; require a verified provider session ceiling and retain uncertain reservations.

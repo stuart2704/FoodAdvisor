@@ -1,3 +1,4 @@
+import { ReplitConnectors } from "@replit/connectors-sdk";
 import {
   normaliseInstantlyEmail,
   validInstantlyProviderId,
@@ -329,10 +330,19 @@ function assertInactiveDraft(campaign: CampaignRecord): void {
 
 async function validateManagedMailbox(email: string): Promise<string> {
   const normalisedEmail = mailboxEmail(email);
-  const response = record(
-    await instantlyJson(`/v2/accounts/${encodeURIComponent(normalisedEmail)}`),
-    "mailbox",
-  );
+  // The new project key is scoped to campaigns, leads and messages. The
+  // existing connector retains accounts:read for this read-only admin check.
+  let response: Record<string, unknown>;
+  try {
+    const result = await withTimeout(
+      new ReplitConnectors().proxy("instantly", `/v2/accounts/${encodeURIComponent(normalisedEmail)}`),
+    );
+    if (!result.ok) fail(`Instantly mailbox check was not accepted (HTTP ${result.status}).`);
+    response = record(await result.json(), "mailbox");
+  } catch (error) {
+    if (error instanceof SequenceBuilderError) throw error;
+    fail("Instantly mailbox check failed.");
+  }
   const managedEmail = typeof response.email === "string"
     ? normaliseInstantlyEmail(response.email)
     : null;

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { ReplitConnectors, type ProxyOptions } from "@replit/connectors-sdk";
 import type { InstantlyRequestOptions } from "../services/instantly/instantlyClient.ts";
 import {
   UNSUBSCRIBE_PLACEHOLDER,
@@ -29,8 +30,20 @@ async function withProxy(
 ): Promise<void> {
   const calls: ProxyCall[] = [];
   const original = globalThis.fetch;
+  const originalProxy = ReplitConnectors.prototype.proxy;
   const previousKey = process.env.INSTANTLY_API_KEY;
   process.env.INSTANTLY_API_KEY = "test-key-only";
+  ReplitConnectors.prototype.proxy = async function mockProxy(
+    connector: string,
+    path: string,
+    options?: ProxyOptions,
+  ): Promise<Response> {
+    assert.equal(connector, "instantly");
+    assert.ok(path.startsWith("/v2/accounts/"), "the connector must only read sending accounts");
+    const call: ProxyCall = { connector, path, options };
+    calls.push(call);
+    return handler(call);
+  };
   globalThis.fetch = async function mockFetch(
     input: string | URL | Request,
     init?: RequestInit,
@@ -53,6 +66,7 @@ async function withProxy(
     await operation(calls);
   } finally {
     globalThis.fetch = original;
+    ReplitConnectors.prototype.proxy = originalProxy;
     if (previousKey === undefined) delete process.env.INSTANTLY_API_KEY;
     else process.env.INSTANTLY_API_KEY = previousKey;
   }
