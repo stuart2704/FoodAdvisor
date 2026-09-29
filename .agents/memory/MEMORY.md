@@ -45,3 +45,4 @@
 - [Browser attachment checks](browser-attachment-checks.md) — Chromium download responses may bypass page response listeners; inspect the download and headers separately.
 - [Collection revision checks](collection-revision-checks.md) — gate all collection writes atomically on a revision; preserve drafts while fetching a conflict's latest state.
 - [Amenity refresh provenance](amenity-refresh-provenance.md) — legacy checks cannot prove who wrote current tags; require proven checker-applied baseline before replacing them.
+- [Mock table identity](mock-table-identity.md) — keep fake ORM table identifiers separate from modeled columns to avoid silently selecting the wrong records.

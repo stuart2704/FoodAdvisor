@@ -16,6 +16,7 @@ import { startDailyOrchestrationScheduler } from "./scheduler/dailyOrchestration
 import { startChefPhotoCleanup } from "./cron/chefPhotoCleanup";
 import { startRestaurantPhotoCleanup } from "./cron/restaurantPhotoCleanup";
 import { startGovernmentImportScheduler } from "./cron/governmentImports";
+import { startStripeCheckoutAlertScheduler } from "./cron/stripeCheckoutAlerts";
 
 const rawPort = process.env["PORT"];
 
@@ -57,6 +58,7 @@ async function initializeAfterListen(): Promise<void> {
   startChefPhotoCleanup();
   startRestaurantPhotoCleanup();
   startGovernmentImportScheduler();
+  startStripeCheckoutAlertScheduler();
 
   try {
     await initializeStripe();

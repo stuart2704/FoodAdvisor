@@ -17,6 +17,7 @@ import {
   pool,
   restaurantPortalTokensTable,
   restaurantsTable,
+  stripeCheckoutAlertsTable,
   stripeProcessedEventsTable,
 } from "@workspace/db";
 import { generateLoginToken } from "./portalTokenService";
@@ -142,6 +143,10 @@ async function main() {
     const paidSubscription = await stripe.subscriptions.retrieve(subscriptionId);
     assert.equal(paidSubscription.customer, customerId);
     assert.equal(paidSubscription.items.data[0].price.id, price.id);
+    const [alert] = await db.select().from(stripeCheckoutAlertsTable)
+      .where(eq(stripeCheckoutAlertsTable.sessionId, sessionId));
+    assert.ok(alert?.resolvedAt, "Verified payment should resolve any checkout alert");
+    assert.equal(alert.restaurantId, id);
     const repeat = await checkout();
     assert.equal(repeat.status, 409, "Subscribed owner could start another checkout");
     process.stdout.write("Sandbox checkout activated exactly one Premium subscription.\n");
@@ -193,6 +198,8 @@ async function main() {
       }
       if (ids.length) await db.delete(stripeProcessedEventsTable)
         .where(inArray(stripeProcessedEventsTable.eventId, ids));
+      if (sessionId) await db.delete(stripeCheckoutAlertsTable)
+        .where(eq(stripeCheckoutAlertsTable.sessionId, sessionId));
       await db.delete(analyticsEventsTable).where(eq(analyticsEventsTable.restaurantId, id));
       await db.delete(restaurantPortalTokensTable).where(eq(restaurantPortalTokensTable.placeId, id));
       await db.delete(restaurantsTable).where(eq(restaurantsTable.placeId, id));

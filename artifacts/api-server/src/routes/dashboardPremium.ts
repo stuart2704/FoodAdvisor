@@ -2,8 +2,18 @@ import { db, restaurantsTable } from "@workspace/db";
 import { desc, eq } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import { adminOnly } from "../middleware/adminOnly";
+import { listPaidCheckoutAlerts } from "../services/stripeCheckoutMonitor";
 
 const router: IRouter = Router();
+
+router.get("/premium/checkout-alerts", adminOnly, async (req, res) => {
+  try {
+    res.json({ success: true, items: await listPaidCheckoutAlerts() });
+  } catch (error) {
+    req.log.error({ err: error }, "Paid checkout alert query failed");
+    res.status(503).json({ success: false, error: "Checkout alerts are unavailable." });
+  }
+});
 
 router.get("/premium", adminOnly, async (req, res) => {
   try {

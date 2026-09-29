@@ -21,6 +21,7 @@ const files = {
 await Promise.all([
   writeFile(files.orm, `
 export const eq = (column, expected) => ({ kind: "eq", column, expected });
+export const isNull = column => ({ kind: "null", column });
 export const and = (...conditions) => ({ kind: "and", conditions });
 export const sql = (strings, ...values) => ({ kind: "sql", strings, values });
 `),
@@ -77,11 +78,13 @@ export const restaurantsTable = table("restaurants", [
   "premium", "premiumSince", "premiumCancelledAt"
 ]);
 export const stripeProcessedEventsTable = table("events", ["eventId", "eventType"]);
+export const stripeCheckoutAlertsTable = table("alerts", ["sessionId", "restaurantId", "customerId", "subscriptionId", "resolvedAt"]);
 export const analyticsEventsTable = table("analytics", ["restaurantId", "type", "metadata"]);
 const state = () => globalThis.__stripe;
 const matches = (condition, row) => {
   if (!condition) return true;
   if (condition.kind === "and") return condition.conditions.every(c => matches(c, row));
+  if (condition.kind === "null") return row[condition.column.column] == null;
   return row[condition.column.column] === condition.expected;
 };
 const project = (selection, row) => Object.fromEntries(
@@ -97,6 +100,12 @@ const transaction = {
   insert(table) {
     return {
       values(value) {
+        if (table.name === "alerts") {
+          return { onConflictDoNothing() {
+            state().alerts[value.sessionId] ??= { ...value, resolvedAt: null };
+            return Promise.resolve();
+          } };
+        }
         if (table.name === "analytics") {
           state().analytics.push(value);
           return Promise.resolve();
@@ -121,10 +130,12 @@ const transaction = {
       return row && matches(condition, row) ? [project(selection, row)] : [];
     } }; } }; } };
   },
-  update() {
+  update(table) {
     return { set(values) { return { where(condition) {
       const run = () => {
-        const row = state().restaurant;
+        const row = table.name === "alerts"
+          ? state().alerts[condition.conditions?.find(c => c.column?.column === "sessionId")?.expected]
+          : state().restaurant;
         if (!row || !matches(condition, row)) return [];
         Object.assign(row, Object.fromEntries(Object.entries(values).filter(([, value]) => value !== undefined)));
         state().updates += 1;
@@ -150,6 +161,7 @@ export const db = {
       restaurant: state().restaurant,
       events: [...state().events],
       analytics: state().analytics,
+      alerts: state().alerts,
       updates: state().updates,
     });
     try {
@@ -158,6 +170,7 @@ export const db = {
       state().restaurant = snapshot.restaurant;
       state().events = new Set(snapshot.events);
       state().analytics = snapshot.analytics;
+      state().alerts = snapshot.alerts;
       state().updates = snapshot.updates;
       throw error;
     } finally {
@@ -255,6 +268,7 @@ function baseState() {
     subscription,
     events: new Set(),
     analytics: [],
+    alerts: {},
     updates: 0,
     syncCalls: 0,
     closeCalls: 0,
@@ -291,6 +305,23 @@ test("valid paid £99 monthly event activates only the mapped basic claim", asyn
   assert.equal(globalThis.__stripe.analytics.length, 1);
   assert.equal(globalThis.__stripe.lockCalls, 1);
   assert.equal(globalThis.__stripe.closeCalls, 1);
+});
+
+test("verified reconciliation resolves a tracked checkout alert; forged delivery cannot", async () => {
+  globalThis.__stripe = baseState();
+  const state = globalThis.__stripe;
+  state.alerts.cs_test_valid = {
+    sessionId: "cs_test_valid", restaurantId: "rest_1",
+    customerId: "cus_owner", alertedAt: new Date(), resolvedAt: null,
+  };
+  state.signatureError = true;
+  await assert.rejects(handleWebhook(Buffer.from("{}"), "forged"), StripeWebhookSignatureError);
+  assert.equal(state.alerts.cs_test_valid.resolvedAt, null);
+  assert.equal(state.restaurant.premium, false);
+  state.signatureError = false;
+  await handleWebhook(Buffer.from("{}"), "valid");
+  assert.ok(state.alerts.cs_test_valid.resolvedAt);
+  assert.equal(state.alerts.cs_test_valid.subscriptionId, "sub_paid");
 });
 
 test("configured Price must be active £99 GBP monthly before checkout", () => {

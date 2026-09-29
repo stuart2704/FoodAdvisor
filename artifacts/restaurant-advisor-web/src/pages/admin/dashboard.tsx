@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AdminLayout } from "../../components/admin/AdminLayout";
 import { RequireAdmin } from "../../components/admin/RequireAdmin";
+import { PaidCheckoutAlerts } from "../../components/admin/PaidCheckoutAlerts";
 import ErrorLogPanel from "../../components/error-log-panel";
 import GlobalDirectoryAnalyticsPanel from "../../components/global-directory-analytics-panel";
 import GmailAutomationPanel from "../../components/gmail-automation-panel";
@@ -226,6 +227,7 @@ export default function AdminDashboard() {
           )}
 
           {loading && !data && !error && <div className="ad-skeleton" role="status" aria-label="Loading operations activity" />}
+          <PaidCheckoutAlerts />
 
           {data && (
             <>

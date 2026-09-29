@@ -23,6 +23,7 @@ export * from "./placePhotoLookupCache";
 //   export type Post = typeof postsTable.$inferSelect;
 
 export * from "./restaurants";
+export * from "./stripeCheckoutAlerts";
 export * from "./aiUsage";
 export * from "./aiDescriptionCache";
 export * from "./operationalLog";

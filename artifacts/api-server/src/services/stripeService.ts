@@ -3,9 +3,10 @@ import {
   analyticsEventsTable,
   db,
   restaurantsTable,
+  stripeCheckoutAlertsTable,
   stripeProcessedEventsTable,
 } from "@workspace/db";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { assertPublicHttpsUrl } from "../lib/public-url";
 import { validateToken } from "./portalTokenService";
 import {
@@ -107,6 +108,11 @@ export async function createCheckoutSession(
         stripeCheckoutAttempt: attempt,
       })
       .where(eq(restaurantsTable.placeId, restaurant.placeId));
+    await tx.insert(stripeCheckoutAlertsTable).values({
+      sessionId: session.id,
+      restaurantId: restaurant.placeId,
+      customerId,
+    }).onConflictDoNothing();
     return session.url;
   });
 }
@@ -166,6 +172,14 @@ async function applyCheckoutCompleted(
     )
     .returning({ placeId: restaurantsTable.placeId });
   if (!updated) throw new Error("Stripe restaurant mapping changed.");
+  await tx.update(stripeCheckoutAlertsTable)
+    .set({ resolvedAt: new Date(), subscriptionId: subscription.id })
+    .where(and(
+      eq(stripeCheckoutAlertsTable.sessionId, session.id),
+      eq(stripeCheckoutAlertsTable.restaurantId, restaurantId),
+      eq(stripeCheckoutAlertsTable.customerId, customerId),
+      isNull(stripeCheckoutAlertsTable.resolvedAt),
+    ));
   if (!existing.premium) {
     await tx.insert(analyticsEventsTable).values({
       restaurantId,
