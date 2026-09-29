@@ -15,4 +15,4 @@ Workflow files are a stricter case than ordinary repository content: a healthy G
 
 **Why:** GitHub denied workflow creation despite a healthy connector that could manage Actions variables. Retrying through a different file API did not change the missing permission.
 
-**How to apply:** Check the connector's available reauthorization scopes. If workflow permission is unavailable, leave the scheduler disabled and ask the repository owner to add the workflow through an appropriately authorized GitHub session; never bypass the restriction with a force-push.
+**How to apply:** Check the connector's available reauthorization scopes. An HTML 403 on a workflow-content write may come from an intermediary rather than GitHub, so verify the remote file instead of claiming a permission diagnosis or a successful push. If workflow permission is unavailable, leave the scheduler disabled and ask the repository owner to edit the workflow through an appropriately authorized GitHub session; never bypass the restriction with a force-push.
