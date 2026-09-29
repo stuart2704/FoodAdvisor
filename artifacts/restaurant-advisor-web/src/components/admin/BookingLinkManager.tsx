@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { trackEvent } from "../../lib/analytics";
+import { BookingOutcomeStatus } from "../BookingOutcomeStatus";
 
 export interface Booking {
   url: string | null;
@@ -98,6 +99,7 @@ export function BookingLinkManager({ restaurantId, restaurantName, booking, onCh
         Provider: {booking.provider || "Not set"} · Approval: {booking.status || "Not set"}<br />
         URL: {booking.url || "No booking link"}
       </p>
+      {booking.url && <BookingOutcomeStatus provider={booking.provider} />}
       <form onSubmit={(event) => void publish(event)} style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "end" }}>
         <label style={{ display: "grid", gap: 4, flex: "2 1 280px" }}>
           Booking URL

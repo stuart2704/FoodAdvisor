@@ -427,7 +427,8 @@ export default function RestaurantDetail() {
       )}
 
       {restaurant.bookingUrl && (
-        <a
+        <>
+          <a
           href={restaurant.bookingUrl}
           target="_blank"
           rel="noopener noreferrer"
@@ -455,9 +456,11 @@ export default function RestaurantDetail() {
             event.currentTarget.style.boxShadow =
               "0 4px 10px rgba(0,0,0,0.15)";
           }}
-        >
-          Book Now
-        </a>
+          >
+            Book Now
+          </a>
+          <p style={{ marginTop: 8, fontSize: "0.875rem" }}>Bookings are completed on the provider’s site. Opening this link does not confirm a reservation.</p>
+        </>
       )}
 
       {restaurant.offers && restaurant.offers.length > 0 && (

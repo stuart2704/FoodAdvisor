@@ -28,6 +28,11 @@ it("shows the current booking and publishes a verified replacement through the a
   vi.stubGlobal("fetch", fetchMock);
   const onChange = setup();
   expect(screen.getByText(/Provider: Old provider · Approval: approved/)).toBeTruthy();
+  const outcome = screen.getByLabelText("Booking outcome reporting");
+  expect(outcome.textContent).toContain("Booking outcomes · Old provider");
+  expect(outcome.textContent).toContain("Book Now clicks: outbound intent only");
+  expect(outcome.textContent).toContain("Confirmed reservations: unavailable");
+  expect(outcome.textContent).toContain("conversion: unavailable, not 0%");
   fireEvent.change(screen.getByLabelText("Booking URL"), { target: { value: "https://new.example/table" } });
   fireEvent.change(screen.getByLabelText("Provider (optional)"), { target: { value: "New provider" } });
   fireEvent.click(screen.getByRole("button", { name: "Check and publish" }));
@@ -43,6 +48,7 @@ it("rejects invalid input without calling the server and reports server validati
   const fetchMock = vi.fn().mockResolvedValue({ ok: false, json: async () => ({ success: false, error: "Booking page unavailable." }) });
   vi.stubGlobal("fetch", fetchMock);
   setup(empty);
+  expect(screen.queryByLabelText("Booking outcome reporting")).toBeNull();
   fireEvent.change(screen.getByLabelText("Booking URL"), { target: { value: "http://example.com" } });
   fireEvent.click(screen.getByRole("button", { name: "Check and publish" }));
   expect(screen.getByRole("alert").textContent).toMatch(/HTTPS/);

@@ -1,3 +1,4 @@
+import { BookingOutcomeStatus } from "./BookingOutcomeStatus";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { trackEvent } from "../lib/analytics";
 
@@ -572,6 +573,11 @@ export default function OwnerDashboard({
         <p className="mt-2 text-muted-foreground">
           Add the HTTPS page where diners can book. We check the destination and its redirects before publishing it.
         </p>
+        {!bookingLoading && booking.url && (
+          <div className="mt-4 rounded-lg border p-4 text-sm">
+            <BookingOutcomeStatus provider={booking.provider || null} />
+          </div>
+        )}
         {bookingLoading ? <p className="mt-6">Loading booking link…</p> : (
           <form onSubmit={saveBooking} className="mt-6 grid gap-4">
             <label className="grid gap-1">
