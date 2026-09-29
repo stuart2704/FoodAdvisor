@@ -20,3 +20,9 @@ Temporary tables used with Drizzle inserts must include even columns whose value
 **Why:** Drizzle's generated INSERT names mapped columns and uses `DEFAULT` expressions for omitted values. PostgreSQL still checks that those named columns exist.
 
 **How to apply:** When creating a throwaway schema for a Drizzle-backed integration test, include every column listed in the generated INSERT, with defaults and constraints needed by the exercised path.
+
+When a lifecycle method schedules work from `Date.now()`, do not use a fixed future cleanup time in the same concurrency test.
+
+**Why:** A fixed test time later than the actual wall clock makes a freshly scheduled grace-period row look overdue, so a test can delete it during an earlier race phase and misidentify the failure as a lock regression.
+
+**How to apply:** Anchor the test's cleanup clock to the current wall clock, then use explicit past timestamps for due fixtures and advance persisted due times for retry checks.
