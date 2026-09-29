@@ -1,5 +1,5 @@
 import { db, chefPhotoDeletionQueueTable, restaurantChefProfilesTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 type ChefValues = typeof restaurantChefProfilesTable.$inferInsert;
 
@@ -16,7 +16,11 @@ export async function saveChefProfile(
     await lockRestaurant(tx, restaurantId);
     const [existing] = await tx.select().from(restaurantChefProfilesTable)
       .where(eq(restaurantChefProfilesTable.restaurantId, restaurantId)).limit(1);
-    const values = buildValues(existing);
+    const values = {
+      ...buildValues(existing),
+      // The queue uses this timestamp as its revision; even rapid successive edits must differ.
+      updatedAt: new Date(Math.max(Date.now(), (existing?.updatedAt.getTime() ?? 0) + 1)),
+    };
     if (values.photoObjectPath && values.photoObjectPath !== existing?.photoObjectPath) {
       await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`chef-photo:${values.photoObjectPath}`}, 72))`);
     }
@@ -31,14 +35,18 @@ export async function saveChefProfile(
   });
 }
 
-export async function removeChefProfile(restaurantId: string) {
-  await db.transaction(async (tx) => {
+export async function removeChefProfile(restaurantId: string, expectedRevision?: Date): Promise<boolean> {
+  return db.transaction(async (tx) => {
     await lockRestaurant(tx, restaurantId);
     const [existing] = await tx.delete(restaurantChefProfilesTable)
-      .where(eq(restaurantChefProfilesTable.restaurantId, restaurantId)).returning({ photoObjectPath: restaurantChefProfilesTable.photoObjectPath });
+      .where(expectedRevision
+        ? and(eq(restaurantChefProfilesTable.restaurantId, restaurantId), eq(restaurantChefProfilesTable.moderationStatus, "pending"), eq(restaurantChefProfilesTable.updatedAt, expectedRevision))
+        : eq(restaurantChefProfilesTable.restaurantId, restaurantId))
+      .returning({ photoObjectPath: restaurantChefProfilesTable.photoObjectPath });
     if (existing?.photoObjectPath) {
       await tx.insert(chefPhotoDeletionQueueTable).values({ objectPath: existing.photoObjectPath, dueAt: new Date(Date.now() + 20 * 60_000) })
         .onConflictDoNothing();
     }
+    return !!existing;
   });
 }

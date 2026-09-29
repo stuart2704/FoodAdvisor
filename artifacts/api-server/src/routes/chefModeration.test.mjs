@@ -16,7 +16,9 @@ export const restaurantsTable = table("restaurants");
 const state = () => globalThis.__chefModerationState;
 const matches = (condition, row) => condition.op === "and"
   ? condition.conditions.every(part => matches(part, row))
-  : row[condition.column.name] === condition.value;
+  : (row[condition.column.name] instanceof Date && condition.value instanceof Date
+    ? row[condition.column.name].getTime() === condition.value.getTime()
+    : row[condition.column.name] === condition.value);
 export const db = {
   select(selection) {
     return {
@@ -84,10 +86,12 @@ async function bundle(source, name) {
               ? 'export function adminOnly(req,res,next){if(req.headers["x-test-admin"]==="yes")next();else res.status(403).json({error:"Forbidden"});}'
               : args.path.endsWith("chefObjectStorage")
                 ? 'export async function streamChefObject(path,res){globalThis.__chefModerationState.streams.push(path);res.type("image/png").send("photo bytes");}'
-                : `export async function removeChefProfile(id) {
+                : `export async function removeChefProfile(id, expectedRevision) {
                      const rows=globalThis.__chefModerationState.chef;
-                     const index=rows.findIndex(row=>row.restaurantId===id);
+                     const index=rows.findIndex(row=>row.restaurantId===id && (!expectedRevision ||
+                       (row.moderationStatus==="pending" && row.updatedAt.getTime()===expectedRevision.getTime())));
                      if(index>=0) rows.splice(index,1);
+                     return index>=0;
                    }
                    export async function saveChefProfile(){throw new Error("not used");}`,
           loader: "js",
@@ -132,6 +136,7 @@ async function request(pathname, options = {}) {
     ? await response.json() : await response.text() };
 }
 const admin = { "x-test-admin": "yes" };
+const reviewHeaders = () => ({ ...admin, "x-chef-review-revision": globalThis.__chefModerationState.chef[0].updatedAt.toISOString() });
 const publicPhoto = () => request(`/storage/objects/chef/${id}`);
 
 test("pending and rejected photos are private; the admin list returns the review page's response shape", async () => {
@@ -154,7 +159,7 @@ test("pending and rejected photos are private; the admin list returns the review
   assert.equal((await request("/admin/chef-profiles/place-1/photo", { headers: admin })).status, 200);
   assert.equal((await request("/admin/chef-profiles/place-1/photo")).status, 403);
   const rejected = await request("/admin/chef-profiles/place-1/reject", {
-    method: "POST", headers: { ...admin, "content-type": "application/json" },
+    method: "POST", headers: { ...reviewHeaders(), "content-type": "application/json" },
     body: JSON.stringify({ reason: "Evidence requires additional verification." }),
   });
   assert.equal(rejected.status, 200);
@@ -167,7 +172,7 @@ test("pending and rejected photos are private; the admin list returns the review
 test("approval timestamps a pending profile; rejection and admin removal revoke public photos immediately", async () => {
   reset();
   const approved = await request("/admin/chef-profiles/place-1/approve", {
-    method: "POST", headers: admin,
+    method: "POST", headers: reviewHeaders(),
   });
   assert.equal(approved.status, 200);
   assert.equal(approved.body.profile.moderationStatus, "approved");
@@ -176,22 +181,80 @@ test("approval timestamps a pending profile; rejection and admin removal revoke 
   assert.equal((await publicPhoto()).status, 200);
   assert.deepEqual(globalThis.__chefModerationState.streams, [photo]);
   assert.equal((await request("/admin/chef-profiles/place-1/approve", {
-    method: "POST", headers: admin,
-  })).status, 404, "an approved profile cannot be re-approved");
+    method: "POST", headers: reviewHeaders(),
+   })).status, 409, "an approved profile cannot be re-approved");
 
   const rejected = await request("/admin/chef-profiles/place-1/reject", {
-    method: "POST", headers: { ...admin, "content-type": "application/json" },
+    method: "POST", headers: { ...reviewHeaders(), "content-type": "application/json" },
     body: JSON.stringify({ reason: "Withdrawn" }),
   });
-  assert.equal(rejected.body.profile.verifiedAt, null);
-  assert.equal((await publicPhoto()).status, 404);
+  assert.equal(rejected.status, 409);
+  assert.equal(rejected.body.code, "CHEF_REVIEW_STALE");
+  assert.equal((await publicPhoto()).status, 200);
   reset("approved");
   assert.equal((await request("/admin/chef-profiles/place-1", {
-    method: "DELETE", headers: admin,
+    method: "DELETE", headers: reviewHeaders(),
+  })).status, 409);
+  assert.equal((await publicPhoto()).status, 200);
+  reset();
+  assert.equal((await request("/admin/chef-profiles/place-1", {
+    method: "DELETE", headers: reviewHeaders(),
   })).status, 200);
   assert.equal((await publicPhoto()).status, 404);
   assert.equal((await request("/admin/chef-profiles/place-1/photo", { headers: admin })).status, 404);
   assert.deepEqual(globalThis.__chefModerationState.streams, []);
+});
+
+test("two reviewers cannot decide the same pending chef profile twice", async () => {
+  for (const firstAction of ["approve", "reject", "remove"]) {
+    for (const secondAction of ["approve", "reject", "remove"]) {
+      reset();
+      const revision = reviewHeaders();
+      const decide = (action) => request(`/admin/chef-profiles/place-1${action === "remove" ? "" : `/${action}`}`, {
+        method: action === "remove" ? "DELETE" : "POST",
+        headers: { ...revision, "content-type": "application/json" },
+        ...(action === "reject" ? { body: JSON.stringify({ reason: "Needs evidence" }) } : {}),
+      });
+      const first = await decide(firstAction);
+      const second = await decide(secondAction);
+      assert.equal(first.status, 200, firstAction);
+      assert.equal(second.status, 409, `${firstAction} then ${secondAction}`);
+      assert.equal(second.body.code, "CHEF_REVIEW_STALE");
+      assert.equal(globalThis.__chefModerationState.chef[0]?.moderationStatus,
+        firstAction === "remove" ? undefined : firstAction === "approve" ? "approved" : "rejected");
+      assert.deepEqual((await request("/admin/chef-profiles/pending", { headers: admin })).body.profiles, []);
+    }
+  }
+});
+
+test("changed pending content and a rejection followed by resubmission invalidate every old decision", async () => {
+  for (const change of ["edit", "resubmit"]) {
+    for (const action of ["approve", "reject", "remove"]) {
+      reset();
+      const oldRevision = reviewHeaders();
+      if (change === "resubmit") {
+        const rejected = await request("/admin/chef-profiles/place-1/reject", {
+          method: "POST", headers: { ...oldRevision, "content-type": "application/json" },
+          body: JSON.stringify({ reason: "Needs evidence" }),
+        });
+        assert.equal(rejected.status, 200);
+      }
+      const current = globalThis.__chefModerationState.chef[0];
+      current.name = "Changed chef details";
+      current.moderationStatus = "pending";
+      current.updatedAt = new Date(current.updatedAt.getTime() + 1);
+      const result = await request(`/admin/chef-profiles/place-1${action === "remove" ? "" : `/${action}`}`, {
+        method: action === "remove" ? "DELETE" : "POST",
+        headers: { ...oldRevision, "content-type": "application/json" },
+        ...(action === "reject" ? { body: JSON.stringify({ reason: "Old details" }) } : {}),
+      });
+      assert.equal(result.status, 409, `${change} then ${action}`);
+      assert.equal(result.body.code, "CHEF_REVIEW_STALE");
+      assert.equal(current.moderationStatus, "pending");
+      assert.equal(current.name, "Changed chef details");
+      assert.equal((await request("/admin/chef-profiles/pending", { headers: admin })).body.profiles[0].name, "Changed chef details");
+    }
+  }
 });
 
 test.after(async () => {

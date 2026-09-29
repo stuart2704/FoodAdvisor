@@ -21,6 +21,13 @@ const chefBody = z.object({
   photoSizeBytes: z.number().int().positive().max(5 * 1024 * 1024).nullable().optional(),
 }).strict();
 const decisionBody = z.object({ reason: z.string().trim().max(500).optional() }).strict();
+const staleReview = { success: false, code: "CHEF_REVIEW_STALE", error: "This chef profile is no longer pending review." };
+const reviewRevision = z.string().datetime({ offset: true });
+
+function parseReviewRevision(header: string | undefined): Date | null {
+  const parsed = reviewRevision.safeParse(header);
+  return parsed.success ? new Date(parsed.data) : null;
+}
 
 router.get("/chef-profiles/:placeId/photo", adminOnly, async (req, res): Promise<void> => {
   const params = placeIdParams.safeParse(req.params);
@@ -86,8 +93,9 @@ router.put("/chef-profiles/:placeId", adminOnly, async (req, res): Promise<void>
 
 router.post("/chef-profiles/:placeId/approve", adminOnly, async (req, res): Promise<void> => {
   const params = placeIdParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ success: false, error: "Invalid restaurant." });
+  const revision = parseReviewRevision(req.get("X-Chef-Review-Revision"));
+  if (!params.success || !revision) {
+    res.status(400).json({ success: false, error: "Invalid restaurant or review revision." });
     return;
   }
   const reviewer = String(req.session?.admin ?? "admin");
@@ -96,9 +104,9 @@ router.post("/chef-profiles/:placeId/approve", adminOnly, async (req, res): Prom
     verifiedAt: new Date(),
     reviewedBy: reviewer,
     rejectionReason: null,
-  }).where(and(eq(restaurantChefProfilesTable.restaurantId, params.data.placeId), eq(restaurantChefProfilesTable.moderationStatus, "pending"))).returning();
+  }).where(and(eq(restaurantChefProfilesTable.restaurantId, params.data.placeId), eq(restaurantChefProfilesTable.moderationStatus, "pending"), eq(restaurantChefProfilesTable.updatedAt, revision))).returning();
   if (!profile) {
-    res.status(404).json({ success: false, error: "Pending chef profile not found." });
+    res.status(409).json(staleReview);
     return;
   }
   res.json({ success: true, profile });
@@ -107,8 +115,9 @@ router.post("/chef-profiles/:placeId/approve", adminOnly, async (req, res): Prom
 router.post("/chef-profiles/:placeId/reject", adminOnly, async (req, res): Promise<void> => {
   const params = placeIdParams.safeParse(req.params);
   const body = decisionBody.safeParse(req.body);
-  if (!params.success || !body.success) {
-    res.status(400).json({ success: false, error: "Invalid rejection." });
+  const revision = parseReviewRevision(req.get("X-Chef-Review-Revision"));
+  if (!params.success || !body.success || !revision) {
+    res.status(400).json({ success: false, error: "Invalid rejection or review revision." });
     return;
   }
   const [profile] = await db.update(restaurantChefProfilesTable).set({
@@ -116,9 +125,9 @@ router.post("/chef-profiles/:placeId/reject", adminOnly, async (req, res): Promi
     verifiedAt: null,
     reviewedBy: String(req.session?.admin ?? "admin"),
     rejectionReason: body.data.reason ?? "This profile needs more evidence.",
-  }).where(eq(restaurantChefProfilesTable.restaurantId, params.data.placeId)).returning();
+  }).where(and(eq(restaurantChefProfilesTable.restaurantId, params.data.placeId), eq(restaurantChefProfilesTable.moderationStatus, "pending"), eq(restaurantChefProfilesTable.updatedAt, revision))).returning();
   if (!profile) {
-    res.status(404).json({ success: false, error: "Chef profile not found." });
+    res.status(409).json(staleReview);
     return;
   }
   res.json({ success: true, profile });
@@ -126,11 +135,16 @@ router.post("/chef-profiles/:placeId/reject", adminOnly, async (req, res): Promi
 
 router.delete("/chef-profiles/:placeId", adminOnly, async (req, res): Promise<void> => {
   const params = placeIdParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ success: false, error: "Invalid restaurant." });
+  const revision = parseReviewRevision(req.get("X-Chef-Review-Revision"));
+  if (!params.success || !revision) {
+    res.status(400).json({ success: false, error: "Invalid restaurant or review revision." });
     return;
   }
-  await removeChefProfile(params.data.placeId);
+  const removed = await removeChefProfile(params.data.placeId, revision);
+  if (!removed) {
+    res.status(409).json(staleReview);
+    return;
+  }
   res.json({ success: true });
 });
 
