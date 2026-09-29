@@ -12,6 +12,7 @@
 - [Verification and rewards authority](verification-rewards-authority.md) — derive verification and rewards from protected server events; never accept browser-selected status, user IDs, or point amounts.
 - [Stripe environment separation](stripe-environment-separation.md) — keep sandbox prices development-only; production Stripe setup must create and configure its own live price.
 - [Stripe sync lifecycle](stripe-sync-lifecycle.md) — close fresh sync pools, scope signing secrets to endpoints, and retry entitlement reconciliation independently of sync deduplication.
+- [Connector refresh coordination](connector-refresh-coordination.md) — unknown connector limits call for fail-closed cross-replica serialization without shared plaintext credentials.
 - [GitHub push authentication](github-push-authentication.md) — OAuth may work through the connector while Git CLI stays unauthorized; never force-push as a workaround.
 - [Provider credential boundaries](external-hosting-connectors.md) — external hosts need direct credentials; Instantly uses a user-approved direct key on Replit after a connector scope issue.
 - [Clerk OAuth preview hosts](clerk-oauth-preview-hosts.md) — verify provider redirects on the actual preview host; injected test hosts can resolve a different Clerk context.

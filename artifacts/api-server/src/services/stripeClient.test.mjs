@@ -13,6 +13,7 @@ const stubs = {
   sync: path.join(temp, "sync.mjs"),
   connectors: path.join(temp, "connectors.mjs"),
   price: path.join(temp, "price.mjs"),
+  db: path.join(temp, "db.mjs"),
 };
 await Promise.all([
   writeFile(stubs.stripe, `export default class Stripe {
@@ -42,6 +43,27 @@ await Promise.all([
   writeFile(stubs.connectors, `export class ReplitConnectors {}`),
   writeFile(stubs.price, `export const getPremiumPriceId = (live) => live ? "price_live" : "price_test";
     export const stripeKeyLivemode = (key) => key.startsWith("sk_live_");`),
+  writeFile(stubs.db, `export const pool = {
+    async connect() {
+      let unlock;
+      return {
+        async query(sql) {
+          if (sql.includes("pg_advisory_xact_lock")) {
+            if (globalThis.__lockFailure) throw new Error("database lock unavailable");
+            const previous = globalThis.__lockTail;
+            globalThis.__lockTail = new Promise(resolve => { unlock = resolve; });
+            await previous;
+          }
+          if (sql === "COMMIT" || sql === "ROLLBACK") {
+            unlock?.();
+            unlock = undefined;
+          }
+          return { rows: [] };
+        },
+        release() { unlock?.(); },
+      };
+    },
+  };`),
 ]);
 const output = path.join(temp, "client.mjs");
 await build({
@@ -56,6 +78,7 @@ await build({
       builder.onResolve({ filter: /^stripe$/ }, () => ({ path: stubs.stripe }));
       builder.onResolve({ filter: /^stripe-replit-sync$/ }, () => ({ path: stubs.sync }));
       builder.onResolve({ filter: /^@replit\/connectors-sdk$/ }, () => ({ path: stubs.connectors }));
+      builder.onResolve({ filter: /^@workspace\/db$/ }, () => ({ path: stubs.db }));
       builder.onResolve({ filter: /lib\/premium-price$/ }, () => ({ path: stubs.price }));
     },
   }],
@@ -92,6 +115,7 @@ process.env.REPL_IDENTITY = "test-identity";
 process.env.REPLIT_DEV_DOMAIN = "preview.test";
 globalThis.__verificationSecrets = [];
 globalThis.__closedPools = 0;
+globalThis.__lockTail = Promise.resolve();
 let now = 1_000_000;
 Date.now = () => now;
 
@@ -139,6 +163,52 @@ test("expired credentials retry a 429, and a failed refresh is not cached", asyn
   await assert.rejects(getUncachableStripeClient(), /503/);
   globalThis.fetch = async () => Response.json(credentials("sk_test_recovered"));
   assert.equal((await getUncachableStripeClient()).key, "sk_test_recovered");
+});
+
+test("six independent replicas bound connector concurrency without sharing credentials", async () => {
+  const replicas = await Promise.all(Array.from({ length: 6 }, (_, i) =>
+    import(`${pathToFileURL(output).href}?replica=${i}`)));
+  let calls = 0;
+  let active = 0;
+  let peak = 0;
+  globalThis.fetch = async () => {
+    calls++;
+    active++;
+    peak = Math.max(peak, active);
+    await new Promise(resolve => setTimeout(resolve, 10));
+    active--;
+    return Response.json(credentials("sk_test_replica"));
+  };
+  const burst = () => Promise.all(replicas.flatMap(replica =>
+    Array.from({ length: 12 }, () => replica.getUncachableStripeClient())));
+  await burst();
+  assert.equal(calls, 6, "one request per replica per TTL, not per webhook");
+  assert.equal(peak, 1, "connector requests across replicas must not overlap");
+  await burst();
+  assert.equal(calls, 6);
+  now += 60_001;
+  let rateLimited = false;
+  const successfulFetch = globalThis.fetch;
+  globalThis.fetch = async (...args) => {
+    if (!rateLimited) {
+      rateLimited = true;
+      return new Response(null, { status: 429 });
+    }
+    return successfulFetch(...args);
+  };
+  await burst();
+  assert.equal(calls, 12, "six successful refreshes per minute at six replicas");
+  assert.equal(peak, 1);
+  assert.ok(rateLimited, "429 retries happen inside the shared lock");
+
+  now += 60_001;
+  globalThis.__lockFailure = true;
+  let uncoordinatedCalls = 0;
+  globalThis.fetch = async () => { uncoordinatedCalls++; return Response.json(credentials("sk_test_unsafe")); };
+  await assert.rejects(replicas[0].getUncachableStripeClient(), /database lock unavailable/);
+  assert.equal(uncoordinatedCalls, 0, "never bypass coordination on database failure");
+  globalThis.__lockFailure = false;
+  assert.equal((await replicas[0].getUncachableStripeClient()).key, "sk_test_unsafe");
 });
 
 test("release probe reads a live £99 monthly price without creating a checkout", async () => {

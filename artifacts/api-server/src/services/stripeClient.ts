@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { setTimeout as sleep } from "node:timers/promises";
 import { promisify } from "node:util";
 import { ReplitConnectors } from "@replit/connectors-sdk";
+import { pool } from "@workspace/db";
 import Stripe from "stripe";
 import {
   runMigrations,
@@ -93,6 +94,29 @@ async function connectorAuthHeaders(): Promise<Record<string, string>> {
 }
 
 async function fetchConnectorCredentials(): Promise<StripeCredentials> {
+  // Serialize connector refreshes across API replicas. Keep the transaction
+  // lock through 429 retries so a burst cannot turn into parallel retries.
+  // No key or signing secret is written to PostgreSQL. If coordination is
+  // unavailable, fail closed: Stripe will retry the webhook.
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SET LOCAL lock_timeout = '8s'");
+    await client.query(
+      "SELECT pg_advisory_xact_lock(hashtextextended('stripe-connector-credentials', 151))",
+    );
+    const credentials = await requestConnectorCredentials();
+    await client.query("COMMIT");
+    return credentials;
+  } catch (error) {
+    try { await client.query("ROLLBACK"); } catch { /* preserve the lookup error */ }
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function requestConnectorCredentials(): Promise<StripeCredentials> {
   let response: Response | undefined;
   for (let attempt = 0; attempt < 3; attempt++) {
     response = await fetch(
