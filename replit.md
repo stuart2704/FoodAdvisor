@@ -42,6 +42,7 @@ _Populate as you build — sharp edges, "always run X before Y" rules._
 
 - OSM claim invitations are separate from general outreach. Automatic sending requires production, `OSM_CLAIM_AUTO_INVITES_ENABLED=true`, an individually reviewed high-confidence candidate, and an admin-approved business email with recorded provenance. It never publishes listings. Apply the additive OSM claim-invite migration to the app's database before enabling the scheduler; do not use a broad forced schema push against an external production database.
 - Before releasing scheduled OSM retry/status changes against an external production database, apply the additive `lib/db/migrations/0044_external_ingestion_attempt.sql` migration to that confirmed target. Publishing does not migrate an external production database automatically.
+- Before relying on chef-photo cleanup after restaurant deletion, apply `lib/db/migrations/0045_chef_photo_cascade_cleanup.sql` to the confirmed database target. It installs cascade cleanup triggers; publishing alone does not install them on external databases.
 
 ## Pointers
 
