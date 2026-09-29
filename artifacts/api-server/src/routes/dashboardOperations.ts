@@ -3,7 +3,7 @@ import { getRecentHealth, computeDailyHealthScore } from "../health/scraperHealt
 import { adminOnly } from "../middleware/adminOnly";
 import { getInsertionQueueStatus } from "../pipeline/insertService";
 import { getEngineStatuses, recordHeartbeat } from "../services/engineHeartbeat";
-import { getEnginePerformanceMetrics } from "../services/operationalLog";
+import { getEngineLatencyAlerts, getEnginePerformanceMetrics } from "../services/operationalLog";
 import { getSystemHealthSnapshot } from "./dashboardSystemHealth";
 
 const router: IRouter = Router();
@@ -38,10 +38,12 @@ router.get("/operations/engines", async (req, res) => {
     await Promise.all([recordHeartbeat("api"), recordHeartbeat("database")]);
     const statuses = await getEngineStatuses();
     let metrics: Awaited<ReturnType<typeof getEnginePerformanceMetrics>> = {};
+    let alerts: Awaited<ReturnType<typeof getEngineLatencyAlerts>> = {};
     let partial = false;
     try {
-      metrics = await getEnginePerformanceMetrics();
-    } catch {
+      [metrics, alerts] = await Promise.all([getEnginePerformanceMetrics(), getEngineLatencyAlerts()]);
+    } catch (error) {
+      req.log.warn({ err: error }, "Admin engine latency metrics unavailable.");
       partial = true;
     }
     res.json({
@@ -67,6 +69,7 @@ router.get("/operations/engines", async (req, res) => {
             p95Ms: outcome?.p95_latency_ms ?? null,
             samples: outcome?.latency_samples ?? 0,
             available: !partial && (outcome?.latency_samples ?? 0) > 0,
+            alert: partial ? { status: "unavailable" } : alerts[service],
           },
         };
       }),

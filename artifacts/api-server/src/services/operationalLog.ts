@@ -299,3 +299,85 @@ export async function getEnginePerformanceMetrics(): Promise<
     }),
   );
 }
+
+const LATENCY_ALERT_WINDOW_MINUTES = 5;
+const LATENCY_ALERT_MIN_SAMPLES_PER_MINUTE = 3;
+const DEFAULT_LATENCY_ALERT_THRESHOLD_MS = 2_000;
+
+export interface EngineLatencyAlert {
+  status: "high" | "normal" | "insufficient_data";
+  measuredMinutes: number;
+  requiredMinutes: number;
+  minimumSamplesPerMinute: number;
+  thresholdMs: number;
+}
+
+export function engineLatencyAlertThresholdMs(): number {
+  const raw = process.env.ENGINE_LATENCY_ALERT_THRESHOLD_MS;
+  if (raw === undefined) return DEFAULT_LATENCY_ALERT_THRESHOLD_MS;
+  const value = Number(raw);
+  if (!/^[1-9]\d*$/.test(raw) || !Number.isSafeInteger(value) || value > MAX_OPERATION_DURATION_MS) {
+    throw new Error("ENGINE_LATENCY_ALERT_THRESHOLD_MS must be an integer between 1 and 600000.");
+  }
+  return value;
+}
+
+export function evaluateEngineLatencyAlert(
+  buckets: Array<{ minute: number; samples: number; p95Ms: number | null }>,
+  windowEndMs: number,
+  thresholdMs: number,
+): EngineLatencyAlert {
+  const byMinute = new Map(buckets.map((bucket) => [bucket.minute, bucket]));
+  let measuredMinutes = 0;
+  let allHigh = true;
+  for (let offset = 1; offset <= LATENCY_ALERT_WINDOW_MINUTES; offset++) {
+    const bucket = byMinute.get(windowEndMs - offset * 60_000);
+    if (!bucket || bucket.samples < LATENCY_ALERT_MIN_SAMPLES_PER_MINUTE ||
+        bucket.p95Ms === null || !Number.isFinite(bucket.p95Ms)) continue;
+    measuredMinutes++;
+    if (bucket.p95Ms <= thresholdMs) allHigh = false;
+  }
+  return {
+    status: measuredMinutes < LATENCY_ALERT_WINDOW_MINUTES ? "insufficient_data" : allHigh ? "high" : "normal",
+    measuredMinutes,
+    requiredMinutes: LATENCY_ALERT_WINDOW_MINUTES,
+    minimumSamplesPerMinute: LATENCY_ALERT_MIN_SAMPLES_PER_MINUTE,
+    thresholdMs,
+  };
+}
+
+export async function getEngineLatencyAlerts(): Promise<Record<string, EngineLatencyAlert>> {
+  const thresholdMs = engineLatencyAlertThresholdMs();
+  // Exclude the current, incomplete minute. A missing minute is never treated as fast or slow.
+  const windowEndMs = Math.floor(Date.now() / 60_000) * 60_000;
+  const rows = await db
+    .select({
+      engine: operationalLogEventsTable.type,
+      minute: sql<string>`extract(epoch from date_trunc('minute', ${operationalLogEventsTable.createdAt}))::bigint`,
+      samples: sql<number>`count(${operationalLogEventsTable.durationMs})::int`,
+      p95Ms: sql<number | null>`percentile_cont(0.95) within group (order by ${operationalLogEventsTable.durationMs})`,
+    })
+    .from(operationalLogEventsTable)
+    .where(and(
+      gte(operationalLogEventsTable.createdAt, new Date(windowEndMs - LATENCY_ALERT_WINDOW_MINUTES * 60_000)),
+      lt(operationalLogEventsTable.createdAt, new Date(windowEndMs)),
+    ))
+    .groupBy(operationalLogEventsTable.type, sql`date_trunc('minute', ${operationalLogEventsTable.createdAt})`);
+
+  const byEngine = new Map<string, Array<{ minute: number; samples: number; p95Ms: number | null }>>();
+  for (const row of rows) {
+    const buckets = byEngine.get(row.engine) ?? [];
+    buckets.push({
+      minute: Number(row.minute) * 1_000,
+      samples: Number(row.samples),
+      p95Ms: row.p95Ms == null ? null : Number(row.p95Ms),
+    });
+    byEngine.set(row.engine, buckets);
+  }
+  return Object.fromEntries(
+    ["ai", "automation", "queue", "api", "database"].map((engine) => [
+      engine,
+      evaluateEngineLatencyAlert(byEngine.get(engine) ?? [], windowEndMs, thresholdMs),
+    ]),
+  );
+}

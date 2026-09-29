@@ -13,7 +13,8 @@ async function loadRoute() {
     "middleware/adminOnly": `export function adminOnly(req,res,next){res.set("Cache-Control","no-store");if(req.header("authorization")==="test-admin")return next();res.status(401).json({success:false,error:"Admin login required"});}`,
     "pipeline/insertService": `export function getInsertionQueueStatus(){return {pending:1,capacity:1000,draining:false,scope:"current_process",resetsOnRestart:true,secret:"do-not-send",items:[{jobId:"place-1",kind:"restaurant_insertion",label:"Safe name",city:"London",queuedAt:"2026-01-01T00:00:00.000Z",payload:{password:"hidden"},messageBody:"hidden"}]}}`,
     "services/engineHeartbeat": `export async function recordHeartbeat(){} export async function getEngineStatuses(){return {api:"online",ai:"offline",secret:"hidden"}}`,
-    "services/operationalLog": `export async function getEnginePerformanceMetrics(){return {api:{total:2,successes:1,errors:1,latency_samples:2,avg_latency_ms:110,p95_latency_ms:191,prompt:"hidden",response:"hidden"}}}`,
+    "services/operationalLog": `export async function getEnginePerformanceMetrics(){return {api:{total:2,successes:1,errors:1,latency_samples:2,avg_latency_ms:110,p95_latency_ms:191,prompt:"hidden",response:"hidden"}}}
+      export async function getEngineLatencyAlerts(){return Object.fromEntries(["ai","automation","queue","api","database"].map(id=>[id,{status:id==="api"?"high":"insufficient_data",thresholdMs:2000,measuredMinutes:id==="api"?5:0,requiredMinutes:5,minimumSamplesPerMinute:3}]))}`,
     "health/scraperHealth": `export function getRecentHealth(){return []} export function computeDailyHealthScore(){return null}`,
     "dashboardSystemHealth": `export async function getSystemHealthSnapshot(){return {checkedAt:"2026-01-01T00:00:00.000Z",scope:"current_process",services:{api:{status:"healthy",detail:"API is responding"}}}}`,
   };
@@ -65,9 +66,11 @@ test("operations routes require admin access and never expose source payload fie
         assert.equal(outcomeWindow, "last_5_minutes");
         assert.deepEqual(services.find((item) => item.id === "api").latency, {
           instrumented: true, averageMs: 110, p95Ms: 191, samples: 2, available: true,
+          alert: { status: "high", thresholdMs: 2000, measuredMinutes: 5, requiredMinutes: 5, minimumSamplesPerMinute: 3 },
         });
         assert.deepEqual(services.find((item) => item.id === "database").latency, {
           instrumented: true, averageMs: null, p95Ms: null, samples: 0, available: false,
+          alert: { status: "insufficient_data", thresholdMs: 2000, measuredMinutes: 0, requiredMinutes: 5, minimumSamplesPerMinute: 3 },
         });
         assert.equal(services.find((item) => item.id === "ai").latency.samples, 0);
       }

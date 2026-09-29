@@ -41,10 +41,20 @@ function QueueView({ data }: { data: any }) {
   </>;
 }
 
-function EnginesView({ data }: { data: any }) {
+function EnginesView({ data, stale = false }: { data: any; stale?: boolean }) {
   const latencyLabel = (value: number | null) => value == null ? "—" : `${value.toLocaleString()} ms`;
+  const highServices = data.partial ? [] : data.services.filter((service: any) => service.latency.alert?.status === "high");
+  const alertLabel = (alert: any) => {
+    if (!alert || alert.status === "unavailable") return "Unavailable";
+    if (alert.status === "high") return "Sustained high latency";
+    if (alert.status === "normal") return "Within threshold";
+    return `Insufficient data (${alert.measuredMinutes}/${alert.requiredMinutes} measured minutes)`;
+  };
   return <>
     {data.partial && <div className="ops-notice">Availability is current, but recent outcome and latency metrics are temporarily unavailable.</div>}
+    {highServices.length > 0 && <div className="ops-latency-warning" role={stale ? undefined : "alert"}>
+      {stale ? "Last known alert" : "Sustained high latency"}: {highServices.map((service: any) => service.id).join(", ")}. Each of the last five complete minutes exceeded the configured p95 threshold at the last successful check.
+    </div>}
     <div className="ops-card-grid">{data.services.map((service: any) =>
       <article className="ops-card" key={service.id}>
         <div className="ops-card-heading"><h2>{service.id}</h2><Status value={service.availability} /></div>
@@ -53,9 +63,13 @@ function EnginesView({ data }: { data: any }) {
           <div><dt>Succeeded / failed</dt><dd>{service.outcomes.succeeded} / {service.outcomes.failed}</dd></div>
           <div><dt>Latency samples</dt><dd>{data.partial ? "Unavailable" : service.latency.samples}</dd></div>
           <div><dt>Average latency</dt><dd>{service.latency.available ? latencyLabel(service.latency.averageMs) : data.partial ? "Unavailable" : service.latency.instrumented ? "No samples in window" : "Not instrumented"}</dd></div>
-          <div><dt>95th percentile</dt><dd>{service.latency.available ? latencyLabel(service.latency.p95Ms) : data.partial ? "Unavailable" : "—"}</dd></div></dl>
+          <div><dt>95th percentile</dt><dd>{service.latency.available ? latencyLabel(service.latency.p95Ms) : data.partial ? "Unavailable" : "—"}</dd></div>
+          <div><dt>Latency alert</dt><dd className={service.latency.alert?.status === "high" && !data.partial ? "ops-alert-high" : ""}>{data.partial ? "Unavailable" : alertLabel(service.latency.alert)}</dd></div></dl>
       </article>)}</div>
     <div className="ops-scope">Availability: durable database heartbeats · outcomes and measured operation latency: last 5 minutes (rolling). API and AI requests are sampled at 10%; automation and queue jobs are measured when completed. Database latency measures completed heartbeat writes, not all queries.</div>
+    {!data.partial && data.services[0]?.latency.alert && <div className="ops-scope">
+      Alert: p95 above {latencyLabel(data.services[0].latency.alert.thresholdMs)} in each of five complete one-minute buckets, with at least {data.services[0].latency.alert.minimumSamplesPerMinute} measured operations per bucket. Set ENGINE_LATENCY_ALERT_THRESHOLD_MS on the API server to change the threshold.
+    </div>}
   </>;
 }
 
@@ -108,7 +122,7 @@ export default function AdminOperations({ view }: { view: ViewKind }) {
     {state === "loading" && <div className="ops-state">Loading {titles[view].title.toLowerCase()} status…</div>}
     {(state === "error" || state === "stale") && <div className={`ops-state ops-state-${state}`}>{state === "stale" ? "Showing stale data. " : ""}{message}</div>}
     {data && <section className={state === "stale" ? "ops-content is-stale" : "ops-content"}>
-      {view === "queue" ? <QueueView data={data} /> : view === "engines" ? <EnginesView data={data} /> : <HealthView data={data} />}
+      {view === "queue" ? <QueueView data={data} /> : view === "engines" ? <EnginesView data={data} stale={state === "stale"} /> : <HealthView data={data} />}
       <p className="ops-updated">Checked {new Date(data.checkedAt).toLocaleTimeString()}</p>
     </section>}
   </AdminLayout></RequireAdmin>;
