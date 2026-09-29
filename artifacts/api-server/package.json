@@ -22,7 +22,7 @@
     "test:grid-crawl": "node --import tsx --test src/lib/gridCrawlDurability.test.mjs src/lib/gridCrawlRuntime.test.mjs src/lib/gridCrawlPlan.test.mjs src/lib/gridPosition.test.mjs",
     "test:ai-cache-postgres": "node --import tsx --test src/cron/aiDescriptionCacheCleanup.postgres.test.mjs",
     "test:gmail-postgres": "node --import tsx --test src/services/gmail/gmailReplyPostgres.test.mjs",
-    "test:social-off-postgres": "node --import tsx --test src/modules/social/automationOffPostgres.test.mjs",
+    "test:social-off-postgres": "node --import tsx --test src/modules/social/automationOffPostgres.test.mjs src/modules/social/automationConcurrencyPostgres.test.mjs",
     "test:manual-osm-postgres": "node --import tsx --test src/routes/ingest.postgres.test.mjs",
     "test:candidate-review-postgres": "node --import tsx --test src/routes/candidateReview.postgres.test.mjs",
     "test:osm-claim-postgres": "node --import tsx --test src/routes/osmClaimJourney.postgres.test.mjs",
