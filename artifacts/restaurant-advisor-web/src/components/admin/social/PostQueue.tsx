@@ -32,6 +32,10 @@ export function PostQueue() {
   const [privacyOptions, setPrivacyOptions] = useState<Record<string, { accountId: string; displayName: string; options: string[] }>>({});
   const [restaurantAccounts, setRestaurantAccounts] = useState<{ restaurantId: string; displayName?: string }[]>([]);
   const [generating, setGenerating] = useState(false);
+  const [brandAccounts, setBrandAccounts] = useState<{ id: string; displayName: string }[]>([]);
+  const [manualAccountId, setManualAccountId] = useState("");
+  const [manualContent, setManualContent] = useState("");
+  const [savingManual, setSavingManual] = useState(false);
 
   const loadPosts = async () => {
     try {
@@ -48,6 +52,37 @@ export function PostQueue() {
   useEffect(() => {
     loadPosts();
   }, []);
+
+  useEffect(() => {
+    if (filterTab !== "draft") return;
+    void fetchSocial<{ accounts: { id: string; restaurantId: string | null; displayName: string; platform: string; status: string }[] }>("/accounts")
+      .then(data => {
+        const accounts = data.accounts.filter(account =>
+          account.restaurantId === null && account.platform === "facebook" && account.status === "connected");
+        setBrandAccounts(accounts);
+        setManualAccountId(previous => accounts.some(account => account.id === previous) ? previous : accounts[0]?.id ?? "");
+      })
+      .catch(() => { setBrandAccounts([]); setManualAccountId(""); });
+  }, [filterTab]);
+
+  const saveManualDraft = async () => {
+    if (!manualAccountId || !manualContent.trim()) return;
+    setSavingManual(true);
+    setActionMessage("");
+    try {
+      await fetchSocial("/posts/draft", {
+        method: "POST",
+        body: JSON.stringify({ accountId: manualAccountId, content: manualContent }),
+      });
+      setManualContent("");
+      setActionMessage("Facebook brand draft saved. Review its exact text below before choosing Publish Now.");
+      await loadPosts();
+    } catch (err) {
+      setActionMessage(`Failed: ${err instanceof Error ? err.message : "Could not save the draft."}`);
+    } finally {
+      setSavingManual(false);
+    }
+  };
 
   useEffect(() => {
     if (filterTab !== "draft") return;
@@ -199,6 +234,27 @@ export function PostQueue() {
           Draft generation does not publish. Timed publishing requires both master automation and the server worker;
           an admin can still choose Publish Now while automation is off.
         </p>
+        {filterTab === "draft" && (
+          <div style={{ display: "grid", gap: 10, maxWidth: 560, marginBottom: 22 }}>
+            <h3 style={{ margin: 0 }}>Write a Facebook brand draft</h3>
+            <label htmlFor="manual-facebook-page">Facebook Page</label>
+            <select id="manual-facebook-page" value={manualAccountId}
+              onChange={event => setManualAccountId(event.target.value)}>
+              {brandAccounts.length === 0 && <option value="">No connected Facebook brand Page</option>}
+              {brandAccounts.map(account => <option key={account.id} value={account.id}>{account.displayName}</option>)}
+            </select>
+            <label htmlFor="manual-facebook-content">Post text</label>
+            <textarea id="manual-facebook-content" value={manualContent} maxLength={5000} rows={5}
+              onChange={event => setManualContent(event.target.value)}
+              placeholder="Enter the exact text you want to post" />
+            <button type="button" className="social-btn"
+              disabled={savingManual || !manualAccountId || !manualContent.trim()}
+              onClick={() => void saveManualDraft()}>{savingManual ? "Saving..." : "Save Draft"}</button>
+            <p style={{ color: "#aaa", fontSize: "0.85rem", margin: 0 }}>
+              Saving does not publish. Review the draft in the queue, then choose Publish Now when ready.
+            </p>
+          </div>
+        )}
         {filterTab === "draft" && (
           <div style={{ marginBottom: 18 }}>
             <button type="button" className="social-btn" onClick={() => setShowGenerate(value => !value)}>

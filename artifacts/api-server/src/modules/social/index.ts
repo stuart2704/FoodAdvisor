@@ -172,6 +172,22 @@ router.post("/social/schedules", async (req, res): Promise<void> => {
   res.status(201).json({ schedule });
 });
 router.get("/social/schedules", async (_req, res): Promise<void> => { res.json({ schedules: await db.select().from(socialSchedulesTable).orderBy(desc(socialSchedulesTable.createdAt)) }); });
+router.post("/social/posts/draft", async (req, res): Promise<void> => {
+  const body = z.object({
+    accountId: z.string().uuid(),
+    content: z.string().min(1).max(5000).refine(value => value.trim().length > 0),
+  }).strict().safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: "Choose a Facebook brand Page and enter post text (up to 5,000 characters)." }); return; }
+  const [account] = await db.select({ id: socialAccountsTable.id }).from(socialAccountsTable)
+    .where(and(eq(socialAccountsTable.id, body.data.accountId), isNull(socialAccountsTable.restaurantId),
+      eq(socialAccountsTable.platform, "facebook"), eq(socialAccountsTable.status, "connected"))).limit(1);
+  if (!account) { res.status(409).json({ error: "That Facebook brand Page is not connected. Refresh the accounts list." }); return; }
+  const [post] = await db.insert(socialPostsTable).values({
+    id: randomUUID(), restaurantId: null, platform: "facebook", accountId: account.id,
+    content: body.data.content, status: "draft", idempotencyKey: randomUUID(),
+  }).returning();
+  res.status(201).json({ post });
+});
 router.post("/social/posts/generate", async (req, res): Promise<void> => {
   const { restaurantId, platform, scope = "restaurant" } = req.body ?? {};
   if (!validPlatform(platform) || !["brand", "restaurant"].includes(scope) || (scope !== "brand" && typeof restaurantId !== "string")) { res.status(400).json({ error: "restaurantId and a supported platform are required." }); return; }

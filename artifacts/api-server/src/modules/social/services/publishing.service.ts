@@ -21,7 +21,8 @@ export async function publishPost(postId: string, options: { scheduledOnly?: boo
     ? isNull(socialAccountsTable.restaurantId)
     : eq(socialAccountsTable.restaurantId, candidate.restaurantId);
   const accounts = await db.select().from(socialAccountsTable)
-    .where(and(scope, eq(socialAccountsTable.platform, candidate.platform), eq(socialAccountsTable.status, "connected")))
+    .where(and(scope, eq(socialAccountsTable.platform, candidate.platform), eq(socialAccountsTable.status, "connected"),
+      candidate.platform === "facebook" && candidate.accountId ? eq(socialAccountsTable.id, candidate.accountId) : undefined))
     .orderBy(desc(socialAccountsTable.createdAt)).limit(candidate.platform === "tiktok" ? 2 : 1);
   const account = accounts[0];
   if (!account) throw new Error("No connected social account for this post.");
