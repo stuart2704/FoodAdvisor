@@ -2,6 +2,7 @@ export * from "./governmentImports";
 export * from "./ownerListingRequests";
 export * from "./externalIngestionLease";
 export * from "./placeAmenityChecks";
+export * from "./placePhotoLookupCache";
 // Export your models here. Add one export per file
 // export * from "./posts";
 //

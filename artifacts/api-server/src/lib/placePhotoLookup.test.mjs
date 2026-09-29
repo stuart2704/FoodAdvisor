@@ -15,6 +15,16 @@ await build({
     name: "budget-fixture",
     setup(builder) {
       builder.onResolve({ filter: /budgetedPlacesFetch$/ }, () => ({ path: "budget", namespace: "fixture" }));
+       builder.onResolve({ filter: /sharedPlacePhotoCache$/ }, () => ({ path: "shared", namespace: "fixture" }));
+       builder.onLoad({ filter: /^shared$/, namespace: "fixture" }, () => ({
+         contents: `const cache = new Map();
+           export async function sharedPlacePhotoLookup(kind, id, key, work) {
+             const name = JSON.stringify([kind, id, key]);
+             if (!cache.has(name)) cache.set(name, work().catch(error => { cache.delete(name); throw error; }));
+             return cache.get(name);
+           }`,
+         loader: "js",
+       }));
       builder.onLoad({ filter: /.*/, namespace: "fixture" }, () => ({
         contents: `
           export class PlacesBudgetExceededError extends Error {
