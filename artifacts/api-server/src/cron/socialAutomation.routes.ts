@@ -1,12 +1,12 @@
 import { Router, type IRouter } from "express";
-import { validAutomationToken } from "../lib/automation-auth";
+import { validSocialAutomationToken } from "../lib/automation-auth";
 import { logger } from "../lib/logger";
 import { runSocialAutomationCycle } from "./socialAutomation";
 
 export const socialAutomationRouter: IRouter = Router();
 
 socialAutomationRouter.post("/social", async (req, res): Promise<void> => {
-  if (!validAutomationToken(req.header("authorization"))) {
+  if (!validSocialAutomationToken(req.header("authorization"))) {
     res.status(401).json({ error: "Invalid automation credential." });
     return;
   }

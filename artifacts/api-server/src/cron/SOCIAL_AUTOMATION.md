@@ -11,11 +11,12 @@ inspect the queue and decide manually whether to publish old content.
 
 1. Publish the API with the additive `lib/db/migrations/0035_social_schedule_assignment.sql`
    schema change applied to its database. Leave the master automation switch OFF.
-2. Set the API's `AUTOMATION_TOKEN` (at least 32 characters) and
-   `SOCIAL_AUTOMATION_ENABLED=true` in the published environment. This flag
-   enables authenticated requests; it does **not** start a timer.
+2. Set the API's dedicated `SOCIAL_AUTOMATION_TOKEN` (at least 32 characters)
+   and `SOCIAL_AUTOMATION_ENABLED=true` in the published environment. Do not
+   replace `AUTOMATION_TOKEN`, which protects other automation endpoints. This
+   flag enables authenticated requests; it does **not** start a timer.
 3. Push the workflow to the GitHub repository's **default branch**. Set Actions secret
-   `SOCIAL_AUTOMATION_TOKEN` to the same token. Set Actions variables
+   `SOCIAL_AUTOMATION_TOKEN` to the same dedicated token. Set Actions variables
    `SOCIAL_AUTOMATION_URL` to the published HTTPS URL ending in
    `/api/automation/social` and `SOCIAL_SCHEDULER_ENABLED=true`. Never point
    the job at the development preview. If the published app is private, configure
