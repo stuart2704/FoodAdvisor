@@ -29,6 +29,7 @@ const fixtures = new Map([
     checkedAt: "2026-01-01T00:00:00.000Z",
     queue: { pending: 0, capacity: 10, draining: false, items: [] },
   }],
+  ["/api/dashboard/osm-candidates", { items: [], nextCursor: null }],
 ]);
 
 async function visibleOutsideSidebar(page, selector) {
@@ -73,7 +74,7 @@ async function run(width) {
         }
         return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixtures.get(url.pathname)) });
       }
-      if (/^\/(?:admin\/social|dashboard\/|auth\/)/.test(url.pathname) || request.method() !== "GET") {
+      if (/^\/(?:admin\/social|dashboard\/|auth\/|api\/dashboard\/)/.test(url.pathname) || request.method() !== "GET") {
         unexpectedRequests.push(`${request.method()} ${url.pathname}`);
         return route.abort();
       }
@@ -104,6 +105,11 @@ async function run(width) {
     await visibleOutsideSidebar(page, ".admin-content .ops-header h1");
     await visibleOutsideSidebar(page, ".admin-content .ops-empty");
     assert.ok(requests.includes("GET /auth/session") && requests.includes("GET /dashboard/operations/queue"));
+    await page.locator('nav[aria-label="System administration"]').getByRole("link", { name: "Candidate claims" }).click();
+    await content.getByRole("heading", { name: "Candidate claims" }).waitFor();
+    await content.getByText("Nothing in this queue").waitFor();
+    assert.ok(requests.includes("GET /api/dashboard/osm-candidates"));
+    await visibleOutsideSidebar(page, ".admin-content .osm-card");
     assert.deepEqual(unexpectedRequests, [], `Unmocked or unsafe requests at ${width}px`);
     assert.deepEqual(errors, [], `Browser errors at ${width}px`);
     console.log(`Admin browser smoke passed at ${width}px`);

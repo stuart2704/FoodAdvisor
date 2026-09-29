@@ -15,6 +15,12 @@ For app-local test runners, match the runner's Vite peer compatibility to the ar
 
 **How to apply:** Check the artifact's Vite version before adding or upgrading Vitest, especially when the package firewall prevents use of an older pin.
 
+Keep React and React Query as a single browser runtime when a workspace library supplies generated hooks to an app. Prefer host-app dependency resolution over letting the library's peer variants bundle separately; do not add a second query provider to hide the split.
+
+**Why:** Mixed React peer variants let the published admin dashboard render while a candidate-review route crashed before fetching data with a null hook dispatcher. A local typecheck could not detect it.
+
+**How to apply:** When adding generated hooks to a web route, check the built bundle in a browser and keep React, React DOM, and React Query deduplicated at the consuming app boundary.
+
 After a package-scoped add introduces a new optional peer, workspace links may still point at the old peer variant even when the lockfile expects the new one. Reconcile the workspace from its frozen lockfile before diagnosing widespread type errors.
 
 **Why:** A transitive telemetry dependency changed a shared ORM's peer variant; stale package links made otherwise identical private types incompatible, and a file watcher briefly saw install-time temporary directories.
