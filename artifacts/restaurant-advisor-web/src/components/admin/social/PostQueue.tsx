@@ -36,6 +36,8 @@ export function PostQueue() {
   const [manualAccountId, setManualAccountId] = useState("");
   const [manualContent, setManualContent] = useState("");
   const [savingManual, setSavingManual] = useState(false);
+  const [accountsLoading, setAccountsLoading] = useState(true);
+  const [accountsError, setAccountsError] = useState("");
 
   const loadPosts = async () => {
     try {
@@ -54,16 +56,17 @@ export function PostQueue() {
   }, []);
 
   useEffect(() => {
-    if (filterTab !== "draft") return;
     void fetchSocial<{ accounts: { id: string; restaurantId: string | null; displayName: string; platform: string; status: string }[] }>("/accounts")
       .then(data => {
         const accounts = data.accounts.filter(account =>
           account.restaurantId === null && account.platform === "facebook" && account.status === "connected");
         setBrandAccounts(accounts);
         setManualAccountId(previous => accounts.some(account => account.id === previous) ? previous : accounts[0]?.id ?? "");
+        setAccountsError("");
       })
-      .catch(() => { setBrandAccounts([]); setManualAccountId(""); });
-  }, [filterTab]);
+      .catch(err => { setAccountsError(err instanceof Error ? err.message : "Could not load Facebook Pages."); setBrandAccounts([]); setManualAccountId(""); })
+      .finally(() => setAccountsLoading(false));
+  }, []);
 
   const saveManualDraft = async () => {
     if (!manualAccountId || !manualContent.trim()) return;
@@ -75,6 +78,7 @@ export function PostQueue() {
         body: JSON.stringify({ accountId: manualAccountId, content: manualContent }),
       });
       setManualContent("");
+      setFilterTab("draft");
       setActionMessage("Facebook brand draft saved. Review its exact text below before choosing Publish Now.");
       await loadPosts();
     } catch (err) {
@@ -230,35 +234,40 @@ export function PostQueue() {
           </div>
         </div>
 
-        <p style={{ color: "#aaa", fontSize: "0.85rem", marginBottom: "16px" }}>
-          Draft generation does not publish. Timed publishing requires both master automation and the server worker;
-          an admin can still choose Publish Now while automation is off.
-        </p>
-        {filterTab === "draft" && (
-          <div style={{ display: "grid", gap: 10, maxWidth: 560, marginBottom: 22 }}>
-            <h3 style={{ margin: 0 }}>Write a Facebook brand draft</h3>
-            <label htmlFor="manual-facebook-page">Facebook Page</label>
-            <select id="manual-facebook-page" value={manualAccountId}
-              onChange={event => setManualAccountId(event.target.value)}>
-              {brandAccounts.length === 0 && <option value="">No connected Facebook brand Page</option>}
-              {brandAccounts.map(account => <option key={account.id} value={account.id}>{account.displayName}</option>)}
-            </select>
-            <label htmlFor="manual-facebook-content">Post text</label>
-            <textarea id="manual-facebook-content" value={manualContent} maxLength={5000} rows={5}
-              onChange={event => setManualContent(event.target.value)}
-              placeholder="Enter the exact text you want to post" />
-            <button type="button" className="social-btn"
-              disabled={savingManual || !manualAccountId || !manualContent.trim()}
-              onClick={() => void saveManualDraft()}>{savingManual ? "Saving..." : "Save Draft"}</button>
-            <p style={{ color: "#aaa", fontSize: "0.85rem", margin: 0 }}>
-              Saving does not publish. Review the draft in the queue, then choose Publish Now when ready.
-            </p>
-          </div>
-        )}
+        <div style={{ display: "grid", gap: 10, maxWidth: 560, marginBottom: 22 }}>
+          <h3 style={{ margin: 0 }}>Write a Facebook post</h3>
+          {accountsLoading ? <p>Checking connected Facebook Page...</p>
+            : accountsError ? <p className="social-alert" role="alert">Could not check the connected Page: {accountsError}</p>
+            : brandAccounts.length === 0 ? (
+              <p className="social-alert" role="alert">
+                No connected Facebook brand Page. Check <a href="/admin/automation/social?tab=accounts">Accounts</a> first.
+              </p>
+            ) : brandAccounts.length === 1 ? (
+              <p style={{ margin: 0 }}>Posting to <strong>{brandAccounts[0].displayName}</strong> on Facebook</p>
+            ) : (
+              <>
+                <label htmlFor="manual-facebook-page">Post to Facebook Page</label>
+                <select id="manual-facebook-page" value={manualAccountId}
+                  onChange={event => setManualAccountId(event.target.value)}>
+                  {brandAccounts.map(account => <option key={account.id} value={account.id}>{account.displayName}</option>)}
+                </select>
+              </>
+            )}
+          <label htmlFor="manual-facebook-content">Your message</label>
+          <textarea id="manual-facebook-content" value={manualContent} maxLength={5000} rows={5}
+            onChange={event => setManualContent(event.target.value)}
+            placeholder="Type or paste your Facebook message here" />
+          <button type="button" className="social-btn"
+            disabled={savingManual || accountsLoading || !manualAccountId || !manualContent.trim()}
+            onClick={() => void saveManualDraft()}>{savingManual ? "Saving..." : "Save Draft (does not publish)"}</button>
+          <p style={{ color: "#aaa", fontSize: "0.85rem", margin: 0 }}>
+            Review the saved draft below, then choose Publish Now only when you are ready.
+          </p>
+        </div>
         {filterTab === "draft" && (
           <div style={{ marginBottom: 18 }}>
             <button type="button" className="social-btn" onClick={() => setShowGenerate(value => !value)}>
-              {showGenerate ? "Cancel" : "Generate Draft"}
+              {showGenerate ? "Close AI draft options" : "Generate a separate AI draft"}
             </button>
             {showGenerate && (
               <div style={{ display: "grid", gap: 10, maxWidth: 400, marginTop: 14 }}>
@@ -290,7 +299,7 @@ export function PostQueue() {
                 )}
                 <p style={{ color: "#aaa", fontSize: "0.85rem", margin: 0 }}>Generated drafts require review. Instagram and TikTok require a restaurant with an approved chef photo; brand text-only drafts cannot publish there.</p>
                 <button type="button" className="social-btn" disabled={generating || (draftScope === "restaurant" && !restaurantId)}
-                  onClick={() => void handleGenerate()}>{generating ? "Generating..." : "Generate Draft"}</button>
+                  onClick={() => void handleGenerate()}>{generating ? "Generating..." : "Generate AI Draft"}</button>
               </div>
             )}
           </div>

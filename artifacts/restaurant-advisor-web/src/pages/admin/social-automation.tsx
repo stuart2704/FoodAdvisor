@@ -62,6 +62,10 @@ export default function SocialAutomationPage() {
             Automation › Social Media{activeTab === "logs" ? " › Logs" : activeTab === "errors" ? " › Error Intelligence" : ""}
           </div>
           <h1>Social Media</h1>
+          {activeTab !== "queue" && (
+            <button type="button" className="social-btn" style={{ marginBottom: 16 }}
+              onClick={() => selectTab("queue")}>Write a Facebook post</button>
+          )}
           <nav className="social-tabs" aria-label="Social Media sections">
             {tabs.map(tab => (
               <button 
