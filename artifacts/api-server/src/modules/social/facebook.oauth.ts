@@ -40,11 +40,14 @@ export function facebookAuthorizationUrl(
   url.searchParams.set("client_id", config.appId);
   url.searchParams.set("redirect_uri", config.redirectUri);
   url.searchParams.set("response_type", "code");
+  // Re-ask for permissions previously declined; Meta does not guarantee this
+  // will reopen asset selection for permissions already granted.
+  url.searchParams.set("auth_type", "rerequest");
   if (configId) {
     // Business Login derives its permissions from this dashboard configuration.
     url.searchParams.set("config_id", configId);
   } else {
-    url.searchParams.set("scope", "pages_show_list,pages_manage_posts,pages_read_engagement,pages_manage_metadata");
+    url.searchParams.set("scope", "pages_show_list,pages_manage_posts,pages_read_engagement,pages_manage_metadata,business_management");
   }
   url.searchParams.set("state", state);
   return url.toString();
@@ -263,6 +266,7 @@ export async function inspectFacebookPageGrant(
     managePostsTargetCount: targetCount("pages_manage_posts"),
     readEngagementGranted: scopeGranted("pages_read_engagement"),
     manageMetadataGranted: scopeGranted("pages_manage_metadata"),
+    businessManagementGranted: scopeGranted("business_management"),
     ...(pageId ? {
       showListTargetsPage: targetsPage("pages_show_list"),
       managePostsTargetsPage: targetsPage("pages_manage_posts"),

@@ -58,3 +58,9 @@ Meta documents Page-role identities as Page-scoped person IDs, while a Facebook 
 **Why:** A live direct Page lookup issued a Page token but lacked tasks; the role fallback reported no matching login role. Meta's role documentation describes a different ID scope, so the fallback cannot establish whether a role exists for the login.
 
 **How to apply:** Verify an authoritative identity mapping or use a Page-specific task result tied to the authenticated login. Without one, leave posting access unverified; never demand repeated OAuth retries to resolve an inherently ambiguous comparison.
+
+Meta's `auth_type=rerequest` re-asks for declined permissions; it is not documented as forcing a fresh Page-selection screen when a permission is already granted. An absent granular target list is an inconclusive diagnostic, not proof of a particular click in the login dialog. Where Business Login uses a configuration ID, new permissions must be added to that Meta configuration; adding them only to an ordinary OAuth `scope` fallback does not change the configured flow.
+
+**Why:** Meta support suggested rerequest and a business permission after identifying a portfolio-owned Page, but its public login documentation describes a narrower rerequest guarantee, and this app's Business Login takes permission choices from Meta's configuration.
+
+**How to apply:** Inspect the actual authorization URL and Meta configuration separately, and confirm Page-scoped tasks from the new login response before enabling publishing. Do not infer a missing selection solely from debugger target IDs.

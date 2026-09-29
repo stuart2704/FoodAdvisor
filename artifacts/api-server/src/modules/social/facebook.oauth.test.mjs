@@ -149,11 +149,14 @@ test("Business Login uses its configuration permissions instead of an additional
   const businessUrl = new URL(facebookAuthorizationUrl(config, "signed-state", "business-config"));
   assert.equal(businessUrl.searchParams.get("config_id"), "business-config");
   assert.equal(businessUrl.searchParams.has("scope"), false);
+  assert.equal(businessUrl.searchParams.get("auth_type"), "rerequest");
   assert.equal(businessUrl.searchParams.get("response_type"), "code");
   assert.equal(businessUrl.searchParams.get("redirect_uri"), config.redirectUri);
   const regularUrl = new URL(facebookAuthorizationUrl(config, "signed-state"));
   assert.equal(regularUrl.searchParams.has("config_id"), false);
   assert.match(regularUrl.searchParams.get("scope"), /pages_show_list/);
+  assert.match(regularUrl.searchParams.get("scope"), /business_management/);
+  assert.equal(regularUrl.searchParams.get("auth_type"), "rerequest");
 });
 
 test("Facebook exchanges a code for a long-lived user token and lists only publishable Pages", async () => {
@@ -216,7 +219,7 @@ test("token diagnostics return only fixed permission flags and Page counts", asy
     assert.deepEqual(summary, {
       tokenValid: true, showListGranted: true, showListTargetCount: 2,
       managePostsGranted: true, managePostsTargetCount: 0,
-      readEngagementGranted: true, manageMetadataGranted: false,
+      readEngagementGranted: true, manageMetadataGranted: false, businessManagementGranted: false,
     });
     assert.equal(called.url.pathname, "/v26.0/debug_token");
     assert.equal(called.url.searchParams.get("input_token"), "private-user-token");
@@ -236,9 +239,10 @@ test("token diagnostics return only fixed permission flags and Page counts", asy
     const targeted = await inspectFacebookPageGrant("private-user-token", config, "123");
     assert.equal(targeted.showListTargetsPage, true);
     assert.equal(targeted.managePostsTargetsPage, true);
-    globalThis.fetch = async () => Response.json({ data: { scopes: ["pages_show_list", "pages_manage_posts"] } });
+    globalThis.fetch = async () => Response.json({ data: { scopes: ["pages_show_list", "pages_manage_posts", "business_management"] } });
     const unknown = await inspectFacebookPageGrant("private-user-token", config, "123");
     assert.equal(unknown.showListTargetsPage, null);
     assert.equal(unknown.managePostsTargetsPage, null);
+    assert.equal(unknown.businessManagementGranted, true);
   } finally { globalThis.fetch = originalFetch; }
 });
