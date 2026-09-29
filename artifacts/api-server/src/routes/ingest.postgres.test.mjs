@@ -7,6 +7,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { globalCities } from "../external/cityList.ts";
 
 const require = createRequire(new URL("../../../../lib/db/package.json", import.meta.url));
 const { Pool } = require("pg");
@@ -40,6 +41,7 @@ test("manual city import enforces admin, allowlist, lock and independent 12-hour
   const osmCities = [];
   let blockFirst = true;
   let failNext = false;
+  let failCity = null;
   try {
     execFileSync("initdb", ["-D", data, "-A", "trust", "-U", "osm_test"], { stdio: "pipe" });
     execFileSync("pg_ctl", [
@@ -53,7 +55,7 @@ test("manual city import enforces admin, allowlist, lock and independent 12-hour
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
     await pool.query(`
       CREATE TABLE external_ingestion_schedule (
-        id text PRIMARY KEY, last_run_at timestamptz NOT NULL
+        id text PRIMARY KEY, last_run_at timestamptz
       );
       CREATE TABLE external_candidates (
         source_id text NOT NULL, source_name text NOT NULL, raw_name text NOT NULL,
@@ -81,13 +83,19 @@ test("manual city import enforces admin, allowlist, lock and independent 12-hour
         VALUES ('external_ingestion_last_run', '2026-01-01T00:00:00Z');
     `);
     await pool.query(readFileSync(new URL("../../../../lib/db/migrations/0041_external_ingestion_lease.sql", import.meta.url), "utf8"));
+    await pool.query(readFileSync(new URL("../../../../lib/db/migrations/0042_osm_automatic_claim_invites.sql", import.meta.url), "utf8"));
+    await pool.query(readFileSync(new URL("../../../../lib/db/migrations/0044_external_ingestion_attempt.sql", import.meta.url), "utf8"));
 
     globalThis.fetch = async (url, init) => {
       if (String(url) === "https://overpass-api.de/api/interpreter" && init?.method === "POST") {
         const body = new URLSearchParams(init.body);
         // The mock never contacts OSM; the bounding box differentiates the two allowed cities.
         const query = body.get("data");
-        const city = query.includes("51.43") ? "Cardiff" : query.includes("51.45") ? "London" : null;
+        const box = /node\["amenity"="restaurant"\]\(([^,]+),([^,]+),/.exec(query);
+        const configured = globalCities.find((item) =>
+          box && Math.abs(item.lat - 0.05 - Number(box[1])) < 0.00001 &&
+          Math.abs(item.lon - 0.05 - Number(box[2])) < 0.00001);
+        const city = configured?.name;
         assert.ok(city, `Unexpected OSM bounding box: ${query}`);
         osmCities.push(city);
         if (blockFirst) {
@@ -95,12 +103,12 @@ test("manual city import enforces admin, allowlist, lock and independent 12-hour
           firstRequested();
           await blockedFirst;
         }
-        if (failNext) {
+        if (failNext || city === failCity) {
           failNext = false;
-          return new Response("upstream unavailable", { status: 503 });
+          return new Response("upstream unavailable", { status: city === failCity ? 504 : 503 });
         }
         return Response.json({ elements: [{
-          type: "node", id: city === "Cardiff" ? 101 : 102,
+          type: "node", id: 101 + globalCities.indexOf(configured),
           tags: { name: `${city} test kitchen` },
         }] });
       }
@@ -233,6 +241,45 @@ test("manual city import enforces admin, allowlist, lock and independent 12-hour
         owner_outreach_disabled: false,
       });
     }
+
+    // A 504 in London must not discard Cardiff or the other completed cities.
+    const firstScheduledAt = new Date("2026-01-03T00:00:00Z");
+    failCity = "London";
+    const previousRequests = osmCities.length;
+    await runExternalIngestionIfDue(firstScheduledAt);
+    assert.equal(osmCities.length - previousRequests, globalCities.length);
+    assert.equal(osmCities.filter((item) => item === "London").length, 2); // manual + failed scheduled
+    const partial = (await pool.query(
+      "SELECT last_run_at, last_attempt_at, last_error_summary FROM external_ingestion_schedule WHERE id = 'external_ingestion_last_run'",
+    )).rows[0];
+    assert.equal(partial.last_run_at.toISOString(), "2026-01-01T00:00:00.000Z");
+    assert.equal(partial.last_attempt_at.toISOString(), firstScheduledAt.toISOString());
+    assert.match(partial.last_error_summary, /London: Overpass HTTP 504/);
+    assert.doesNotMatch(partial.last_error_summary, /upstream unavailable/);
+    assert.equal((await pool.query(
+      "SELECT count(*)::int AS n FROM external_ingestion_schedule WHERE id LIKE 'scheduled_osm_city:%'",
+    )).rows[0].n, globalCities.length - 1);
+    assert.equal((await pool.query(
+      "SELECT count(*)::int AS n FROM external_candidates WHERE source_name = 'OSM'",
+    )).rows[0].n, globalCities.length);
+
+    failCity = null;
+    await runExternalIngestionIfDue(new Date("2026-01-03T00:30:00Z"));
+    assert.equal(osmCities.length - previousRequests, globalCities.length, "restart checks must not hammer Overpass");
+    const retryAt = new Date("2026-01-03T01:00:00Z");
+    const beforeRetry = osmCities.length;
+    await runExternalIngestionIfDue(retryAt);
+    assert.deepEqual(osmCities.slice(beforeRetry), ["London"]);
+    const recovered = (await pool.query(
+      "SELECT last_run_at, last_attempt_at, last_error_summary FROM external_ingestion_schedule WHERE id = 'external_ingestion_last_run'",
+    )).rows[0];
+    assert.equal(recovered.last_run_at.toISOString(), retryAt.toISOString());
+    assert.equal(recovered.last_attempt_at.toISOString(), retryAt.toISOString());
+    assert.equal(recovered.last_error_summary, null);
+    await runExternalIngestionIfDue(new Date("2026-01-03T02:00:00Z"));
+    assert.equal(osmCities.length, beforeRetry + 1);
+    assert.equal((await pool.query("SELECT count(*)::int AS n FROM external_candidates")).rows[0].n, globalCities.length);
+    assert.equal((await pool.query("SELECT count(*)::int AS n FROM osm_candidate_workflows")).rows[0].n, globalCities.length);
   } finally {
     releaseFirst?.();
     globalThis.fetch = originalFetch;

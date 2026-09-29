@@ -185,6 +185,8 @@ export const GetIngestionOutreachDiagnosticResponse = zod.object({
 }),
   "external": zod.object({
   "lastSuccessfulScheduledRunAt": zod.coerce.date().nullable(),
+  "lastAttemptedScheduledRunAt": zod.coerce.date().nullable(),
+  "lastScheduledErrorSummary": zod.string().nullable(),
   "candidates": zod.object({
   "today": zod.number().int().min(getIngestionOutreachDiagnosticResponseExternalCandidatesTodayMin),
   "total": zod.number().int().min(getIngestionOutreachDiagnosticResponseExternalCandidatesTotalMin),

@@ -1980,9 +1980,11 @@ components:
                 budgetCents: { type: integer, minimum: 0 }
         external:
           type: object
-          required: [lastSuccessfulScheduledRunAt, candidates]
+          required: [lastSuccessfulScheduledRunAt, lastAttemptedScheduledRunAt, lastScheduledErrorSummary, candidates]
           properties:
             lastSuccessfulScheduledRunAt: { type: [string, "null"], format: date-time }
+            lastAttemptedScheduledRunAt: { type: [string, "null"], format: date-time }
+            lastScheduledErrorSummary: { type: [string, "null"] }
             candidates:
               type: object
               required: [today, total, bySource]

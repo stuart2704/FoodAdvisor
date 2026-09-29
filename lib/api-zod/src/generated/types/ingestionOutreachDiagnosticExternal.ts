@@ -10,5 +10,9 @@ import type { IngestionOutreachDiagnosticExternalCandidates } from './ingestionO
 export type IngestionOutreachDiagnosticExternal = {
   /** @nullable */
   lastSuccessfulScheduledRunAt: Date | null;
+  /** @nullable */
+  lastAttemptedScheduledRunAt: Date | null;
+  /** @nullable */
+  lastScheduledErrorSummary: string | null;
   candidates: IngestionOutreachDiagnosticExternalCandidates;
 };

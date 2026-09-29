@@ -16,6 +16,8 @@ type Diagnostic = {
   checkedAt: string;
   external: {
     lastSuccessfulScheduledRunAt: string | null;
+    lastAttemptedScheduledRunAt: string | null;
+    lastScheduledErrorSummary: string | null;
     candidates: { today: number; total: number };
   };
   restaurants: { today: number; total: number };
@@ -52,6 +54,8 @@ function isDiagnostic(value: unknown): value is Diagnostic {
     && typeof value.checkedAt === "string"
     && !Number.isNaN(Date.parse(value.checkedAt))
     && (value.external.lastSuccessfulScheduledRunAt === null || typeof value.external.lastSuccessfulScheduledRunAt === "string")
+    && (value.external.lastAttemptedScheduledRunAt === null || typeof value.external.lastAttemptedScheduledRunAt === "string")
+    && (value.external.lastScheduledErrorSummary === null || typeof value.external.lastScheduledErrorSummary === "string")
     && isRecord(candidates)
     && typeof candidates.today === "number" && Number.isFinite(candidates.today)
     && typeof candidates.total === "number" && Number.isFinite(candidates.total)
@@ -228,7 +232,8 @@ export default function AdminDashboard() {
               <div className="ad-status" data-testid="status-scheduled-import">
                 <div>
                   <strong>Last successful scheduled external import</strong>
-                  <p>A successful run is recorded separately from candidate counts. This does not show failed run attempts.</p>
+                   <p>Last attempt: {formatDate(data.external.lastAttemptedScheduledRunAt)}. Completed cities are saved even when another city fails.</p>
+                   {data.external.lastScheduledErrorSummary && <p role="alert">Latest import incomplete: {data.external.lastScheduledErrorSummary}</p>}
                 </div>
                 <div className="ad-status-time">
                   <span>Recorded success</span>

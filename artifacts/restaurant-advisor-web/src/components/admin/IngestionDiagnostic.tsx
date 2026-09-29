@@ -16,6 +16,8 @@ type Diagnostic = {
   };
   external: {
     lastSuccessfulScheduledRunAt: string | null;
+    lastAttemptedScheduledRunAt: string | null;
+    lastScheduledErrorSummary: string | null;
     candidates: {
       today: number;
       total: number;
@@ -121,7 +123,9 @@ export default function IngestionDiagnostic({ refreshKey = 0 }: { refreshKey?: n
               <p>Google points attempted today: <strong>{data.grid.pointsAttemptedToday}</strong></p>
               <p>Last Google run: {when(data.grid.lastRunAt)}</p>
               <p>Last successful scheduled external import: {when(data.external.lastSuccessfulScheduledRunAt)}</p>
-              <small>Last success is not a record of failed attempts. Check server logs for provider failures.</small>
+              <p>Last attempted scheduled external import: {when(data.external.lastAttemptedScheduledRunAt)}</p>
+              {data.external.lastScheduledErrorSummary && <p role="alert">Latest import incomplete: {data.external.lastScheduledErrorSummary}</p>}
+              <small>Completed cities are saved; unfinished cities retry at the next hourly check. No candidates are published automatically.</small>
             </article>
             <article className="ops-card">
               <h3>Google Places allowance</h3>

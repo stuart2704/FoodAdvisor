@@ -66,7 +66,6 @@ export async function acquireIngestionLease(): Promise<{
   return {
     signal: controller.signal,
     async commit(write) {
-      await stop();
       if (lost) throw new IngestionLeaseLost();
       // Lock the row only for DB writes. A competing takeover waits for this
       // transaction; stale owners cannot write after a takeover has committed.
@@ -79,9 +78,6 @@ export async function acquireIngestionLease(): Promise<{
         `);
         if (!rows.rows.length) throw new IngestionLeaseLost();
         await write(tx);
-        await tx.execute(sql`
-          DELETE FROM external_ingestion_lease WHERE id = ${LEASE_ID} AND owner_token = ${token}
-        `);
       });
     },
     async release() {

@@ -690,6 +690,10 @@ export type IngestionOutreachDiagnosticExternalCandidates = {
 export type IngestionOutreachDiagnosticExternal = {
   /** @nullable */
   lastSuccessfulScheduledRunAt: string | null;
+  /** @nullable */
+  lastAttemptedScheduledRunAt: string | null;
+  /** @nullable */
+  lastScheduledErrorSummary: string | null;
   candidates: IngestionOutreachDiagnosticExternalCandidates;
 };
 

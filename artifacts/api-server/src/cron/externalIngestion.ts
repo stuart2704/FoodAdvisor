@@ -9,6 +9,9 @@ import { storeExternalCandidates } from "../external/candidateStore";
 import { validateExternalCandidates } from "../external/candidateValidation";
 import { isSuppressed } from "../external/sourceSuppression";
 import { sourceQualityScore } from "../external/sourceQuality";
+import { globalCities } from "../external/cityList";
+import { fetchOsmCandidatesForCity } from "../external/osmAdapter";
+import { setTimeout as sleep } from "node:timers/promises";
 
 // Only OSM has a live endpoint. Other adapters remain dormant pending real licensed feeds.
 const adapters: { name: string; adapter: ExternalAdapter }[] = [
@@ -85,4 +88,48 @@ export async function runExternalCandidateIngestion(
   );
 
   // Only the separate, explicit review workflow may advance a stored candidate.
+}
+
+/** A scheduled pass makes at most one paced request per unfinished city. */
+export async function runScheduledOsmCities(
+  now: Date,
+  completed: ReadonlySet<string>,
+  options: {
+    signal: AbortSignal;
+    saveCity: (key: string, candidates: ExternalCandidate[]) => Promise<void>;
+  },
+): Promise<{ failed: { city: string; reason: string }[] }> {
+  const failed: { city: string; reason: string }[] = [];
+  if (isSuppressed("OSM")) {
+    return { failed: globalCities
+      .filter((city) => !completed.has(`scheduled_osm_city:${city.country}:${city.name.toLowerCase()}`))
+      .map((city) => ({ city: city.name, reason: "Source temporarily suppressed" })) };
+  }
+  let requests = 0;
+  for (const city of globalCities) {
+    const key = `scheduled_osm_city:${city.country}:${city.name.toLowerCase()}`;
+    if (completed.has(key)) continue;
+    options.signal.throwIfAborted();
+    if (requests++ > 0) await sleep(1_500, undefined, { signal: options.signal });
+    let candidates: ExternalCandidate[];
+    try {
+      candidates = await fetchOsmCandidatesForCity(city, now, options.signal);
+      options.signal.throwIfAborted();
+      validateExternalCandidates(candidates);
+    } catch (error) {
+      options.signal.throwIfAborted();
+      logger.warn({ err: error, city: city.name }, "Scheduled OSM city import failed");
+      // Never send provider response bodies, URLs, or stack traces to the admin UI.
+      const message = error instanceof Error ? error.message : "";
+      const status = /^OSM Overpass request for .+ failed with status (\d{3})$/.exec(message)?.[1];
+      const reason = status ? `Overpass HTTP ${status}` :
+        /timeout|timed out/i.test(message) || (error instanceof Error && error.name === "TimeoutError")
+          ? "Overpass timed out" : "Import failed";
+      failed.push({ city: city.name, reason });
+      continue;
+    }
+    // A storage failure is not a provider failure; stop rather than making more requests.
+    await options.saveCity(key, candidates);
+  }
+  return { failed };
 }

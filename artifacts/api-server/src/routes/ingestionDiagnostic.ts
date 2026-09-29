@@ -83,8 +83,8 @@ router.get("/operations/ingestion-diagnostic", async (req, res) => {
            FROM restaurant_import_runs r WHERE r.created_at >= $1`,
           [month],
         ),
-        pool.query<{ id: string; last_run_at: Date | null }>(
-          `SELECT id, last_run_at FROM external_ingestion_schedule
+         pool.query<{ id: string; last_run_at: Date | null; last_attempt_at: Date | null; last_error_summary: string | null }>(
+           `SELECT id, last_run_at, last_attempt_at, last_error_summary FROM external_ingestion_schedule
            WHERE id = 'external_ingestion_last_run' OR id LIKE 'manual_city_ingestion:%'
            ORDER BY last_run_at DESC NULLS LAST LIMIT 30`,
         ),
@@ -162,6 +162,10 @@ router.get("/operations/ingestion-diagnostic", async (req, res) => {
       external: {
         lastSuccessfulScheduledRunAt:
           external.rows.find((row) => row.id === "external_ingestion_last_run")?.last_run_at ?? null,
+        lastAttemptedScheduledRunAt:
+          external.rows.find((row) => row.id === "external_ingestion_last_run")?.last_attempt_at ?? null,
+        lastScheduledErrorSummary:
+          external.rows.find((row) => row.id === "external_ingestion_last_run")?.last_error_summary ?? null,
         candidates: {
           today: Number(candidates.rows[0]?.today ?? 0),
           total: Number(candidates.rows[0]?.total ?? 0),
