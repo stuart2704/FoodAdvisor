@@ -67,6 +67,7 @@ TIKTOK_REDIRECT_URI = "https://c0df53f2-83a9-4aa9-b71c-d948900574e9-00-261t9n7vh
 INSTAGRAM_REDIRECT_URI = "https://www.thefoodadvisor.co.uk/admin/social/instagram/callback"
 STRIPE_PREMIUM_PRICE_ID = "price_1UE8sKGeEn25QPrrBWsjoZSy"
 TIKTOK_REDIRECT_URI = "https://www.thefoodadvisor.co.uk/admin/social/tiktok/callback"
+SOCIAL_AUTOMATION_ENABLED = "true"
 
 [[ports]]
 localPort = 8080

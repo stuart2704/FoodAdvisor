@@ -10,3 +10,9 @@ An attached GitHub OAuth connection can have repository write access through the
 **How to apply:** Confirm the remote branch is an ancestor before writing. If the API fallback is required, update the branch only through a non-force fast-forward and verify the resulting remote tree matches the local tree. Keep local tracking aligned with the remote history afterward.
 
 For a new empty repository, create a temporary initial commit before using Git data endpoints; empty repositories reject blob and ref operations. For large snapshots, create trees one directory at a time from the deepest directories upward because a single flat tree request can time out. Keep connector writes below its request-per-second limit and verify the final root tree SHA against the local Git tree.
+
+Workflow files are a stricter case than ordinary repository content: a healthy GitHub connector with repository write access may still lack the permission to add a GitHub Actions workflow. Do not treat general `repo` access as proof that workflow changes can be pushed, or reconnect when the offered OAuth scopes do not include workflow access.
+
+**Why:** GitHub denied workflow creation despite a healthy connector that could manage Actions variables. Retrying through a different file API did not change the missing permission.
+
+**How to apply:** Check the connector's available reauthorization scopes. If workflow permission is unavailable, leave the scheduler disabled and ask the repository owner to add the workflow through an appropriately authorized GitHub session; never bypass the restriction with a force-push.
