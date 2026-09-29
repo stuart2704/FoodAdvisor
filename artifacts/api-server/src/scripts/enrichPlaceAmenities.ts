@@ -3,6 +3,8 @@
  * a provider-side Place Details (New) per-minute quota on the dedicated project
  * and verify billing alerts. An operator attests to that quota at invocation;
  * the application cannot inspect or enforce the Google Cloud quota itself.
+ * Apply the targeted lib/db/migrations/0047_place_amenity_refresh.sql to the
+ * confirmed database before using either initial checks or refreshes.
  *
  * pnpm --filter api-server exec tsx src/scripts/enrichPlaceAmenities.ts \
  *   --confirm --provider-quota-confirmed --provider-minute-quota 1 --daily-limit 10 \
@@ -11,11 +13,21 @@
  * Choose estimated-request-cents conservatively from the current Place Details
  * Enterprise + Atmosphere SKU in your billing currency; this is NOT an invoice cap.
  * Pending/failed attempts retain their charge and are skipped on restart.
+ *
+ * Refresh a single reviewed venue after 90 days (never a background scan):
+ *   ... --refresh --place-id PLACE_ID --confirm --provider-quota-confirmed ...limits...
+ * This stores an observation only. Inspect its tags and current venue state,
+ *   ... --inspect-check CHECK_ID
+ * then decide: ... --review-check CHECK_ID --reviewer NAME --note REASON --approve
+ * or ... --review-check CHECK_ID --reviewer NAME --note REASON --reject
+ * A conflict or failed request is not retried automatically.
  */
 import { pool } from "@workspace/db";
 import { fetchPlaceAmenities } from "../lib/placeAmenities";
 import {
   completeAmenityDetails, failAmenityDetails, reserveAmenityDetails,
+  reserveRefreshAmenityDetails, completeRefreshAmenityDetails,
+  failRefreshAmenityDetails, reviewRefreshAmenityDetails,
   validateAmenityRunOptions, type AmenityRunOptions,
 } from "../lib/placeAmenityReservations";
 import { logEvent } from "../lib/logEvent";
@@ -42,9 +54,64 @@ function parseOptions(args: string[]): AmenityRunOptions {
 }
 
 export async function runAmenityEnrichment(args: string[]) {
+  if (args.includes("--inspect-check")) {
+    const id = Number(args[args.indexOf("--inspect-check") + 1]);
+    if (!Number.isSafeInteger(id) || id < 1) throw new Error("A valid --inspect-check ID is required.");
+    const observation = await pool.query(`
+      SELECT c.id, c.place_id, c.source, c.status, c.created_at, c.completed_at,
+        c.baseline_amenities, c.observed_amenities, c.review_decision,
+        c.reviewed_by, c.review_note, c.applied_at,
+        r.amenities AS current_amenities, r.claim_status, r.claimed_at
+      FROM place_amenity_checks c LEFT JOIN restaurants r ON r.place_id = c.place_id
+      WHERE c.id = $1 AND c.mode = 'refresh'
+    `, [id]);
+    if (observation.rowCount !== 1) throw new Error("Refresh check not found.");
+    logger.info({ observation: observation.rows[0] }, "Refresh observation for operator review");
+    return;
+  }
+  if (args.includes("--review-check")) {
+    const read = (flag: string) => args[args.indexOf(flag) + 1];
+    const id = Number(read("--review-check"));
+    if (!Number.isSafeInteger(id) || id < 1 ||
+        args.includes("--approve") === args.includes("--reject")) {
+      throw new Error("A valid check ID and exactly one of --approve or --reject are required.");
+    }
+    const decision = await reviewRefreshAmenityDetails(
+      id, read("--reviewer") ?? "", read("--note") ?? "", args.includes("--approve"),
+    );
+    logEvent("amenity_refresh_reviewed", { check_id: id, decision });
+    if (decision === "conflict") throw new Error("Venue values changed or lack proven provenance; observation was not applied.");
+    return;
+  }
   const options = parseOptions(args);
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
   if (!apiKey) throw new Error("GOOGLE_MAPS_API_KEY is required; no Place Details request was made.");
+  if (args.includes("--refresh")) {
+    const placeId = args[args.indexOf("--place-id") + 1];
+    if (!placeId || placeId.startsWith("--")) throw new Error("--place-id is required for a manual refresh.");
+    const reservation = await reserveRefreshAmenityDetails(placeId, options);
+    if (typeof reservation !== "number") {
+      throw new Error(`Refresh not reserved (${reservation}): check eligibility, review status, 90-day freshness and shared limits.`);
+    }
+    logEvent("amenity_refresh_reserved", { place_id: placeId, check_id: reservation, estimated_cost_cents: options.estimatedRequestCents });
+    let fetched = false;
+    try {
+      const amenities = await fetchPlaceAmenities(placeId, apiKey);
+      fetched = true;
+      await completeRefreshAmenityDetails(reservation, amenities);
+      logEvent("amenity_refresh_observed", { place_id: placeId, check_id: reservation, amenities, source: "google_place_details_new", review_required: amenities !== null });
+    } catch (error) {
+      // If persistence failed after a response, retain the pending attempt for
+      // manual investigation. No second provider call is made.
+      if (!fetched) {
+        try { await failRefreshAmenityDetails(reservation); } catch (markError) {
+          logger.error({ err: markError }, "Could not record failed refresh attempt");
+        }
+      }
+      throw error;
+    }
+    return;
+  }
   // Select more than the run allowance so previously attempted rows never
   // prevent progress. Each claim is independently rechecked under a DB lock.
   const candidates = await pool.query<{ place_id: string }>(`
