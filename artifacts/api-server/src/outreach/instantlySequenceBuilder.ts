@@ -1,10 +1,13 @@
-import { ReplitConnectors, type ProxyOptions } from "@replit/connectors-sdk";
 import {
   normaliseInstantlyEmail,
   validInstantlyProviderId,
 } from "../services/instantly/instantlyContracts.ts";
+import {
+  instantlyRequest,
+  InstantlyConfigurationError,
+  type InstantlyRequestOptions,
+} from "../services/instantly/instantlyClient.ts";
 
-const INSTANTLY_CONNECTOR = "instantly";
 const CREATION_FLAG = "INSTANTLY_CAMPAIGN_CREATION_ENABLED";
 const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
 const MAX_SUBJECT_LENGTH = 500;
@@ -119,19 +122,19 @@ async function withTimeout<T>(operation: Promise<T>): Promise<T> {
 }
 
 /**
- * Connector responses and provider bodies are intentionally not included in
+ * Provider responses and bodies are intentionally not included in
  * errors. Provider responses can contain account, contact, or message data.
  */
 async function instantlyJson(
   path: string,
-  options?: ProxyOptions,
+  options?: InstantlyRequestOptions,
 ): Promise<unknown> {
   try {
     const response = await withTimeout(
-      new ReplitConnectors().proxy(INSTANTLY_CONNECTOR, path, options),
+      instantlyRequest(path, options),
     );
     if (!response.ok) {
-      fail("Instantly request was not accepted.");
+      fail(`Instantly request was not accepted (HTTP ${response.status}).`);
     }
     try {
       return await response.json();
@@ -140,11 +143,14 @@ async function instantlyJson(
     }
   } catch (error) {
     if (error instanceof SequenceBuilderError) throw error;
+    if (error instanceof InstantlyConfigurationError) {
+      throw new SequenceBuilderError(error.message);
+    }
     throw new SequenceBuilderError("Instantly request failed.");
   }
 }
 
-function jsonOptions(method: "PATCH" | "POST", body: Record<string, unknown>): ProxyOptions {
+function jsonOptions(method: "PATCH" | "POST", body: Record<string, unknown>): InstantlyRequestOptions {
   return {
     method,
     headers: { "Content-Type": "application/json" },

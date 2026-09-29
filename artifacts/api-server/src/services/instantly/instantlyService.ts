@@ -1,4 +1,3 @@
-import { ReplitConnectors, type ProxyOptions } from "@replit/connectors-sdk";
 import {
   db,
   instantlyCampaignCancellationTable,
@@ -25,6 +24,11 @@ import {
   singleStepCampaignPayload,
   validInstantlyProviderId,
 } from "./instantlyContracts";
+import {
+  assertInstantlyApiKeyConfigured,
+  instantlyRequest,
+  type InstantlyRequestOptions,
+} from "./instantlyClient";
 
 const MAX_REPLY_BODY_CHARS = 20_000;
 
@@ -74,6 +78,7 @@ export function assertInstantlyCampaignConfiguration(): void {
     throw new Error("Instantly campaign activation is disabled.");
   }
   configuredEaccount();
+  assertInstantlyApiKeyConfigured();
 }
 
 export async function withInstantlyRestaurantLock<T>(
@@ -135,12 +140,11 @@ function utcDate(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-async function instantlyJson(path: string, init?: ProxyOptions): Promise<unknown> {
-  const connectors = new ReplitConnectors();
-  const response = await connectors.proxy("instantly", path, init);
+async function instantlyJson(path: string, init?: InstantlyRequestOptions): Promise<unknown> {
+  const response = await instantlyRequest(path, init);
   if (!response.ok) {
     // Do not surface provider bodies: they can include contact or message data.
-    throw new Error("Instantly request was not accepted.");
+    throw new Error(`Instantly request was not accepted (HTTP ${response.status}).`);
   }
   try {
     return await response.json();

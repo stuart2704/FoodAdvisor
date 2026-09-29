@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ReplitConnectors, type ProxyOptions } from "@replit/connectors-sdk";
+import type { InstantlyRequestOptions } from "../services/instantly/instantlyClient.ts";
 import {
   UNSUBSCRIBE_PLACEHOLDER,
   addSequenceStep,
@@ -20,7 +20,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 type ProxyCall = {
   connector: string;
   path: string;
-  options?: ProxyOptions;
+  options?: InstantlyRequestOptions;
 };
 
 async function withProxy(
@@ -28,20 +28,33 @@ async function withProxy(
   operation: (calls: ProxyCall[]) => Promise<void>,
 ): Promise<void> {
   const calls: ProxyCall[] = [];
-  const original = ReplitConnectors.prototype.proxy;
-  ReplitConnectors.prototype.proxy = async function mockProxy(
-    connector: string,
-    path: string,
-    options?: ProxyOptions,
+  const original = globalThis.fetch;
+  const previousKey = process.env.INSTANTLY_API_KEY;
+  process.env.INSTANTLY_API_KEY = "test-key-only";
+  globalThis.fetch = async function mockFetch(
+    input: string | URL | Request,
+    init?: RequestInit,
   ): Promise<Response> {
-    const call = { connector, path, options };
+    const url = new URL(String(input));
+    assert.equal(url.origin, "https://api.instantly.ai");
+    const call: ProxyCall = {
+      connector: "instantly",
+      path: `${url.pathname.replace(/^\/api/, "")}${url.search}`,
+      options: {
+        method: init?.method === "GET" ? undefined : init?.method,
+        body: typeof init?.body === "string" ? JSON.parse(init.body) : undefined,
+      },
+    };
+    assert.equal(new Headers(init?.headers).get("Authorization"), "Bearer test-key-only");
     calls.push(call);
     return handler(call);
   };
   try {
     await operation(calls);
   } finally {
-    ReplitConnectors.prototype.proxy = original;
+    globalThis.fetch = original;
+    if (previousKey === undefined) delete process.env.INSTANTLY_API_KEY;
+    else process.env.INSTANTLY_API_KEY = previousKey;
   }
 }
 
