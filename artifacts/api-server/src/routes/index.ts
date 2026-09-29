@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import ownerListingRequestsRouter from "./ownerListingRequests";
 import restaurantImportRouter from "./restaurant-import";
 import nearbyRouter from "./nearby";
 import outreachRouter from "./outreach";
@@ -93,6 +94,7 @@ router.use(betterContactRouter);
 router.use(collectionsRouter);
 router.use(chefStorageRouter);
 router.use(restaurantPhotosRouter);
+router.use(ownerListingRequestsRouter);
 router.use(adminIngestionRouter);
 router.use("/dashboard/orchestration", orchestrationRouter);
 router.use("/dashboard/ingest", ingestRouter);

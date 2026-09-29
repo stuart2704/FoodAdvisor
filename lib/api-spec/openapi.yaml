@@ -157,6 +157,62 @@ paths:
         "401": { description: Admin session required }
         "429": { description: Preview rate limit reached }
         "503": { description: Official source unavailable or returned invalid data }
+  /dashboard/operations/government-sources/control:
+    post:
+      operationId: controlGovernmentSource
+      tags: [restaurants]
+      security: [{ adminSession: [] }]
+      summary: Review, pause or request resumption of an official source
+      description: Resumption is rejected unless a verified billing meter confirms the monthly incremental threshold; NYC cannot be published.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GovernmentSourceDecision" }
+      responses:
+        "200":
+          description: Source decision saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GovernmentSourceDecisionResult" }
+        "400": { description: Invalid source or action }
+        "401": { description: Admin session required }
+        "409": { description: Source or billing gate blocks this action }
+        "503": { description: Import state unavailable }
+  /owner/listing-requests:
+    post:
+      operationId: submitOwnerListingRequest
+      tags: [restaurants]
+      summary: Request a claim invitation or a new restaurant listing for manual review
+      description: Does not create claims or listings automatically.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OwnerListingRequestInput" }
+      responses:
+        "202":
+          description: Request saved for manual review
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OwnerListingRequestResult" }
+        "400": { description: Invalid details }
+        "429": { description: Too many requests }
+        "503": { description: Request could not be stored }
+  /dashboard/owner/listing-requests:
+    get:
+      operationId: listOwnerListingRequests
+      tags: [restaurants]
+      security: [{ adminSession: [] }]
+      summary: Review recent unsolicited owner listing requests
+      responses:
+        "200":
+          description: Recent requests, private to admins
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OwnerListingRequestList" }
+        "401": { description: Admin session required }
+        "503": { description: Requests unavailable }
   /dashboard/status:
     servers: [{ url: / }]
     get:
@@ -1908,9 +1964,52 @@ components:
         source: { type: string, enum: [FSA_UK, ALIM_FR, NYC_DOHMH] }
         limit: { type: integer, minimum: 1, maximum: 50, default: 25 }
       additionalProperties: false
+    OwnerListingRequestInput:
+      type: object
+      additionalProperties: false
+      required: [kind, restaurantName, city, address, contactName, businessEmail]
+      properties:
+        kind: { type: string, enum: [no_invitation, new_listing] }
+        restaurantName: { type: string, minLength: 2, maxLength: 160 }
+        city: { type: string, minLength: 2, maxLength: 120 }
+        address: { type: string, minLength: 5, maxLength: 300 }
+        contactName: { type: string, minLength: 2, maxLength: 120 }
+        businessEmail: { type: string, format: email, maxLength: 254 }
+        website: { type: string, maxLength: 400 }
+        note: { type: string, maxLength: 1000 }
+        companyFax: { type: string, maxLength: 0 }
+    OwnerListingRequestResult:
+      type: object
+      required: [success, message]
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+    OwnerListingRequestList:
+      type: object
+      required: [success, requests]
+      properties:
+        success: { type: boolean }
+        requests:
+          type: array
+          items: { $ref: "#/components/schemas/OwnerListingRequestRecord" }
+    OwnerListingRequestRecord:
+      type: object
+      required: [id, kind, restaurantName, city, address, contactName, businessEmail, website, note, status, createdAt]
+      properties:
+        id: { type: integer }
+        kind: { type: string }
+        restaurantName: { type: string }
+        city: { type: string }
+        address: { type: string }
+        contactName: { type: string }
+        businessEmail: { type: string }
+        website: { type: [string, "null"] }
+        note: { type: [string, "null"] }
+        status: { type: string }
+        createdAt: { type: string, format: date-time }
     GovernmentSourceReadiness:
       type: object
-      required: [success, phase, publishingEnabled, plannedDailyRunUtc, initialDailyLimitPerSource, additionalMonthlyBudgetGbp, pauseAtAdditionalGbp, costMeterConnected, sources]
+      required: [success, phase, publishingEnabled, plannedDailyRunUtc, initialDailyLimitPerSource, additionalMonthlyBudgetGbp, pauseAtAdditionalGbp, costMeterConnected, billingBlocker, sources, recentRuns, recentDecisions]
       properties:
         success: { type: boolean }
         phase: { type: string, enum: [baseline] }
@@ -1920,17 +2019,62 @@ components:
         additionalMonthlyBudgetGbp: { type: number }
         pauseAtAdditionalGbp: { type: number }
         costMeterConnected: { type: boolean, enum: [false] }
+        billingBlocker: { type: string }
         sources:
           type: array
           items:
             type: object
-            required: [code, label, region, licenceUrl, datasetUrl]
+            required: [code, label, region, licenceUrl, datasetUrl, approved, paused, publishable]
             properties:
               code: { type: string, enum: [FSA_UK, ALIM_FR, NYC_DOHMH] }
               label: { type: string }
               region: { type: string }
               licenceUrl: { type: string, format: uri }
               datasetUrl: { type: string, format: uri }
+              approved: { type: boolean }
+              paused: { type: boolean }
+              publishable: { type: boolean }
+        recentRuns:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernmentSourceRun"
+        recentDecisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernmentSourceDecisionAudit"
+    GovernmentSourceDecisionAudit:
+      type: object
+      required: [source, action, createdAt]
+      properties:
+        source: { type: string }
+        action: { type: string }
+        createdAt: { type: string, format: date-time }
+    GovernmentSourceRun:
+      type: object
+      required: [source, runDay, status, scanned, inserted, updated, skipped, error]
+      properties:
+        source: { type: string }
+        runDay: { type: string, format: date }
+        status: { type: string }
+        scanned: { type: integer }
+        inserted: { type: integer }
+        updated: { type: integer }
+        skipped: { type: integer }
+        error: { type: [string, "null"] }
+    GovernmentSourceDecision:
+      type: object
+      required: [source, action]
+      additionalProperties: false
+      properties:
+        source: { type: string, enum: [FSA_UK, ALIM_FR, NYC_DOHMH] }
+        action: { type: string, enum: [approve, pause, resume] }
+    GovernmentSourceDecisionResult:
+      type: object
+      required: [success, source, action]
+      properties:
+        success: { type: boolean }
+        source: { type: string }
+        action: { type: string }
     GovernmentSourcePreview:
       type: object
       required: [success, source, checkedAt, scanned, eligible, skipped, nextCursor, listings]
@@ -2222,7 +2366,7 @@ components:
           type: ["string", "null"]
         sourceName:
           type: string
-          enum: [google, OSM]
+          enum: [google, OSM, FSA_UK, ALIM_FR]
         sourceAttribution:
           type: ["string", "null"]
         published:

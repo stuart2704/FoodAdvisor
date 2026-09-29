@@ -17,6 +17,7 @@ import AdminOperations from "./pages/admin/operations";
 import AdminLogout from "./pages/admin/logout";
 import AdminOutreach from "./pages/admin/outreach";
 import AdminOwnerContacts from "./pages/admin/owner-contacts";
+import ListingRequestsPage from "./pages/admin/listing-requests";
 import AdminPerformance from "./pages/admin/performance";
 import AdminIngestion from "./pages/admin/ingestion";
 import ManageRestaurantsPage from "./pages/admin-restaurants";
@@ -99,6 +100,7 @@ function AppRoutes() {
         <Route path="/admin/errors" element={<AdminErrors />} />
         <Route path="/admin/outreach" element={<AdminOutreach />} />
         <Route path="/admin/owner-contacts" element={<AdminOwnerContacts />} />
+        <Route path="/admin/listing-requests" element={<ListingRequestsPage />} />
         <Route path="/admin/restaurants" element={<ManageRestaurantsPage />} />
         <Route path="/admin/candidates" element={<RequireAdmin><AdminCandidatesPage /></RequireAdmin>} />
         <Route path="/admin/chef-review" element={<AdminChefReviewPage />} />

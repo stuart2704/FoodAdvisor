@@ -5,6 +5,11 @@ import { fetchFsaBatch } from "../governmentSources/fsa";
 import { fetchFranceBatch } from "../governmentSources/france";
 import { fetchNycBatch } from "../governmentSources/nyc";
 import { adminOnly } from "../middleware/adminOnly";
+import { db, governmentImportDecisionsTable, governmentImportRunsTable, governmentImportSourcesTable } from "@workspace/db";
+import { desc, eq } from "drizzle-orm";
+import { z } from "zod";
+import { billingGate, sourceIsPublishable } from "../governmentSources/importer";
+import type { GovernmentSource } from "../governmentSources/types";
 
 const router: IRouter = Router();
 router.use(adminOnly);
@@ -33,7 +38,14 @@ const sources = [
   },
 ] as const;
 
-router.get("/operations/government-sources", (_req, res) => {
+router.get("/operations/government-sources", async (req, res): Promise<void> => {
+  try {
+  const [states, runs, decisions, gate] = await Promise.all([
+    db.select().from(governmentImportSourcesTable),
+    db.select().from(governmentImportRunsTable).orderBy(desc(governmentImportRunsTable.startedAt)).limit(15),
+    db.select().from(governmentImportDecisionsTable).orderBy(desc(governmentImportDecisionsTable.createdAt)).limit(15),
+    billingGate(),
+  ]);
   res.json(GetGovernmentSourceReadinessResponse.parse({
     success: true,
     phase: "baseline",
@@ -43,10 +55,81 @@ router.get("/operations/government-sources", (_req, res) => {
     additionalMonthlyBudgetGbp: 10,
     pauseAtAdditionalGbp: 7,
     costMeterConnected: false,
-    sources,
+    sources: sources.map((source) => ({
+      ...source,
+      approved: states.find((s) => s.source === source.code)?.approved ?? false,
+      paused: states.find((s) => s.source === source.code)?.paused ?? true,
+      publishable: sourceIsPublishable(source.code),
+    })),
+    billingBlocker: gate.reason,
+    recentRuns: runs.map((run) => ({
+      source: run.source, runDay: run.runDay, status: run.status,
+      scanned: run.scanned, inserted: run.inserted, updated: run.updated, skipped: run.skipped,
+      error: run.error,
+    })),
+    recentDecisions: decisions.map((decision) => ({
+      source: decision.source, action: decision.action, createdAt: decision.createdAt.toISOString(),
+    })),
   }));
+  } catch (error) {
+    req.log.error({ err: error }, "Government source readiness unavailable");
+    res.status(503).json({ success: false, error: "Import state is unavailable." });
+  }
 });
 
+const sourceDecision = z.object({
+  source: z.enum(["FSA_UK", "ALIM_FR", "NYC_DOHMH"]),
+  action: z.enum(["approve", "pause", "resume"]),
+}).strict();
+
+router.post("/operations/government-sources/control", async (req, res): Promise<void> => {
+  const parsed = sourceDecision.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ success: false, error: "Invalid source or action." });
+    return;
+  }
+  const { source, action } = parsed.data;
+  if (!sourceIsPublishable(source)) {
+    res.status(409).json({ success: false, error: "NYC inspection history is not approved for publication." });
+    return;
+  }
+  if (action === "resume") {
+    const gate = await billingGate();
+    if (!gate.ready) {
+      res.status(409).json({ success: false, error: gate.reason });
+      return;
+    }
+  }
+  try {
+    const [current] = await db.select().from(governmentImportSourcesTable)
+      .where(eq(governmentImportSourcesTable.source, source));
+    if (action === "resume" && !current?.approved) {
+      res.status(409).json({ success: false, error: "Review and approve this source first." });
+      return;
+    }
+    await db.transaction(async (tx) => {
+    await tx.insert(governmentImportSourcesTable).values({
+      source, approved: action === "approve" ? true : current?.approved ?? false,
+      paused: action === "resume" ? false : true,
+      reviewedAt: action === "approve" ? new Date() : current?.reviewedAt ?? null,
+    }).onConflictDoUpdate({
+      target: governmentImportSourcesTable.source,
+      set: {
+        approved: action === "approve" ? true : current?.approved ?? false,
+        paused: action !== "resume",
+        reviewedAt: action === "approve" ? new Date() : current?.reviewedAt ?? null,
+        updatedAt: new Date(),
+      },
+    });
+    await tx.insert(governmentImportDecisionsTable).values({ source, action });
+    });
+    req.log.info({ source, action }, "Government source control changed");
+    res.json({ success: true, source, action });
+  } catch (error) {
+    req.log.error({ err: error, source, action }, "Government source control failed");
+    res.status(503).json({ success: false, error: "Import control is unavailable." });
+  }
+});
 router.post(
   "/operations/government-sources/preview",
   rateLimit({

@@ -32,6 +32,8 @@ import type {
   GetGmailWatchStatus200,
   GmailReplyPollResult,
   GmailWatch,
+  GovernmentSourceDecision,
+  GovernmentSourceDecisionResult,
   GovernmentSourcePreview,
   GovernmentSourcePreviewInput,
   GovernmentSourceReadiness,
@@ -65,6 +67,9 @@ import type {
   OsmSuppressionInput,
   OsmVerificationCodeInput,
   OutreachRunResult,
+  OwnerListingRequestInput,
+  OwnerListingRequestList,
+  OwnerListingRequestResult,
   PrivateContactIdCorrection,
   PrivateContactIdCorrectionResponse,
   PubSubPushEnvelope,
@@ -640,6 +645,227 @@ export const usePreviewGovernmentSource = <TError = ErrorType<void>,
       > => {
       return useMutation(getPreviewGovernmentSourceMutationOptions(options));
     }
+
+export const getControlGovernmentSourceUrl = () => {
+
+
+
+
+  return `/api/dashboard/operations/government-sources/control`
+}
+
+/**
+ * Resumption is rejected unless a verified billing meter confirms the monthly incremental threshold; NYC cannot be published.
+ * @summary Review, pause or request resumption of an official source
+ */
+export const controlGovernmentSource = async (governmentSourceDecision: GovernmentSourceDecision, options?: Parameters<typeof customFetch>[1]): Promise<GovernmentSourceDecisionResult> => {
+
+  return customFetch<GovernmentSourceDecisionResult>(getControlGovernmentSourceUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(governmentSourceDecision)
+  }
+);}
+
+
+
+
+
+export const getControlGovernmentSourceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof controlGovernmentSource>>, TError,{data: BodyType<GovernmentSourceDecision>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof controlGovernmentSource>>, TError,{data: BodyType<GovernmentSourceDecision>}, TContext> => {
+
+const mutationKey = ['controlGovernmentSource'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof controlGovernmentSource>>, {data: BodyType<GovernmentSourceDecision>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  controlGovernmentSource(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ControlGovernmentSourceMutationResult = NonNullable<Awaited<ReturnType<typeof controlGovernmentSource>>>
+    export type ControlGovernmentSourceMutationBody = BodyType<GovernmentSourceDecision>
+    export type ControlGovernmentSourceMutationError = ErrorType<void>
+
+    /**
+ * @summary Review, pause or request resumption of an official source
+ */
+export const useControlGovernmentSource = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof controlGovernmentSource>>, TError,{data: BodyType<GovernmentSourceDecision>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof controlGovernmentSource>>,
+        TError,
+        {data: BodyType<GovernmentSourceDecision>},
+        TContext
+      > => {
+      return useMutation(getControlGovernmentSourceMutationOptions(options));
+    }
+
+export const getSubmitOwnerListingRequestUrl = () => {
+
+
+
+
+  return `/api/owner/listing-requests`
+}
+
+/**
+ * Does not create claims or listings automatically.
+ * @summary Request a claim invitation or a new restaurant listing for manual review
+ */
+export const submitOwnerListingRequest = async (ownerListingRequestInput: OwnerListingRequestInput, options?: Parameters<typeof customFetch>[1]): Promise<OwnerListingRequestResult> => {
+
+  return customFetch<OwnerListingRequestResult>(getSubmitOwnerListingRequestUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(ownerListingRequestInput)
+  }
+);}
+
+
+
+
+
+export const getSubmitOwnerListingRequestMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitOwnerListingRequest>>, TError,{data: BodyType<OwnerListingRequestInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitOwnerListingRequest>>, TError,{data: BodyType<OwnerListingRequestInput>}, TContext> => {
+
+const mutationKey = ['submitOwnerListingRequest'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitOwnerListingRequest>>, {data: BodyType<OwnerListingRequestInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  submitOwnerListingRequest(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitOwnerListingRequestMutationResult = NonNullable<Awaited<ReturnType<typeof submitOwnerListingRequest>>>
+    export type SubmitOwnerListingRequestMutationBody = BodyType<OwnerListingRequestInput>
+    export type SubmitOwnerListingRequestMutationError = ErrorType<void>
+
+    /**
+ * @summary Request a claim invitation or a new restaurant listing for manual review
+ */
+export const useSubmitOwnerListingRequest = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitOwnerListingRequest>>, TError,{data: BodyType<OwnerListingRequestInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof submitOwnerListingRequest>>,
+        TError,
+        {data: BodyType<OwnerListingRequestInput>},
+        TContext
+      > => {
+      return useMutation(getSubmitOwnerListingRequestMutationOptions(options));
+    }
+
+export const getListOwnerListingRequestsUrl = () => {
+
+
+
+
+  return `/api/dashboard/owner/listing-requests`
+}
+
+/**
+ * @summary Review recent unsolicited owner listing requests
+ */
+export const listOwnerListingRequests = async ( options?: Parameters<typeof customFetch>[1]): Promise<OwnerListingRequestList> => {
+
+  return customFetch<OwnerListingRequestList>(getListOwnerListingRequestsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOwnerListingRequestsQueryKey = () => {
+    return [
+    `/api/dashboard/owner/listing-requests`
+    ] as const;
+    }
+
+
+export const getListOwnerListingRequestsQueryOptions = <TData = Awaited<ReturnType<typeof listOwnerListingRequests>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOwnerListingRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOwnerListingRequestsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOwnerListingRequests>>> = ({ signal }) => listOwnerListingRequests({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOwnerListingRequests>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOwnerListingRequestsQueryResult = NonNullable<Awaited<ReturnType<typeof listOwnerListingRequests>>>
+export type ListOwnerListingRequestsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Review recent unsolicited owner listing requests
+ */
+
+export function useListOwnerListingRequests<TData = Awaited<ReturnType<typeof listOwnerListingRequests>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOwnerListingRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOwnerListingRequestsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetDashboardStatusUrl = () => {
 

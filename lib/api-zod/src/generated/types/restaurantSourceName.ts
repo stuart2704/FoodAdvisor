@@ -12,4 +12,6 @@ export type RestaurantSourceName = typeof RestaurantSourceName[keyof typeof Rest
 export const RestaurantSourceName = {
   google: 'google',
   OSM: 'OSM',
+  FSA_UK: 'FSA_UK',
+  ALIM_FR: 'ALIM_FR',
 } as const;

@@ -580,6 +580,72 @@ export interface GovernmentSourcePreviewInput {
   limit?: number;
 }
 
+export type OwnerListingRequestInputKind = typeof OwnerListingRequestInputKind[keyof typeof OwnerListingRequestInputKind];
+
+
+export const OwnerListingRequestInputKind = {
+  no_invitation: 'no_invitation',
+  new_listing: 'new_listing',
+} as const;
+
+export interface OwnerListingRequestInput {
+  kind: OwnerListingRequestInputKind;
+  /**
+     * @minLength 2
+     * @maxLength 160
+     */
+  restaurantName: string;
+  /**
+     * @minLength 2
+     * @maxLength 120
+     */
+  city: string;
+  /**
+     * @minLength 5
+     * @maxLength 300
+     */
+  address: string;
+  /**
+     * @minLength 2
+     * @maxLength 120
+     */
+  contactName: string;
+  /** @maxLength 254 */
+  businessEmail: string;
+  /** @maxLength 400 */
+  website?: string;
+  /** @maxLength 1000 */
+  note?: string;
+  /** @maxLength 0 */
+  companyFax?: string;
+}
+
+export interface OwnerListingRequestResult {
+  success: boolean;
+  message: string;
+}
+
+export interface OwnerListingRequestRecord {
+  id: number;
+  kind: string;
+  restaurantName: string;
+  city: string;
+  address: string;
+  contactName: string;
+  businessEmail: string;
+  /** @nullable */
+  website: string | null;
+  /** @nullable */
+  note: string | null;
+  status: string;
+  createdAt: string;
+}
+
+export interface OwnerListingRequestList {
+  success: boolean;
+  requests: OwnerListingRequestRecord[];
+}
+
 export type GovernmentSourceReadinessPhase = typeof GovernmentSourceReadinessPhase[keyof typeof GovernmentSourceReadinessPhase];
 
 
@@ -602,7 +668,28 @@ export type GovernmentSourceReadinessSourcesItem = {
   region: string;
   licenceUrl: string;
   datasetUrl: string;
+  approved: boolean;
+  paused: boolean;
+  publishable: boolean;
 };
+
+export interface GovernmentSourceRun {
+  source: string;
+  runDay: string;
+  status: string;
+  scanned: number;
+  inserted: number;
+  updated: number;
+  skipped: number;
+  /** @nullable */
+  error: string | null;
+}
+
+export interface GovernmentSourceDecisionAudit {
+  source: string;
+  action: string;
+  createdAt: string;
+}
 
 export interface GovernmentSourceReadiness {
   success: boolean;
@@ -613,7 +700,39 @@ export interface GovernmentSourceReadiness {
   additionalMonthlyBudgetGbp: number;
   pauseAtAdditionalGbp: number;
   costMeterConnected: false;
+  billingBlocker: string;
   sources: GovernmentSourceReadinessSourcesItem[];
+  recentRuns: GovernmentSourceRun[];
+  recentDecisions: GovernmentSourceDecisionAudit[];
+}
+
+export type GovernmentSourceDecisionSource = typeof GovernmentSourceDecisionSource[keyof typeof GovernmentSourceDecisionSource];
+
+
+export const GovernmentSourceDecisionSource = {
+  FSA_UK: 'FSA_UK',
+  ALIM_FR: 'ALIM_FR',
+  NYC_DOHMH: 'NYC_DOHMH',
+} as const;
+
+export type GovernmentSourceDecisionAction = typeof GovernmentSourceDecisionAction[keyof typeof GovernmentSourceDecisionAction];
+
+
+export const GovernmentSourceDecisionAction = {
+  approve: 'approve',
+  pause: 'pause',
+  resume: 'resume',
+} as const;
+
+export interface GovernmentSourceDecision {
+  source: GovernmentSourceDecisionSource;
+  action: GovernmentSourceDecisionAction;
+}
+
+export interface GovernmentSourceDecisionResult {
+  success: boolean;
+  source: string;
+  action: string;
 }
 
 export type GovernmentSourcePreviewSource = typeof GovernmentSourcePreviewSource[keyof typeof GovernmentSourcePreviewSource];
@@ -870,6 +989,8 @@ export type RestaurantSourceName = typeof RestaurantSourceName[keyof typeof Rest
 export const RestaurantSourceName = {
   google: 'google',
   OSM: 'OSM',
+  FSA_UK: 'FSA_UK',
+  ALIM_FR: 'ALIM_FR',
 } as const;
 
 export interface GeoLocation {

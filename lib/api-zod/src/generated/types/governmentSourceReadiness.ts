@@ -5,8 +5,10 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { GovernmentSourceDecisionAudit } from './governmentSourceDecisionAudit';
 import type { GovernmentSourceReadinessPhase } from './governmentSourceReadinessPhase';
 import type { GovernmentSourceReadinessSourcesItem } from './governmentSourceReadinessSourcesItem';
+import type { GovernmentSourceRun } from './governmentSourceRun';
 
 export interface GovernmentSourceReadiness {
   success: boolean;
@@ -17,5 +19,8 @@ export interface GovernmentSourceReadiness {
   additionalMonthlyBudgetGbp: number;
   pauseAtAdditionalGbp: number;
   costMeterConnected: false;
+  billingBlocker: string;
   sources: GovernmentSourceReadinessSourcesItem[];
+  recentRuns: GovernmentSourceRun[];
+  recentDecisions: GovernmentSourceDecisionAudit[];
 }

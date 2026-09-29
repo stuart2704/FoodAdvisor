@@ -13,4 +13,7 @@ export type GovernmentSourceReadinessSourcesItem = {
   region: string;
   licenceUrl: string;
   datasetUrl: string;
+  approved: boolean;
+  paused: boolean;
+  publishable: boolean;
 };

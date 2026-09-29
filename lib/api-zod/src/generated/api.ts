@@ -248,12 +248,31 @@ export const GetGovernmentSourceReadinessResponse = zod.object({
   "additionalMonthlyBudgetGbp": zod.number(),
   "pauseAtAdditionalGbp": zod.number(),
   "costMeterConnected": zod.literal(false),
+  "billingBlocker": zod.string(),
   "sources": zod.array(zod.object({
   "code": zod.enum(['FSA_UK', 'ALIM_FR', 'NYC_DOHMH']),
   "label": zod.string(),
   "region": zod.string(),
   "licenceUrl": zod.string().url(),
-  "datasetUrl": zod.string().url()
+  "datasetUrl": zod.string().url(),
+  "approved": zod.boolean(),
+  "paused": zod.boolean(),
+  "publishable": zod.boolean()
+})),
+  "recentRuns": zod.array(zod.object({
+  "source": zod.string(),
+  "runDay": zod.coerce.date(),
+  "status": zod.string(),
+  "scanned": zod.number().int(),
+  "inserted": zod.number().int(),
+  "updated": zod.number().int(),
+  "skipped": zod.number().int(),
+  "error": zod.string().nullable()
+})),
+  "recentDecisions": zod.array(zod.object({
+  "source": zod.string(),
+  "action": zod.string(),
+  "createdAt": zod.coerce.date()
 }))
 })
 
@@ -298,6 +317,87 @@ export const PreviewGovernmentSourceResponse = zod.object({
   "country": zod.string(),
   "coordinatesAvailable": zod.boolean()
 })).max(previewGovernmentSourceResponseListingsMax)
+})
+
+
+/**
+ * Resumption is rejected unless a verified billing meter confirms the monthly incremental threshold; NYC cannot be published.
+ * @summary Review, pause or request resumption of an official source
+ */
+export const ControlGovernmentSourceBody = zod.object({
+  "source": zod.enum(['FSA_UK', 'ALIM_FR', 'NYC_DOHMH']),
+  "action": zod.enum(['approve', 'pause', 'resume'])
+})
+
+export const ControlGovernmentSourceResponse = zod.object({
+  "success": zod.boolean(),
+  "source": zod.string(),
+  "action": zod.string()
+})
+
+
+/**
+ * Does not create claims or listings automatically.
+ * @summary Request a claim invitation or a new restaurant listing for manual review
+ */
+export const submitOwnerListingRequestBodyRestaurantNameMin = 2;
+export const submitOwnerListingRequestBodyRestaurantNameMax = 160;
+
+export const submitOwnerListingRequestBodyCityMin = 2;
+export const submitOwnerListingRequestBodyCityMax = 120;
+
+export const submitOwnerListingRequestBodyAddressMin = 5;
+export const submitOwnerListingRequestBodyAddressMax = 300;
+
+export const submitOwnerListingRequestBodyContactNameMin = 2;
+export const submitOwnerListingRequestBodyContactNameMax = 120;
+
+export const submitOwnerListingRequestBodyBusinessEmailMax = 254;
+
+export const submitOwnerListingRequestBodyWebsiteMax = 400;
+
+export const submitOwnerListingRequestBodyNoteMax = 1000;
+
+export const submitOwnerListingRequestBodyCompanyFaxMax = 0;
+
+
+
+export const SubmitOwnerListingRequestBody = zod.object({
+  "kind": zod.enum(['no_invitation', 'new_listing']),
+  "restaurantName": zod.string().min(submitOwnerListingRequestBodyRestaurantNameMin).max(submitOwnerListingRequestBodyRestaurantNameMax),
+  "city": zod.string().min(submitOwnerListingRequestBodyCityMin).max(submitOwnerListingRequestBodyCityMax),
+  "address": zod.string().min(submitOwnerListingRequestBodyAddressMin).max(submitOwnerListingRequestBodyAddressMax),
+  "contactName": zod.string().min(submitOwnerListingRequestBodyContactNameMin).max(submitOwnerListingRequestBodyContactNameMax),
+  "businessEmail": zod.string().email().max(submitOwnerListingRequestBodyBusinessEmailMax),
+  "website": zod.string().max(submitOwnerListingRequestBodyWebsiteMax).optional(),
+  "note": zod.string().max(submitOwnerListingRequestBodyNoteMax).optional(),
+  "companyFax": zod.string().max(submitOwnerListingRequestBodyCompanyFaxMax).optional()
+})
+
+export const SubmitOwnerListingRequestResponse = zod.object({
+  "success": zod.boolean(),
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Review recent unsolicited owner listing requests
+ */
+export const ListOwnerListingRequestsResponse = zod.object({
+  "success": zod.boolean(),
+  "requests": zod.array(zod.object({
+  "id": zod.number().int(),
+  "kind": zod.string(),
+  "restaurantName": zod.string(),
+  "city": zod.string(),
+  "address": zod.string(),
+  "contactName": zod.string(),
+  "businessEmail": zod.string(),
+  "website": zod.string().nullable(),
+  "note": zod.string().nullable(),
+  "status": zod.string(),
+  "createdAt": zod.coerce.date()
+}))
 })
 
 
@@ -491,7 +591,7 @@ export const RunAdminRestaurantImportResponse = zod.object({
   "rating": zod.number().nullable(),
   "website": zod.string().nullable(),
   "googleMapsUrl": zod.string().nullable(),
-  "sourceName": zod.enum(['google', 'OSM']),
+  "sourceName": zod.enum(['google', 'OSM', 'FSA_UK', 'ALIM_FR']),
   "sourceAttribution": zod.string().nullable(),
   "published": zod.boolean(),
   "types": zod.array(zod.string()),
@@ -673,7 +773,7 @@ export const RunRestaurantImportResponse = zod.object({
   "rating": zod.number().nullable(),
   "website": zod.string().nullable(),
   "googleMapsUrl": zod.string().nullable(),
-  "sourceName": zod.enum(['google', 'OSM']),
+  "sourceName": zod.enum(['google', 'OSM', 'FSA_UK', 'ALIM_FR']),
   "sourceAttribution": zod.string().nullable(),
   "published": zod.boolean(),
   "types": zod.array(zod.string()),
@@ -710,7 +810,7 @@ export const ListRestaurantsResponseItem = zod.object({
   "rating": zod.number().nullable(),
   "website": zod.string().nullable(),
   "googleMapsUrl": zod.string().nullable(),
-  "sourceName": zod.enum(['google', 'OSM']),
+  "sourceName": zod.enum(['google', 'OSM', 'FSA_UK', 'ALIM_FR']),
   "sourceAttribution": zod.string().nullable(),
   "published": zod.boolean(),
   "types": zod.array(zod.string()),
@@ -763,7 +863,7 @@ export const ListNearbyRestaurantsResponseItem = zod.object({
   "rating": zod.number().nullable(),
   "website": zod.string().nullable(),
   "googleMapsUrl": zod.string().nullable(),
-  "sourceName": zod.enum(['google', 'OSM']),
+  "sourceName": zod.enum(['google', 'OSM', 'FSA_UK', 'ALIM_FR']),
   "sourceAttribution": zod.string().nullable(),
   "published": zod.boolean(),
   "types": zod.array(zod.string()),

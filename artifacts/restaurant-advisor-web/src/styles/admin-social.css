@@ -59,6 +59,18 @@
 .social-post-composer textarea::placeholder {
   color: #aaa;
 }
+.admin-panel .social-post-composer #manual-facebook-content {
+  background-color: #101010 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff;
+  caret-color: #ffffff;
+  opacity: 1;
+}
+.admin-panel .social-post-composer #manual-facebook-content::placeholder {
+  color: #b8b8b8 !important;
+  -webkit-text-fill-color: #b8b8b8;
+  opacity: 1;
+}
 .social-post-composer textarea:focus-visible,
 .social-post-composer select:focus-visible {
   outline: 2px solid #ff8b47;

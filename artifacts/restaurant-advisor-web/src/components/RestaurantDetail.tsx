@@ -304,6 +304,12 @@ export default function RestaurantDetail() {
         {restaurant.name}
       </h1>
       {restaurant.id.startsWith("osm:") && <OsmAttribution />}
+      {(restaurant.sourceName === "FSA_UK" || restaurant.sourceName === "ALIM_FR") && (
+        <p className="mb-4 text-sm leading-relaxed text-neutral-600" data-testid="government-source-attribution">
+          {restaurant.sourceAttribution || "Official public-sector food inspection data"}.
+          {" "}Restaurant details are sourced from inspection records and do not confirm current opening status.
+        </p>
+      )}
 
       {restaurant.badges && restaurant.badges.length > 0 && (
         <div style={{ marginTop: "20px" }}>
@@ -809,6 +815,8 @@ interface RestaurantData {
   googleMapsUrl: string | null;
   rating: number | null;
   claimed: boolean;
+  sourceName?: string;
+  sourceAttribution?: string | null;
   badges?: string[];
   amenities?: string[] | null;
   offers?: Array<{ title: string; description: string; startDate: string; endDate: string }>;

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { AlertCircle, ShieldCheck, Check, Loader2 } from 'lucide-react';
+import OwnerListingRequest from '@/components/OwnerListingRequest';
 
 const formSchema = z.object({
   email: z.string().min(1, "Email is required").email("Please enter a valid email address"),
@@ -231,6 +232,7 @@ export default function ClaimRestaurant() {
           </Card>
         </div>
       </main>
+      <div className="mx-auto w-full max-w-4xl px-6 pb-16"><OwnerListingRequest /></div>
     </div>
   );
 }

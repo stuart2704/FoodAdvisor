@@ -1,12 +1,13 @@
 import { Link } from "react-router-dom";
 import PublicPage from "../components/PublicPage";
+import OwnerListingRequest from "../components/OwnerListingRequest";
 
 export default function OwnerPage() {
   return (
     <PublicPage
       eyebrow="For restaurant owners"
       title="Claim your restaurant"
-      description="Keep your listing accurate and access the tools for restaurant owners. Claims begin with a secure invitation sent to your restaurant's business email."
+      description="Keep your listing accurate and access the tools for restaurant owners. Have an invitation? Use it to claim your venue. Otherwise, ask us to review your restaurant below."
     >
       <section className="public-page__grid" aria-label="How to claim your restaurant">
         <article className="public-page__card">
@@ -21,14 +22,14 @@ export default function OwnerPage() {
           <h2>Find your listing</h2>
           <p>
             Browse the restaurant directory and search by name. If you have not
-            received a claim invitation, reply to the team that contacted your
-            restaurant to ask for the correct link.
+            received an invitation, use the request form below to ask our team for help.
           </p>
           <Link data-testid="link-browse-owner-listings" to="/restaurants">
             Browse restaurant listings
           </Link>
         </article>
       </section>
+      <OwnerListingRequest />
     </PublicPage>
   );
 }
