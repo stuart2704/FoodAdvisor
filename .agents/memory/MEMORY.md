@@ -20,6 +20,7 @@
 - [Outbound URL verification](outbound-url-verification.md) — DNS checks must pin the actual outbound socket; validating before a separately resolved request permits rebinding.
 - [Grid crawl activation](grid-crawl-activation.md) — the first paid Places crawl is explicitly manual; automatic runs begin only after a confirmed point completes.
 - [Google Maps billing limits](google-maps-billing-limits.md) — app-side request reservations are not a guaranteed £30 Google invoice cap; budgets alert, and Maps lacks spend caps.
+- [Paid import email research](paid-import-email-research.md) — paid restaurant discovery may continue, but no-email results belong in contact research, not outreach-ready or OSM candidate lists.
 - [Google photo cache boundaries](google-photo-cache-boundaries.md) — keep temporary photo metadata server-side and avoid browser TTLs that extend provider content lifetime.
 - [Reviewed object uploads](reviewed-object-uploads.md) — a signed PUT link survives finalization; pin reviewed images to their verified storage generation.
 - [Social publishing safety](social-publishing-safety.md) — keep scheduled publishing opt-in and treat ambiguous provider outcomes as non-retriable until reviewed.

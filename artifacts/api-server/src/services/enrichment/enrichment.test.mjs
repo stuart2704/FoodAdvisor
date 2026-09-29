@@ -400,6 +400,73 @@ test("recognises obfuscated role email and handles missing metadata", async () =
   });
 });
 
+test("follows a plausible same-origin contact link and returns its URL", async () => {
+  fetchMock.mock.mockImplementationOnce(async () => html(
+    '<title>Restaurant</title><a href="/contact-us">Contact</a>',
+  ));
+  fetchMock.mock.mockImplementation(async () => html("info@restaurant.example"));
+  const result = await extractWebsiteData(url);
+  assert.deepEqual(result, {
+    ok: true,
+    data: {
+      finalUrl: "https://restaurant.example/contact-us",
+      title: "Restaurant",
+      description: null,
+      roleEmail: "info@restaurant.example",
+    },
+  });
+  assert.equal(fetchMock.mock.callCount(), 2);
+  assert.equal(lookupMock.mock.callCount(), 2);
+  assert.deepEqual(connections.map(({ hostname }) => hostname),
+    ["restaurant.example", "restaurant.example"]);
+});
+
+test("does not follow external contact links", async () => {
+  fetchMock.mock.mockImplementation(async () => html(
+    '<a href="https://third-party.example/contact">Contact</a>',
+  ));
+  const result = await extractWebsiteData(url);
+  assert.equal(result.ok, true);
+  assert.equal(result.data.roleEmail, null);
+  assert.equal(result.data.finalUrl, url);
+  assert.equal(fetchMock.mock.callCount(), 1);
+  assert.equal(lookupMock.mock.callCount(), 1);
+});
+
+test("returns homepage metadata when no linked page has an approved mailbox", async () => {
+  fetchMock.mock.mockImplementationOnce(async () => html(
+    '<title>Restaurant</title><a href="/about">About</a><a href="/contact">Contact</a>',
+  ));
+  fetchMock.mock.mockImplementation(async () => html("owner@restaurant.example sales@restaurant.example"));
+  const result = await extractWebsiteData(url);
+  assert.deepEqual(result, {
+    ok: true,
+    data: { finalUrl: url, title: "Restaurant", description: null, roleEmail: null },
+  });
+  assert.equal(fetchMock.mock.callCount(), 3);
+});
+
+test("limits discovery to two linked pages and one shared HTML byte budget", async () => {
+  fetchMock.mock.mockImplementation(async (target) => {
+    if (target.pathname === "/") {
+      return html(
+        '<a href="/contact">Contact</a><a href="/about">About</a><a href="/enquiries">Enquiries</a>',
+      );
+    }
+    if (target.pathname === "/contact") return html("x".repeat(400_000));
+    return html("info@restaurant.example", { "content-length": "120001" });
+  });
+  const result = await extractWebsiteData(url);
+  assert.deepEqual(fetchMock.mock.calls.map(({ arguments: args }) => args[0].pathname),
+    ["/", "/contact", "/about"]);
+  assert.equal(result.ok, true);
+  assert.equal(result.data.roleEmail, null);
+  assert.equal(result.data.finalUrl, url);
+  // The third linked page is never requested: the page-count limit is two,
+  // even though the second candidate cannot fit in the remaining byte budget.
+  assert.equal(fetchMock.mock.callCount(), 3);
+});
+
 for (const role of ["bookings", "catering", "contact", "enquiries", "events", "hello",
   "info", "office", "reservations", "restaurant", "support", "team"]) {
   test(`accepts exact role ${role} and normalises mailto`, () => {

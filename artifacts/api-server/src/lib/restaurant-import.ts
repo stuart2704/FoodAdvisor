@@ -11,6 +11,12 @@ import {
   ESTIMATED_GRID_REQUEST_COST_CENTS, MONTHLY_PAID_BUDGET_GBP, MONTHLY_PAID_LIMIT,
 } from "./gridCrawlPlan";
 import { getGridRuntimeState, reservePaidSearchTextCall } from "./gridCrawlRuntime";
+import {
+  recordBusinessEmailResearchFailure,
+  runBusinessEmailResearch,
+} from "../services/enrichment/businessEmailResearch";
+import { logger } from "./logger";
+import { countBusinessEmailResearchOutcome } from "../services/enrichment/businessEmailResearchRules";
 
 export const SUPPORTED_CITIES = [
   "London",
@@ -266,6 +272,7 @@ export async function runImport(input: PlanInput & { confirm: boolean }) {
   let imported = 0;
   let skippedDuplicates = 0;
   let budgetStopped = false;
+  const emailResearch = { succeeded: 0, failed: 0, skipped: 0 };
 
   for (const cityPlan of runnableCities) {
     // The plan is only an estimate: another importer or the grid crawler may
@@ -315,6 +322,24 @@ export async function runImport(input: PlanInput & { confirm: boolean }) {
           types: place.types,
         })),
       );
+      // Only newly inserted records receive this website-only check. Repeated
+      // paid imports never re-enrich existing restaurants or alter their
+      // outreach history.
+      for (const restaurant of fresh) {
+        try {
+          const result = await runBusinessEmailResearch(restaurant.id);
+          countBusinessEmailResearchOutcome(emailResearch, result.enrichment);
+        } catch (error) {
+          // Do not let an individual website check turn a paid, persisted
+          // Places result into an ambiguous import retry.
+          await recordBusinessEmailResearchFailure(restaurant.id, error);
+          emailResearch.failed += 1;
+          logger.error(
+            { err: error, placeId: restaurant.id },
+            "Restaurant email research failed after paid import",
+          );
+        }
+      }
     }
 
     // A repeated place is still useful when Places has supplied a newly
@@ -360,5 +385,6 @@ export async function runImport(input: PlanInput & { confirm: boolean }) {
     chargedCents,
     stoppedBecause,
     restaurants: allRestaurants,
+    emailResearch,
   };
 }

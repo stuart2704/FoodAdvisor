@@ -9,6 +9,7 @@ import { ROLE_MAILBOXES, validateEmail } from "./validateEmail";
 const REQUEST_DEADLINE_MS = 5_000;
 const MAX_HTML_BYTES = 512_000;
 const MAX_REDIRECTS = 3;
+const MAX_CONTACT_PAGES = 2;
 const TIMEOUT_MESSAGE = "Website request timed out.";
 
 // Only exact role local-parts can pass validateEmail. The fixed-width local
@@ -153,15 +154,20 @@ function requestPinned({ url, address, family }: ResolvedWebsite, signal: AbortS
   });
 }
 
-async function readBoundedHtml(response: Response, signal: AbortSignal): Promise<string> {
+async function readBoundedHtml(
+  response: Response,
+  signal: AbortSignal,
+  maxBytes = MAX_HTML_BYTES,
+): Promise<{ html: string; bytes: number }> {
   const declared = Number(response.headers.get("content-length"));
-  if (Number.isFinite(declared) && declared > MAX_HTML_BYTES) {
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    if (response.body) void response.body.cancel().catch(() => {});
     throw new WebsiteExtractionError(
       "response_too_large",
       "Website response is too large.",
     );
   }
-  if (!response.body) return "";
+  if (!response.body) return { html: "", bytes: 0 };
 
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -178,7 +184,7 @@ async function readBoundedHtml(response: Response, signal: AbortSignal): Promise
     const { done, value } = chunk;
     if (done) break;
     size += value.byteLength;
-    if (size > MAX_HTML_BYTES) {
+    if (size > maxBytes) {
       void reader.cancel().catch(() => {});
       throw new WebsiteExtractionError(
         "response_too_large",
@@ -193,7 +199,7 @@ async function readBoundedHtml(response: Response, signal: AbortSignal): Promise
     bytes.set(chunk, offset);
     offset += chunk.byteLength;
   }
-  return new TextDecoder().decode(bytes);
+  return { html: new TextDecoder().decode(bytes), bytes: size };
 }
 
 function decodeHtml(value: string): string {
@@ -268,70 +274,128 @@ function extractMetadata(html: string): {
   return { title, description, roleEmail };
 }
 
+function contactPageLinks(html: string, baseUrl: URL): URL[] {
+  const candidates: URL[] = [];
+  const seen = new Set<string>();
+  for (const match of html.matchAll(/<a\b[^<>]*>/gi)) {
+    const href = attributes(match[0]!).get("href");
+    if (!href) continue;
+    const decodedHref = decodeHtml(href);
+    let target: URL;
+    try {
+      target = new URL(decodedHref, baseUrl);
+    } catch {
+      continue;
+    }
+    if (
+      target.origin !== baseUrl.origin ||
+      !["http:", "https:"].includes(target.protocol) ||
+      !/(?:^|\/)(?:contact(?:-us)?|about(?:-us)?|get-in-touch|enquir(?:y|ies)|reach-us)(?:\/|$)/i
+        .test(target.pathname)
+    ) {
+      continue;
+    }
+    target.hash = "";
+    if (target.href === baseUrl.href || seen.has(target.href)) continue;
+    seen.add(target.href);
+    candidates.push(target);
+    if (candidates.length === MAX_CONTACT_PAGES) break;
+  }
+  return candidates;
+}
+
+type RequestLimits = { redirects: number; bytes: number };
+
+async function fetchHtmlPage(
+  initialUrl: string,
+  signal: AbortSignal,
+  limits: RequestLimits,
+  requiredOrigin?: string,
+): Promise<{ url: URL; html: string }> {
+  let current = initialUrl;
+  while (true) {
+    if (signal.aborted) throw timeoutError();
+    const resolved = await assertSafeWebsiteUrl(current, signal);
+    const { url } = resolved;
+    if (requiredOrigin && url.origin !== requiredOrigin) {
+      throw new WebsiteExtractionError("redirect_failure", "Contact page left the website origin.");
+    }
+    let response: Response;
+    try {
+      response = await withDeadline(requestPinned(resolved, signal), signal);
+    } catch (error) {
+      if ((error instanceof WebsiteExtractionError && error.code === "timeout") ||
+        (error instanceof Error && error.name === "TimeoutError") || signal.aborted) {
+        throw timeoutError();
+      }
+      throw new WebsiteExtractionError("network_failure", "Website request failed.");
+    }
+    if ([301, 302, 303, 307, 308].includes(response.status)) {
+      const location = response.headers.get("location");
+      if (response.body) await withDeadline(response.body.cancel(), signal);
+      if (!location || limits.redirects >= MAX_REDIRECTS) {
+        throw new WebsiteExtractionError(
+          "redirect_failure",
+          location ? "Website exceeded the redirect limit." : "Website redirect had no location.",
+        );
+      }
+      const next = new URL(location, url);
+      if (requiredOrigin && next.origin !== requiredOrigin) {
+        throw new WebsiteExtractionError("redirect_failure", "Contact page left the website origin.");
+      }
+      limits.redirects += 1;
+      current = next.href;
+      continue;
+    }
+    if (!response.ok) {
+      if (response.body) await withDeadline(response.body.cancel(), signal);
+      throw new WebsiteExtractionError("http_error", `Website returned HTTP ${response.status}.`);
+    }
+    const contentType =
+      response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+    if (!["text/html", "application/xhtml+xml"].includes(contentType)) {
+      if (response.body) await withDeadline(response.body.cancel(), signal);
+      throw new WebsiteExtractionError("invalid_content_type", "Website did not return HTML.");
+    }
+    const remainingBytes = MAX_HTML_BYTES - limits.bytes;
+    const page = await readBoundedHtml(response, signal, remainingBytes);
+    limits.bytes += page.bytes;
+    return { url, html: page.html };
+  }
+}
+
 export async function extractWebsiteData(
   website: string,
 ): Promise<WebsiteExtractionResult> {
   const signal = AbortSignal.timeout(REQUEST_DEADLINE_MS);
   try {
-    let current = website;
-    for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
+    const limits: RequestLimits = { redirects: 0, bytes: 0 };
+    const homepage = await fetchHtmlPage(website, signal, limits);
+    const metadata = extractMetadata(homepage.html);
+    if (metadata.roleEmail) {
+      return { ok: true, data: { finalUrl: homepage.url.href, ...metadata } };
+    }
+    for (const candidate of contactPageLinks(homepage.html, homepage.url)) {
       if (signal.aborted) throw timeoutError();
-      const resolved = await assertSafeWebsiteUrl(current, signal);
-      const { url } = resolved;
-      let response: Response;
+      if (limits.bytes >= MAX_HTML_BYTES) break;
       try {
-        response = await withDeadline(requestPinned(resolved, signal), signal);
+        const page = await fetchHtmlPage(candidate.href, signal, limits, homepage.url.origin);
+        const roleEmail = extractMetadata(page.html).roleEmail;
+        if (roleEmail) {
+          return {
+            ok: true,
+            data: { finalUrl: page.url.href, ...metadata, roleEmail },
+          };
+        }
       } catch (error) {
-        if ((error instanceof WebsiteExtractionError && error.code === "timeout") ||
-          (error instanceof Error && error.name === "TimeoutError") || signal.aborted) {
+        // Contact links are optional enrichment; keep the homepage result when
+        // an individual candidate is unavailable, but never mask the deadline.
+        if (signal.aborted || error instanceof WebsiteExtractionError && error.code === "timeout") {
           throw timeoutError();
         }
-        throw new WebsiteExtractionError(
-          "network_failure",
-          "Website request failed.",
-        );
       }
-      if ([301, 302, 303, 307, 308].includes(response.status)) {
-        const location = response.headers.get("location");
-        if (response.body) await withDeadline(response.body.cancel(), signal);
-        if (!location || redirects === MAX_REDIRECTS) {
-          throw new WebsiteExtractionError(
-            "redirect_failure",
-            location
-              ? "Website exceeded the redirect limit."
-              : "Website redirect had no location.",
-          );
-        }
-        current = new URL(location, url).href;
-        continue;
-      }
-      if (!response.ok) {
-        if (response.body) await withDeadline(response.body.cancel(), signal);
-        throw new WebsiteExtractionError(
-          "http_error",
-          `Website returned HTTP ${response.status}.`,
-        );
-      }
-      const contentType =
-        response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() ??
-        "";
-      if (!["text/html", "application/xhtml+xml"].includes(contentType)) {
-        if (response.body) await withDeadline(response.body.cancel(), signal);
-        throw new WebsiteExtractionError(
-          "invalid_content_type",
-          "Website did not return HTML.",
-        );
-      }
-      const metadata = extractMetadata(await readBoundedHtml(response, signal));
-      return {
-        ok: true,
-        data: { finalUrl: url.href, ...metadata },
-      };
     }
-    throw new WebsiteExtractionError(
-      "redirect_failure",
-      "Website exceeded the redirect limit.",
-    );
+    return { ok: true, data: { finalUrl: homepage.url.href, ...metadata } };
   } catch (error) {
     if (signal.aborted || error instanceof Error && error.name === "TimeoutError") {
       return { ok: false, error: { code: "timeout", message: TIMEOUT_MESSAGE } };

@@ -10,7 +10,6 @@ import { and, eq, isNull, lte, or } from "drizzle-orm";
 import { insertQueuedRestaurants } from "../pipeline/insertService";
 import { generateOutreachFor } from "../outreach/messageGenerator";
 import { getNewReplies, handleReply } from "../replies/replyService";
-import { enrichRestaurant } from "../services/enrichment/enrichRestaurant";
 import { pollInstantlyReplies } from "../services/instantly/instantlyService";
 import { generateDailySummary } from "../dashboard/metricsService";
 import { applyScalingLimits, getScalingLimits, limitOutreach, limitReplies, type ScalingTier } from "../scaling/scalingService";
@@ -54,7 +53,7 @@ export interface DailyCycleResult {
     | { status: "preview"; plan: ImportPlan }
     | {
         status: "completed";
-        result: Omit<ImportResult, "restaurants">;
+        result: Omit<ImportResult, "restaurants" | "emailResearch">;
       };
   outreach: { status: "skipped"; reason: string }
     | { status: "completed"; result: OutreachResult };
@@ -113,25 +112,19 @@ export async function runDailyCycle(
         logEvent("info", "Restaurant import and insertion started");
         const result = await runImport({ ...input, confirm: true });
         // Return operational counts, not restaurant contact records.
-        const { restaurants: _restaurants, ...counts } = result;
+        const {
+          restaurants: _restaurants,
+          emailResearch: researchCounts,
+          ...counts
+        } = result;
+        enrichment.succeeded += researchCounts.succeeded;
+        enrichment.failed += researchCounts.failed;
+        enrichment.skipped += researchCounts.skipped;
         imported = { status: "completed", result: counts };
         logEvent("success", `Restaurant import completed: ${result.imported} inserted`);
-        phase = "website enrichment";
-        for (const restaurant of result.restaurants) {
-          if (!restaurant.website) {
-            enrichment.skipped += 1;
-            continue;
-          }
-          try {
-            const enriched = await enrichRestaurant(restaurant.id);
-            if (enriched.ok) enrichment.succeeded += 1;
-            else enrichment.failed += 1;
-          } catch {
-            enrichment.failed += 1;
-          }
-        }
-        logEvent(enrichment.failed ? "warning" : "info",
-          `Website enrichment finished: ${enrichment.succeeded} succeeded, ${enrichment.failed} failed`);
+        // runImport checks newly inserted websites once. Do not run a second
+        // enrichment pass here over its full result set (which includes
+        // duplicate Places results).
       } else {
         imported = { status: "preview", plan: await createImportPlan(input) };
         logEvent("info", "Import preview generated; no paid requests made");

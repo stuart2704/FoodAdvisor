@@ -225,7 +225,7 @@ export async function runDailyCrawl(args: string[]) {
     const allocations = await allocationsForGrid(points);
 
   // Dynamic imports keep dry-run free from database connections.
-  const [{ db, restaurantsTable }, { sql, eq, and, or, isNull, lt }, { restaurantSlug }] = await Promise.all([
+  const [{ db, restaurantsTable, outreachAuditTable }, { sql, eq, and, or, isNull, lt, inArray }, { restaurantSlug }] = await Promise.all([
     import("@workspace/db"),
     import("drizzle-orm"),
     import("../utils/slugify"),
@@ -363,6 +363,63 @@ export async function runDailyCrawl(args: string[]) {
             imported++;
             summary.inserts++;
             logEvent("insert", { name: row.name, place_id: row.placeId });
+            try {
+              const { runBusinessEmailResearch } = await import(
+                "../services/enrichment/businessEmailResearch"
+              );
+              await runBusinessEmailResearch(row.placeId);
+            } catch (error) {
+              // The paid grid reservation is already committed. Keep this
+              // point moving; website-check failures must not make it appear
+              // that the Places request is safe to repeat.
+              logger.error(
+                { err: error, placeId: row.placeId },
+                "Grid restaurant website email check failed",
+              );
+              try {
+                const checkedAt = new Date();
+                await db.transaction(async (tx) => {
+                  const [updated] = await tx
+                    .update(restaurantsTable)
+                    .set({
+                      outreachStatus: "extraction_failed",
+                      outreachFailure: "Website extraction failed unexpectedly.",
+                      enrichedAt: checkedAt,
+                      enrichmentStatus: "failed",
+                      enrichmentFailure: "Website extraction failed unexpectedly.",
+                    })
+                    .where(and(
+                      eq(restaurantsTable.placeId, row.placeId),
+                      inArray(restaurantsTable.outreachStatus, [
+                        "pending", "no_business_email", "extraction_failed",
+                      ]),
+                      eq(restaurantsTable.outreachCount, 0),
+                      isNull(restaurantsTable.suppressedAt),
+                      isNull(restaurantsTable.claimedAt),
+                      isNull(restaurantsTable.claimStatus),
+                      isNull(restaurantsTable.claimAttemptId),
+                      sql`not exists (
+                        select 1 from ${outreachAuditTable}
+                        where ${outreachAuditTable.placeId} = ${restaurantsTable.placeId}
+                          and ${outreachAuditTable.event} in ('send_attempt', 'sent')
+                      )`,
+                    ))
+                    .returning({ placeId: restaurantsTable.placeId });
+                  if (updated) {
+                    await tx.insert(outreachAuditTable).values({
+                      placeId: row.placeId,
+                      event: "extraction_failed",
+                      detail: "Website extraction failed unexpectedly.",
+                    });
+                  }
+                });
+              } catch (persistenceError) {
+                logger.error(
+                  { err: persistenceError, placeId: row.placeId },
+                  "Could not persist grid website email check failure",
+                );
+              }
+            }
             continue;
           }
         }
