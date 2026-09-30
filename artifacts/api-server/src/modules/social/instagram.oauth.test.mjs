@@ -88,3 +88,19 @@ test("Instagram Login accepts documented token envelopes and verifies profession
     globalThis.fetch = originalFetch;
   }
 });
+
+test("Instagram Login refuses an account missing the content-publishing permission", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  try {
+    globalThis.fetch = async () => {
+      calls++;
+      return Response.json({ access_token: "test-short-token", permissions: "instagram_business_basic" });
+    };
+    await assert.rejects(exchangeInstagramCode("test-code", {
+      appId: "123", appSecret: "test-only-secret",
+      redirectUri: "https://example.test/admin/social/instagram/callback",
+    }), /did not grant profile and publishing permissions/);
+    assert.equal(calls, 1);
+  } finally { globalThis.fetch = originalFetch; }
+});
